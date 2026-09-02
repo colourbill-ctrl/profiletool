@@ -31,6 +31,45 @@ set(ICCPROFLIB_SOURCES
   IccTagLut.cpp IccTagMPE.cpp IccTagProfSeqId.cpp IccUtil.cpp IccXformFactory.cpp
   IccMD5.cpp IccCmmSearch.cpp IccObject.cpp)
 
+# ── HDR Profiles (ICC.1 v4.5 amendment) ─────────────────────────────────────
+# These four modules exist ONLY on iccDEV's private `hdr-profiles` branch
+# (worktree ~/code/iccdev-hdr) and cannot land upstream until the ICC ballot
+# passes. So they are added conditionally: pointing ICCDEV_ROOT at a clean
+# master must keep working, which it would not if these were listed
+# unconditionally above (CMake errors on a missing source file).
+#
+# IccTagHagc.cpp is the one that is NOT optional when HDR is wanted — it carries
+# the tag-factory registration for 'HAGC'/'hagc'. Without it a profile holding a
+# HAGC tag parses as an *unknown* tag, which reads as an iccDEV bug when it is
+# really a build-inputs omission. That omission is exactly what this block fixes:
+# the list above is hand-mirrored, so ICCDEV_ROOT alone never pulled HDR in.
+#
+# PROFILETOOL_HAS_HDR is propagated to every target below so wrapper code can
+# guard any #include of the HDR headers and still compile against master.
+set(ICCPROFLIB_HDR_SOURCES
+  IccTagHagc.cpp IccHdrProfile.cpp IccHdrToneMap.cpp IccHdrBake.cpp)
+
+set(PROFILETOOL_HAS_HDR OFF)
+if(EXISTS "${ICCPROFLIB_DIR}/IccTagHagc.cpp")
+  set(PROFILETOOL_HAS_HDR ON)
+  list(APPEND ICCPROFLIB_SOURCES ${ICCPROFLIB_HDR_SOURCES})
+  message(STATUS "HDR Profiles support : ON  (${ICCPROFLIB_DIR} carries the hdr-profiles modules)")
+else()
+  message(STATUS "HDR Profiles support : OFF (no IccTagHagc.cpp in ${ICCPROFLIB_DIR})")
+endif()
+
+# Every HDR module must be present or none of them are usable — a partial set
+# would link but misbehave (e.g. classification without the tag factory).
+if(PROFILETOOL_HAS_HDR)
+  foreach(_hdr_src IN LISTS ICCPROFLIB_HDR_SOURCES)
+    if(NOT EXISTS "${ICCPROFLIB_DIR}/${_hdr_src}")
+      message(FATAL_ERROR
+        "Partial HDR module set in ${ICCPROFLIB_DIR}: IccTagHagc.cpp is present but "
+        "${_hdr_src} is missing. Point ICCDEV_ROOT at a complete hdr-profiles worktree.")
+    endif()
+  endforeach()
+endif()
+
 list(TRANSFORM ICCPROFLIB_SOURCES PREPEND "${ICCPROFLIB_DIR}/")
 
 # Generated version headers — both libraries #include these.
@@ -477,4 +516,18 @@ if(BUILD_ICCPAWG)
     -sFORCE_FILESYSTEM=1)
 
   set_target_properties(iccpawg PROPERTIES SUFFIX ".mjs")
+endif()
+
+
+# ── HDR feature flag, propagated to every IccProfLib-linked target ──────────
+# Applied per-target rather than via add_compile_definitions() so the flag never
+# leaks into the FetchContent subprojects (libxml2, libtiff), whose compile
+# lines have nothing to do with it. iccimage is deliberately absent: it links
+# the image codecs only and never touches IccProfLib.
+if(PROFILETOOL_HAS_HDR)
+  foreach(_icc_target IN ITEMS iccprofiledump iccxml iccjson iccconstruct iccplot iccpawg)
+    if(TARGET ${_icc_target})
+      target_compile_definitions(${_icc_target} PRIVATE PROFILETOOL_HAS_HDR=1)
+    endif()
+  endforeach()
 endif()

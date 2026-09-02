@@ -77,9 +77,14 @@ static std::string pawgReport(const std::string& bytes) {
 
   bool threw = false;
   try {
-    // bUseRead=true: fall back to eager ReadIccProfile() when the strict
-    // validation parse fails, so borderline profiles still get a report.
-    DumpPawgReport(kInputIcc, /*bUseRead=*/true, /*bJson=*/true);
+    // The former bUseRead parameter was retired upstream (iccDEV #1977 / PR
+    // #1978). It is NOT a lost capability: the fallback it gated could only ever
+    // hold a NULL profile — ValidateIccProfile() returns NULL exactly when
+    // ReadIccProfile() would too — so passing true never recovered anything.
+    // Borderline profiles are still reported on, because DumpPawgReport now runs
+    // the raw-byte assessment unconditionally and first, reporting the
+    // parsed-profile items as NOT RUN when the library refuses the file.
+    DumpPawgReport(kInputIcc, /*bJson=*/true);
   } catch (...) {
     threw = true;
   }

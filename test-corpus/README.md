@@ -25,7 +25,7 @@ before/after an iccDEV bump.
 | Profile | Expected level | Key message(s) |
 |---|---|---|
 | `added-bytes.icc` | warning | `5 bytes of unexpected data between profileDescriptionTag and mediaWhitePointTag.` + `6 bytes … between greenTRCTag and blueTRCTag.` |
-| `version-unknown.icc` | warning | `Major version number (6) is unexpected.` + `Profile declares version 6.30 but uses ICC v2 tag types; …` |
+| `version-unknown.icc` | warning | `Major version number (6) is unexpected.` + `copyrightTag textType: ICC v2 tag type not valid in the declared profile version.` + `profileDescriptionTag textDescriptionType: …` + `Profile declares version 6.30 but uses ICC v2 tag types; …` |
 | `bad-illuminant.icc` | warning | `Non D50 Illuminant XYZ values` |
 | `bad-CMM.icc` | warning | `Unknown 'EVIL' = 4556494C: Unregistered CMM signature.` |
 | `max-redcurvevalue.icc` | warning | `redTRCTag: - Degenerate gamma value (256.0) produces an unusable tone response curve.` |
@@ -43,6 +43,13 @@ before/after an iccDEV bump.
 - **Tag-level `: -` is correct:** `max-redcurvevalue.icc` shows
   `redTRCTag: - Degenerate gamma value…`. The `: -` there is the intended
   tag-level convention (`prefix + tagPath + " - " + message`), not a bug — leave it.
+- **`version-unknown.icc` gained two messages** at the 2026-08-06 iccDEV bump
+  (library 2.3.2.2, built from the `hdr-profiles` branch merged up to master
+  `a7abbee8`). IccProfLib now reports the offending v2 tag types *individually*
+  (`copyrightTag textType`, `profileDescriptionTag textDescriptionType`) in
+  addition to the pre-existing summary line. This is upstream becoming more
+  specific, not a regression — the level stays `warning`. Every other profile in
+  this table was unchanged by that bump.
 - **`beyond-eof.icc` is intentionally left "Failed to parse"** rather than
   best-effort inspected: a tag declares an extent past end-of-file, a known
   viral-payload shape. This is a deliberate product decision, not a validator gap.
