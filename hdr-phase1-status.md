@@ -259,6 +259,28 @@ Both scripts were mutation-tested — a corrupted manifest number, a drifted fix
 wrong class and a missing fixture each produce a non-zero exit — because an all-pass checker
 that has never been seen to fail asserts nothing.
 
+**Reference-white precedence gap — found because an INVERTED rule scored 100%.** iccDEV
+noticed that our headroom checker resolved the content HDR reference white as CRWL-then-HAGC
+while `icGetHdrProfileInfo()` resolves it HAGC-then-CRWL — opposite orders, both scoring 84/84.
+The reason is that **upstream's 42 fixtures cannot distinguish them**: only `HagcDisplay` and
+`HdrLinearHagcWhite` carry a HAGC reference white, neither carries a `CRWL` entry, and our own
+`ProfiletoolHdrDisplay` carries both but sets them equal. Clause 8.10.4 states no precedence at
+all (register item HDR-10); HAGC-first is iccDEV's documented *ruling*, not a derivation.
+Actions taken here:
+- **Precedence corrected** to HAGC-first, with the file now stating plainly that this one rule
+  is iccDEV's ruling rather than something we derived — the single place the "no ICC code
+  linked" checker is still downstream of their reading.
+- **`ProfiletoolHdrRefWhiteConflict`** added: HAGC white 300 vs CRWL 203, CLL 600, **Linear**
+  transfer so 8.10.4's division actually happens (it is gated on Linear). HAGC-first gives 2,
+  CRWL-first gives 2.9557. Re-introducing the original bug now fails on exactly that row.
+  It is also the only fixture in either corpus reaching PAWG **H7's DISAGREE branch**, and it
+  gives HDR-10 its first executable case.
+- **The checker now reports COVERAGE, not just agreement** — it names whether the precedence
+  axis was exercised, so an untested axis can never again read as a tested one. That is the
+  general lesson: a green run states which rules it *exercised*, not merely that values matched.
+- **`test-corpus/hdr/profiletool-fixtures.tsv`** gives our own fixtures the same expectations in
+  the same column shape, kept separate so upstream's manifest stays verbatim.
+
 **Assertion corrected:** "H1..H8 all OK on a conforming profile" was never safe. `HagcDisplay`
 is conforming but reports **H8 = N/A** — correctly, since it carries no 8.10.5 HDR Display
 entries, so rule d) applies. Use `HdrDisplayMetadata` or our own `ProfiletoolHdrDisplay` as the

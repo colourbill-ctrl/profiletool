@@ -152,10 +152,40 @@ PAWG HDR section whatsoever**.
   `conforming` NEGATIVE — it is a member of the sub-class that breaches 8.10.6, which is a
   different thing from failing to be a member.
 
-## `ProfiletoolHdrDisplay` — ours, not upstream's
+## The reference-white precedence gap — found by an inverted rule passing
 
-Authored here through the same `xmlToIcc` path, and deliberately **not** in the manifest so
-that file stays a verbatim copy. It is a conforming HDR Profile (RGB Display, version 4.50,
+Worth reading before trusting any green run here.
+
+Clause 8.10.4 states **no precedence** between the two carriers of the content HDR reference
+white — the HAGC tag's `HDRReferenceWhite` and the `metadataTag` `CRWL` entry — and states its
+203 cd/m² default twice with conditions that disagree exactly where a HAGC tag is present.
+That is iccDEV register item **HDR-10**. `icGetHdrProfileInfo()`'s ruling is **HAGC first,
+then CRWL, then 203**, because the gain curve in that tag was authored against that white.
+
+`check-hdr-headroom.mjs` first shipped with that order **inverted** and scored a clean 84/84,
+because **no fixture in upstream's 42 can tell the two apart**: only `HagcDisplay` and
+`HdrLinearHagcWhite` carry a HAGC reference white, neither carries a `CRWL` entry, and our own
+`ProfiletoolHdrDisplay` carries both but sets them *equal*. iccDEV found it by noticing the two
+implementations disagreed on precedence yet agreed on every value.
+
+Two things came out of that:
+
+- **`ProfiletoolHdrRefWhiteConflict`** now makes the orders disagree (HAGC 300 vs CRWL 203,
+  CLL 600, Linear transfer so the division actually happens: 600/300 = 2 under the ruling,
+  600/203 = 2.9557 under the inverted rule). Re-introducing the original bug now fails on
+  exactly that row. It is also the only fixture in either corpus that reaches PAWG **H7's
+  DISAGREE branch**, and it gives HDR-10 its first executable case.
+- **`check-hdr-headroom.mjs` reports coverage**, not just agreement — it names whether the
+  precedence was exercised at all, so an untested axis can never again read as a tested one.
+
+## `Profiletool*` — ours, not upstream's
+
+Authored here through the same `xmlToIcc` path. Their expectations live in
+**`profiletool-fixtures.tsv`**, a separate file with the same columns, so
+`hdr-corpus-manifest.tsv` stays a verbatim copy that can be re-copied on the next refresh
+without a merge. Both check scripts read the two files together.
+
+`ProfiletoolHdrRefWhiteConflict` is described above. `ProfiletoolHdrDisplay` is the happy path: It is a conforming HDR Profile (RGB Display, version 4.50,
 cicp PQ, no TRC tags, A2B0/B2A0 pair) with `CRWL` set to agree with the HAGC tag's
 `HDRReferenceWhite` so H7 reports a genuine agreement. It scores **H1..H8 all OK**.
 
@@ -221,4 +251,5 @@ c310045aa2eeca12c4d0dd87cf4dd916b8f62e64155039a4febb769adf3dd52d  HdrTrcTagsPres
 37ba391ce781581ca4663b12f32eef2c8aa87e8302f3fdea6703ea7486d33c71  HdrVersion44.icc
 c93706a78c25c822bca2d66ee9c0952d875b380c8069afb73f9a4b3bb23e1dff  HdrVersion46.icc
 e74c38f1ca3d9c9d494062984d4ee5727692982b0a3e26fc85bf13aa93407d54  ProfiletoolHdrDisplay.icc
+a9250b1bb1984eb375c03ea07970695db2b22c48a3839ee8fe9f0a9981e3ed2a  ProfiletoolHdrRefWhiteConflict.icc
 ```

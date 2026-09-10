@@ -65,12 +65,28 @@ function readXml(path) {
 // are "maxLuminance minLuminance n" — in both, the peak luminance leads.
 const peakOf = (v) => (v == null ? null : parseFloat(String(v).trim().split(/\s+/)[0]))
 
-// Content reference white: the profile's own CRWL entry if it has one, else the
-// HAGC tag's HDRReferenceWhite, else the 203 default. This ordering is the one
-// the HdrLinearHagcWhite fixture pins (no CRWL, HAGC white 300 -> 600/300 = 2).
+// Content reference white: the HAGC tag's HDRReferenceWhite if the tag carries
+// one, else the metadataTag CRWL entry, else the 203 default.
+//
+// THIS ORDERING IS NOT DERIVED — IT IS iccDEV'S DOCUMENTED RULING, and it is the
+// one place this file is downstream of their reading rather than of the clause.
+// Clause 8.10.4 states NO precedence between the two carriers, and states its 203
+// default twice with conditions that disagree exactly where an HAGC tag is
+// present; that is open register item HDR-10. iccDEV's ruling (IccHdrProfile.cpp,
+// the HDR-10 marker) is HAGC first, on the grounds that the gain curve in that
+// same tag was authored against that white, so dividing by the other one would
+// evaluate the curve at a white it was not built for. That reasoning is sound and
+// we follow it — but it is a ruling on an ambiguity, so if HDR-10 resolves the
+// other way this function changes.
+//
+// This file first shipped with the order INVERTED (CRWL first) and still scored
+// 84/84, because no fixture in the upstream corpus carries both a HAGC reference
+// white and a CRWL entry. iccDEV found that by comparing the two orders. The
+// coverage report at the end of this file exists so that gap can never again be
+// invisible behind a green run.
 function referenceWhite({ entries, hagcWhite }) {
-  if (entries.CRWL != null) return parseFloat(entries.CRWL)
   if (hagcWhite != null) return hagcWhite
+  if (entries.CRWL != null) return parseFloat(entries.CRWL)
   return DEFAULT_REFERENCE_WHITE
 }
 
@@ -100,9 +116,17 @@ function expectedContent(src, x) {
 
 const close = (a, b) => Math.abs(a - b) <= RTOL * Math.max(1, Math.abs(b))
 
-const rows = readFileSync(MANIFEST, 'utf8').split('\n')
-  .filter((l) => l.trim() && !l.startsWith('#'))
-  .map((l) => l.split('\t')).filter((c) => c.length > 5)
+
+// Our own fixtures live in a separate expectations file so upstream's manifest
+// stays a verbatim copy. Same columns; absent is fine.
+function loadRows(path) {
+  if (!existsSync(path)) return []
+  return readFileSync(path, 'utf8').split('\n')
+    .filter((l) => l.trim() && !l.startsWith('#'))
+    .map((l) => l.split('\t'))
+}
+const LOCAL = argOf('--local', join(CORPUS, 'profiletool-fixtures.tsv'))
+const rows = [...loadRows(MANIFEST), ...loadRows(LOCAL)].filter((c) => c.length > 5)
 
 let checked = 0, agree = 0, unchecked = 0
 const problems = []
@@ -132,4 +156,22 @@ for (const c of rows) {
 console.log(`hdr headroom: ${rows.length} rows, ${checked} values recomputed from XML — ` +
             `${agree} agree, ${checked - agree} disagree, ${unchecked} unchecked`)
 for (const p of problems) console.log('  ' + p)
+
+// COVERAGE, not correctness. A green run says the values agree; it does not say
+// which RULES were exercised to get there. The reference-white precedence is only
+// tested by a fixture carrying BOTH carriers with DIFFERENT values — invert the
+// order without one and every row still passes. Report that explicitly so the
+// absence of a test never reads as the presence of one.
+const discriminating = rows
+  .map((c) => c[0].trim())
+  .filter((f) => {
+    const x = existsSync(join(CORPUS, `${f}.xml`)) ? readXml(join(CORPUS, `${f}.xml`)) : null
+    return x && x.hagcWhite != null && x.entries.CRWL != null &&
+           Math.abs(x.hagcWhite - parseFloat(x.entries.CRWL)) > 1e-9
+  })
+console.log(discriminating.length
+  ? `  reference-white precedence: EXERCISED by ${discriminating.join(', ')}`
+  : `  reference-white precedence: NOT EXERCISED — no manifest fixture carries both a HAGC
+` +
+    `    reference white and a differing CRWL entry, so inverting the order still passes.`)
 process.exit(checked - agree || problems.some((p) => p.startsWith('MISSING')) ? 1 : 0)

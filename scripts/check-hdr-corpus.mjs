@@ -63,10 +63,17 @@ const mod = await createIccPawgModule()
 // Tab-separated; '#' comments and blank lines skipped. Only the first two columns
 // are checked here — the headroom columns assert icHdrProfileInfo fields that the
 // PAWG report does not expose numerically, so they stay upstream's to enforce.
-const rows = readFileSync(MANIFEST, 'utf8')
-  .split('\n')
-  .filter((l) => l.trim() && !l.startsWith('#'))
-  .map((l) => l.split('\t'))
+
+// Our own fixtures live in a separate expectations file so upstream's manifest
+// stays a verbatim copy. Same columns; absent is fine.
+function loadRows(path) {
+  if (!existsSync(path)) return []
+  return readFileSync(path, 'utf8').split('\n')
+    .filter((l) => l.trim() && !l.startsWith('#'))
+    .map((l) => l.split('\t'))
+}
+const LOCAL = argOf('--local', join(CORPUS, 'profiletool-fixtures.tsv'))
+const rows = [...loadRows(MANIFEST), ...loadRows(LOCAL)]
   .filter((c) => c.length > 1)
   .map((c) => ({ fixture: c[0].trim(), cls: c[1].trim(), purpose: (c[6] || '').trim() }))
 

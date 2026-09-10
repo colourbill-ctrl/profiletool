@@ -1,0 +1,14 @@
+# test-corpus/hdr/profiletool-fixtures.tsv - expectations for OUR fixtures
+#
+# Same column shape as iccDEV's hdr-corpus-manifest.tsv, deliberately kept in a
+# SEPARATE file so that manifest stays a verbatim copy and can be re-copied on the
+# next refresh without a merge. scripts/check-hdr-corpus.mjs and
+# scripts/check-hdr-headroom.mjs read both.
+#
+# Columns (tab separated) - see hdr-corpus-manifest.tsv for the full legend:
+#   fixture  class  display_headroom  headroom_source  content_headroom  content_source  purpose
+#
+# Headroom is a RATIO, not log2 stops.
+#
+ProfiletoolHdrDisplay	conforming	2	derh	0	-	Happy path: conforming HDR Profile, H1..H8 all OK; CRWL agrees with the HAGC reference white so H7 reaches its AGREE branch. PQ, so 8.10.4 does not resolve a content headroom
+ProfiletoolHdrRefWhiteConflict	conforming	2	derh	2	cll	HDR-10: HAGC reference white 300 vs CRWL 203, so the two 8.10.4 carriers DISAGREE. Linear, so the division actually happens: HAGC-first gives 600/300=2, CRWL-first would give 600/203=2.9557. The only fixture in either corpus that distinguishes the two orders, and the only one reaching H7's DISAGREE branch
