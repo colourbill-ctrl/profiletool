@@ -178,6 +178,40 @@ Two things came out of that:
 - **`check-hdr-headroom.mjs` reports coverage**, not just agreement — it names whether the
   precedence was exercised at all, so an untested axis can never again read as a tested one.
 
+## The two headroom axes divide by different reference whites
+
+Found while verifying the fixture above, and pinned by `ProfiletoolHdrCrossAxisWhite`.
+
+When a profile carries both carriers of the content HDR reference white, the two headroom
+axes divide by **different values of a quantity both clauses call CRWL**:
+
+| Axis | Divisor | Resolved by |
+|---|---|---|
+| 8.10.4 content headroom | HAGC-first (300 here) | `icGetHdrProfileInfo()`, which sees both carriers |
+| 8.10.5 c) display headroom | the `CRWL` entry (203 here) | `CIccHdrMetadataReader::GetResolvedContentReferenceWhite()` = `m_bHasCrwl ? m_crwl : 203` |
+
+**PAWG's own report contradicts itself on this fixture**, which is the clearest statement of
+the problem:
+
+- **H7** — "content HDR reference white = 300 cd/m², stated by the profile"
+- **H8** — "Display Colour Volume maximum luminance / **content HDR reference white** =
+  600 cd/m² / **203** cd/m² = 2.956"
+
+H8 names its divisor *content HDR reference white* and uses 203, while H7 in the same report
+says that quantity is 300.
+
+**Why it happens** — and this is what suggests it was not intended: the display path lives
+inside `CIccHdrMetadataReader`, which reads only the `metadataTag` and structurally cannot see
+the HAGC tag; the content path is resolved one level up where both carriers are visible. The
+asymmetry follows from where each resolver sits.
+
+**Neither side is obviously wrong**, which is why this is a fixture and not a bug report.
+8.10.5 c) says "CRWL is taken from the HDR Image metadata of 8.10.4", naming the *entry*; the
+content side follows the HDR-10 ruling on the resolved *quantity*. Whether those mean the same
+thing is for the maintainer and possibly the WG. `check-hdr-headroom.mjs` **reports** the
+divergence rather than failing on it — flagging an inconsistency instead of quietly agreeing
+with it, which is what a value-only check would do.
+
 ## `Profiletool*` — ours, not upstream's
 
 Authored here through the same `xmlToIcc` path. Their expectations live in
@@ -250,6 +284,7 @@ de00a41cea669f09142fe37f832a3f306df176d97fb1faca9f0ad5166175bf50  HdrTransferSdr
 c310045aa2eeca12c4d0dd87cf4dd916b8f62e64155039a4febb769adf3dd52d  HdrTrcTagsPresent.icc
 37ba391ce781581ca4663b12f32eef2c8aa87e8302f3fdea6703ea7486d33c71  HdrVersion44.icc
 c93706a78c25c822bca2d66ee9c0952d875b380c8069afb73f9a4b3bb23e1dff  HdrVersion46.icc
-e74c38f1ca3d9c9d494062984d4ee5727692982b0a3e26fc85bf13aa93407d54  ProfiletoolHdrDisplay.icc
+0578eb94d5f15cb26d3be8c4a6f1541bcd81b948832bd8a49008ff043acc7ac6  ProfiletoolHdrCrossAxisWhite.icc
+b9933202e0ff4a95299d4a6f342e97851270e9506ccf72325e670d1c9f4dca7f  ProfiletoolHdrDisplay.icc
 a9250b1bb1984eb375c03ea07970695db2b22c48a3839ee8fe9f0a9981e3ed2a  ProfiletoolHdrRefWhiteConflict.icc
 ```

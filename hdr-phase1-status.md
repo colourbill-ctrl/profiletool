@@ -281,6 +281,31 @@ Actions taken here:
 - **`test-corpus/hdr/profiletool-fixtures.tsv`** gives our own fixtures the same expectations in
   the same column shape, kept separate so upstream's manifest stays verbatim.
 
+**Second defect: the two headroom axes divide by DIFFERENT reference whites** — found by
+iccDEV while verifying our fixture, pinned here by **`ProfiletoolHdrCrossAxisWhite`**. 8.10.4's
+content headroom divides by the HAGC-first value (300), while 8.10.5 c)'s display headroom
+calls `CIccHdrMetadataReader::GetResolvedContentReferenceWhite()` = `m_bHasCrwl ? m_crwl : 203`
+(203) — one quantity, two divisors, same profile. **PAWG's own report contradicts itself**:
+H7 says "content HDR reference white = 300", H8 says "... / content HDR reference white =
+600 / 203 = 2.956". The structural cause, which argues it was unintended: the display resolver
+lives inside the metadata reader, which cannot see the HAGC tag at all; the content resolver
+sits one level up where both carriers are visible. Neither side is obviously wrong (8.10.5 c)
+names the *entry*, the content side follows HDR-10 on the resolved *quantity*), so the checker
+**reports** the divergence rather than failing on it. iccDEV has recorded it; the call is
+theirs and possibly the WG's.
+
+**A third latent bug, ours, same class as the first two.** `ProfiletoolHdrDisplay` shipped
+carrying a **ten-value `DCV`** (chromaticities first, luminance at index 8) copied from a
+pre-refresh upstream fixture, where upstream's current convention is `maxLum minLum n` and the
+reader takes `lums[0]`. Reading `[0]` from ours yields **0.708 as a peak luminance**. It never
+fired only because that fixture's display rule is `derh`, which consults no DCV — an assumption
+that is never exercised is not a verified assumption, for the third time in this exchange.
+Fixed: the fixture is normalised to the 3-value form, and `peakOf()` now rejects an unexpected
+arity instead of parsing on a guess. While testing that, found and fixed a further flaw in the
+guard itself — `null / 203` is `0` in JavaScript, not `NaN`, so an unreadable entry was being
+reported as a wrong *value* rather than an unverifiable one; division now propagates null and
+the row reports **UNCHECKED**.
+
 **Assertion corrected:** "H1..H8 all OK on a conforming profile" was never safe. `HagcDisplay`
 is conforming but reports **H8 = N/A** — correctly, since it carries no 8.10.5 HDR Display
 entries, so rule d) applies. Use `HdrDisplayMetadata` or our own `ProfiletoolHdrDisplay` as the
