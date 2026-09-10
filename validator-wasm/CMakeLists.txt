@@ -487,9 +487,17 @@ if(BUILD_ICCPAWG)
   add_executable(iccpawg pawg-wrapper.cpp ${ICCPROFLIB_SOURCES}
     "${ICCPAWG_DIR}/PawgReport.cpp")
 
+  # Tools/CmdLine (the PARENT of IccPawgReport) carries IccCmdLineUtil.h, which
+  # PawgReport.cpp includes for icJsonEscape() / icSanitizeTagText() / icSha256Bytes().
+  # It is header-only (every symbol is `inline`), so it needs an include path and
+  # no extra source file. Added after upstream #2454 moved the JSON escaping there
+  # and the include appeared in PawgReport.cpp — without it the module fails to
+  # compile with "'IccCmdLineUtil.h' file not found", and since iccpawg is the only
+  # target that compiles a Tools/CmdLine source, no other target needs this.
   target_include_directories(iccpawg PRIVATE
     "${ICCPROFLIB_DIR}"
     "${ICCPAWG_DIR}"
+    "${ICCDEV_ROOT}/Tools/CmdLine"
     "${CMAKE_CURRENT_BINARY_DIR}/generated"
     "${NLOHMANN_JSON_INCLUDE_DIR}")
 

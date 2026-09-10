@@ -19,6 +19,15 @@
 
 #include "spectralLocus.hpp"   // const spectralLocus2degree (internal linkage)
 
+// The headroomAdaptiveGainCurveTag exists only on iccDEV's private hdr-profiles
+// branch, so every reference to it is behind this guard and a clean-master build
+// compiles with the HAGC engine simply absent. The guard is the same
+// PROFILETOOL_HAS_HDR that validator-wasm/CMakeLists.txt sets when it finds the
+// HDR modules; nothing here may be reached without it.
+#ifdef PROFILETOOL_HAS_HDR
+#include "IccTagHagc.h"
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>     // std::size_t
@@ -1447,6 +1456,113 @@ int roundTripSteps(int N) {
 // (it never crosses a module boundary into the std::list tag directory). Each
 // producer runs in "probe" mode (diag==nullptr) so a tag with nothing to show is
 // skipped silently rather than advertised.
+
+#ifdef PROFILETOOL_HAS_HDR
+// ── headroomAdaptiveGainCurveTag ─────────────────────────────────────────────
+// One polyline per alternate image, plotted from the decoded control points.
+//
+// Axes. X is the gain curve input in log2 space and Y is the gain in log2 stops,
+// which is why Y is SIGNED and routinely negative: an alternate that tone maps
+// DOWN from the baseline headroom has negative gain throughout (see the sign
+// rule in the HagcDisplay fixture — it is re-derived from the headroom ordering
+// on read, not carried in the encoding). A 0..1 y-range would clip exactly the
+// alternates that matter, so the range is taken from the data.
+//
+// What is NOT done here: the curve is drawn through its control points as
+// straight segments, not resampled through the PCHIP interpolant the evaluator
+// uses. The control points ARE the authored data — the thing a profile author
+// wants to see and check — and interpolating would show this engine's
+// reconstruction of the curve rather than the tag's contents. Alternates whose
+// slopes are PCHIP-derived carry no slopes at all in the file (m_slope[] stays
+// zeroed by design), so there is nothing to draw a spline from without
+// re-deriving it, and a derived spline drawn as if it were data would be the
+// misleading option.
+static Graph buildHagcGraph(CIccTagHagc* pHagc, const std::string& title) {
+  Graph g;
+  g.title = title;
+  g.xAxis = Axis{"Gain curve input (log2)", 0.0f, 1.0f, false};
+  g.yAxis = Axis{"Gain (log2 stops)", 0.0f, 1.0f, false};
+
+  const icHagcMetadata& meta = pHagc->GetMetadata();
+
+  char buf[256];
+  std::snprintf(buf, sizeof(buf),
+                "Baseline headroom %.4f stops, HDR reference white %.4f cd/m^2, %u alternate image(s)",
+                static_cast<double>(meta.m_baselineHeadroom),
+                static_cast<double>(meta.GetReferenceWhite()),
+                static_cast<unsigned>(meta.GetNumAlternates()));
+  g.description = buf;
+
+  float xmin = 0.0f, xmax = 0.0f, ymin = 0.0f, ymax = 0.0f;
+  bool bAny = false;
+
+  for (icUInt8Number n = 0; n < meta.GetNumAlternates(); ++n) {
+    const icHagcAlternateImage* pAlt = meta.GetAlternate(n);
+    if (!pAlt) continue;   // GetAlternate() bounds-checks; belt and braces
+
+    // m_nControlPoints is a decoded count in 1..icHagcMaxControlPoints, but it
+    // is read from a file, so clamp against the array bound rather than trust
+    // it — m_x/m_y are fixed-size arrays and an over-large count would walk off
+    // the end of the struct.
+    int nPts = static_cast<int>(pAlt->m_nControlPoints);
+    if (nPts > icHagcMaxControlPoints) nPts = icHagcMaxControlPoints;
+    if (nPts <= 0) continue;
+
+    Series ser;
+    std::snprintf(buf, sizeof(buf), "alt%u", static_cast<unsigned>(n));
+    ser.id = buf;
+    std::snprintf(buf, sizeof(buf), "Alternate %u (headroom %.4f)",
+                  static_cast<unsigned>(n), static_cast<double>(pAlt->m_headroom));
+    ser.name = buf;
+    ser.role = Role::Primary;
+    // Scatter would lose the shape and a plain polyline hides how few points
+    // there are; the receiver draws markers on a polyline, so the authored
+    // points stay individually visible.
+    ser.shape = Shape::Polyline;
+    ser.verts.reserve(static_cast<std::size_t>(nPts));
+
+    for (int i = 0; i < nPts; ++i) {
+      const float x = static_cast<float>(pAlt->m_x[i]);
+      const float y = static_cast<float>(pAlt->m_y[i]);
+      // A malformed tag can carry non-finite floats; drop those points rather
+      // than let them poison the axis range for every other series.
+      if (!std::isfinite(x) || !std::isfinite(y)) continue;
+      if (!bAny) { xmin = xmax = x; ymin = ymax = y; bAny = true; }
+      else {
+        xmin = std::min(xmin, x); xmax = std::max(xmax, x);
+        ymin = std::min(ymin, y); ymax = std::max(ymax, y);
+      }
+      ser.verts.push_back(Vertex{x, y, "", kNaN});
+    }
+    if (!ser.verts.empty()) g.series.push_back(std::move(ser));
+  }
+
+  if (bAny) {
+    // Always include y = 0 (no gain) in the range: it is the reference the
+    // sign of every alternate is read against, and a curve that sits entirely
+    // below it reads as meaningless without it on the chart.
+    ymin = std::min(ymin, 0.0f);
+    ymax = std::max(ymax, 0.0f);
+    // Degenerate ranges (a single control point, or every point at the same
+    // value) would give the receiver min == max to autoscale from. Pad them.
+    if (xmax <= xmin) { xmin -= 0.5f; xmax += 0.5f; }
+    if (ymax <= ymin) { ymin -= 0.5f; ymax += 0.5f; }
+    g.xAxis.minHint = xmin; g.xAxis.maxHint = xmax;
+    g.yAxis.minHint = ymin; g.yAxis.maxHint = ymax;
+  }
+
+  // The zero-gain reference line, spanning whatever x-range the data occupies.
+  Series zero;
+  zero.id = "zero"; zero.name = "No gain"; zero.role = Role::Hint;
+  zero.shape = Shape::Polyline; zero.colorHint = "neutral";
+  zero.verts = {Vertex{g.xAxis.minHint, 0.0f, "", kNaN},
+                Vertex{g.xAxis.maxHint, 0.0f, "", kNaN}};
+  g.series.push_back(std::move(zero));
+
+  return g;
+}
+#endif  // PROFILETOOL_HAS_HDR
+
 std::vector<Descriptor> Enumerate(CIccProfile* pIcc) {
   std::vector<Descriptor> out;
   if (!pIcc) return out;
@@ -1524,6 +1640,33 @@ std::vector<Descriptor> Enumerate(CIccProfile* pIcc) {
     out.push_back(std::move(d));
   }
 
+#ifdef PROFILETOOL_HAS_HDR
+  // Gain curve of a headroomAdaptiveGainCurveTag. Bound to its own tag so the
+  // receiver renders it inline on that tag's row (enumerateVisualizations →
+  // byTag), which is what keeps the plot attached to the physical tag it came
+  // from rather than becoming a feature panel of its own.
+  if (auto* pHagc = dynamic_cast<CIccTagHagc*>(pIcc->FindTag(icSigHeadroomAdaptiveGainCurveTag))) {
+    // Enumerate only when there is something to draw. A tag whose metadata did
+    // not decode, or that carries no alternates at all (a legitimate state —
+    // zero alternates means "do not tone map"), has no curve, and offering an
+    // empty graph would read as a rendering failure.
+    bool bHasCurve = false;
+    const icHagcMetadata& meta = pHagc->GetMetadata();
+    for (icUInt8Number n = 0; n < meta.GetNumAlternates() && !bHasCurve; ++n) {
+      const icHagcAlternateImage* pAlt = meta.GetAlternate(n);
+      if (pAlt && pAlt->m_nControlPoints > 0) bHasCurve = true;
+    }
+    if (bHasCurve) {
+      Descriptor d;
+      d.kind = Kind::HagcGainCurve; d.output = Output::Graph;
+      d.id = "hagc:" + sigStr(icSigHeadroomAdaptiveGainCurveTag);
+      d.title = "Headroom adaptive gain curve";
+      d.tag = icSigHeadroomAdaptiveGainCurveTag;
+      out.push_back(std::move(d));
+    }
+  }
+#endif
+
   static const icTagSignature kNamedSigs[] = {
     icSigNamedColorTag, icSigNamedColor2Tag, icSigColorantTableTag, icSigColorantTableOutTag,
     icSigColorantInfoTag, icSigColorantInfoOutTag };   // last two are v5 tagArray
@@ -1598,6 +1741,15 @@ GraphResult RenderGraph(CIccProfile* pIcc, const std::string& id, Verbosity v) {
       emitDiagnostics(res.diagnostics, v);
       return res;
     }
+#ifdef PROFILETOOL_HAS_HDR
+    if (d.kind == Kind::HagcGainCurve) {
+      auto* pHagc = dynamic_cast<CIccTagHagc*>(pIcc->FindTag(d.tag));
+      if (!pHagc) { res.error = "headroomAdaptiveGainCurveTag not found"; return res; }
+      res.graph = buildHagcGraph(pHagc, d.title); res.ok = true;
+      emitDiagnostics(res.diagnostics, v);
+      return res;
+    }
+#endif
     res.error = "unsupported graph kind"; return res;
   }
   res.error = "unknown visualization id: " + id;

@@ -1,0 +1,58 @@
+/* (c) 2026 William Li */
+.wrap {
+  margin-bottom: 10px;
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.86rem;
+}
+
+.table td {
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--border, #e3e7ee);
+  vertical-align: top;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.key {
+  color: var(--muted, #6b7280);
+  white-space: nowrap;
+}
+
+/* The raw code point. Tabular figures keep the column aligned; this is the
+   value that is physically in the file, so it leads the name. */
+.num {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  text-align: right;
+  width: 3.5em;
+  white-space: nowrap;
+}
+
+.name {
+  width: 100%;
+}
+
+.unnamed {
+  color: var(--muted, #6b7280);
+  font-style: italic;
+}
+
+.note {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted, #6b7280);
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .table, .table tbody, .table tr, .table td { display: block; width: auto; }
+  .table tr { padding: 6px 0; border-bottom: 1px solid var(--border, #e3e7ee); }
+  .table td { border-bottom: none; padding: 1px 0; }
+  .num { text-align: left; width: auto; }
+  .key { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
+}

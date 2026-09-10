@@ -64,6 +64,69 @@ correctly refuses them. Do **not** use one as a happy-path test. They are kept
 because they exercise the same transfer functions through a different tag
 structure, which is useful for the Tags sub-tab.
 
+## `ProfiletoolHdrDisplay.icc` — OUR fixture, and the only conforming one
+
+Authored here (not copied from iccDEV), through the same iccxml `xmlToIcc` path
+the app uses, from `ProfiletoolHdrDisplay.xml`.
+
+**Why it had to exist.** Every fixture copied from upstream carries the
+`redTRCTag`/`greenTRCTag`/`blueTRCTag` trio, and clause 8.10.1 says those *shall
+not be present* in an HDR Profile. `icGetHdrProfileInfo()` therefore classifies
+all of them as `icHdrProfileHdrContent` — "carries HDR content, not a member" —
+so PAWG emits **H1 as N/A and deliberately suppresses H2..H8**, because those
+questions have no subject for a non-member. Until this fixture, nothing in the
+corpus could exercise the HDR section past its first item.
+
+It satisfies every 8.10.1 membership condition (RGB Display class, version 4.50,
+`cicpTag` with TransferCharacteristics=16/PQ, **no TRC tags**) plus the
+`AToB0Tag`/`BToA0Tag` pair that 8.10.6 requires of every RGB HDR Profile and
+8.10.3 c) requires to be paired. It validates **clean** and scores **H1..H8 all
+OK**. `CRWL` is set to agree with the HAGC tag's `HDRReferenceWhite` (both
+203 cd/m^2) so H7 has a genuine agreement to report rather than a disagreement.
+
+Two PAWG warnings are expected on it and are **not** fixture defects:
+- **C5** — `standard tags outside the local class rule table: 'B2A0'`. PAWG's
+  per-class tag table does not know that 8.10.3 c) makes the B2A0 mandatory when
+  an A2B0 is present. Upstream item.
+- **Q3** — smoothness discontinuities. The A2B0/B2A0 are identity B-curve LUTs
+  (as in `HdrBakedLut.icc`, whose README note says their contents are irrelevant
+  to what the fixture proves), so the overall transform is not smooth.
+
+Being ours, it is the fixture to mutate for new deformity cases; nothing copied
+from upstream should be edited in place.
+
+## ⚠ These copied fixtures are SUPERSEDED — refresh from upstream, do not re-render
+
+Measured 2026-09-10 against iccDEV `hdr-profiles` @ `101fbffc`.
+
+Upstream **rewrote `Testing/HDR/` entirely** for the 29-08-2026 revision of clause 8.10: from
+the 19 fixtures copied here to **42, XML-only**. The `.icc` files are no longer committed
+there — they are built by `mkprofiles` / `CreateAllProfiles.sh` — and a
+`hdr-corpus-manifest.tsv` alongside them records each fixture's expected clause-8.10
+*classification*, enforced by CTest (`iccdev.hdr-corpus-manifest`). That manifest exists
+because a profile can fail 8.10.1's membership conditions and still validate `valid`, so the
+validation verdict alone cannot pin what these fixtures were built to prove.
+
+The most consequential change: upstream's fixtures **no longer carry the TRC trio** and now
+carry an `AToB0Tag`/`BToA0Tag` pair, because 8.10.1 prohibits the former and 8.10.6 mandates
+the latter. Our copies predate that.
+
+Three of our `.icc` binaries no longer decode (`HagcCommonParams`, `HagcHexData`,
+`HagcInvalidXOrder`: *"HAGC ... metadata could not be decoded"*). This is **our stale
+binaries, not an upstream defect** — rebuilding `HagcCommonParams` and `HagcHexData` from
+upstream's *current* XML through the same WASM yields **valid** profiles.
+
+Two traps worth writing down:
+
+- **`HdrInvalidTransfer` is supposed to be VALID.** Its upstream XML header says *"despite
+  the file name nothing about this profile is invalid"*. It is a classification fixture
+  pinning that a non-member of the sub-class is not reported against; the manifest lists it as
+  `hdr-content`. Our copy validating as `error` is stale drift, not the defect it looks like.
+- **Do not "fix" any of this by regenerating from the XML committed *here*.** Measured:
+  `HdrInvalidTransfer.icc` and `HdrMissingBToA0.icc` both change verdict when re-rendered from
+  our old XML, because their behaviour depends on bytes our XML cannot express. The correct
+  remedy is a **re-copy from upstream's current corpus**, tracked in `hdr-phase1-status.md`.
+
 ## Checksums
 
 ```
@@ -81,6 +144,7 @@ d9e8c9c831cd36d5295583403f432de305b983918ac8b65faaef25dc1905a9c9  BT2100PQNarrow
 00302d0c46d6169b6c8e6540d194ac86768f746ae3fd5946e47cf3c3bfc8e3a9  HagcDisplay.icc
 7c658dccb0a7de440332e87133b198885f1465a00593d331399f67c1794ded9e  HagcHexData.icc
 5663291521cd37c141ff3c5bb55ad5c249c55ee7a08d0c53d291f5231db1a1f8  HagcInvalidXOrder.icc
+e74c38f1ca3d9c9d494062984d4ee5727692982b0a3e26fc85bf13aa93407d54  ProfiletoolHdrDisplay.icc
 6ec11aa312956f92ec315d011955280f5325f93e2163b74938c8992dbfda5a26  HdrBakedLut.icc
 8a6cc3666c47105c5553d3fe272906b66c7bdf2d3186d0e64c6b60f628688f4c  HdrCicpUnspecified.icc
 99f7df26159991d89aa2930b195c861e886a6c769e7a6923e503e1b62e6847c2  HdrDisplayMetadata.icc

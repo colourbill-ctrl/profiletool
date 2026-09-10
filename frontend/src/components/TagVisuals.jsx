@@ -4,13 +4,14 @@ import { useT } from '../i18n.jsx'
 import Collapsible from './viz/Collapsible.jsx'
 import PlotlyGraph from './viz/PlotlyGraph.jsx'
 import TagEvaluator from './TagEvaluator.jsx'
+import CicpDetail, { readCicp } from './CicpDetail.jsx'
 import { channelColor } from './viz/colors.js'
 import { useAsync } from './viz/useAsync.js'
 import VizWarnings from './viz/VizWarnings.jsx'
 import styles from './TagVisuals.module.css'
 
 // IccVizModel Kind enum (kept in sync with IccVizModel.hpp).
-const KIND = { Curve1D: 1, ChromaticityXY: 2, NamedColorsAB: 3, NamedColorsXY: 4, ClutImage: 5 }
+const KIND = { Curve1D: 1, ChromaticityXY: 2, NamedColorsAB: 3, NamedColorsXY: 4, ClutImage: 5, HagcGainCurve: 9 }
 const COLORANT_HL = { rXYZ: 'R', gXYZ: 'G', bXYZ: 'B' }
 const TRC_TAGS = new Set(['rTRC', 'gTRC', 'bTRC', 'kTRC'])
 const ATOB_TAGS = new Set(['A2B0', 'A2B1', 'A2B2', 'A2B3'])
@@ -50,6 +51,40 @@ export default function TagVisuals({ tag, bytes, descriptors = [], chromaDesc, d
           <GraphView bytes={bytes} id={chromaDesc.id} highlight={COLORANT_HL[tag.id]} />
         </Collapsible>
         {dataNode}
+      </>
+    )
+  }
+
+  // cicpType carries four ITU-T H.273 code points as bare bytes; the Describe()
+  // dump prints the numbers, so the display module names them in place. Rendered
+  // above the dump, never instead of it — the bytes stay visible.
+  if (tag.id === 'cicp') {
+    const cicp = readCicp(bytes, tag.offset, tag.size)
+    return (
+      <>
+        {cicp && (
+          <Collapsible title={t('viz_cicp') || 'Code points'} defaultOpen>
+            <CicpDetail cicp={cicp} />
+          </Collapsible>
+        )}
+        {dataNode}
+      </>
+    )
+  }
+
+  // headroomAdaptiveGainCurveTag — one polyline per alternate image, drawn
+  // through the authored control points. Present only when the WASM was built
+  // with the HDR modules; otherwise no descriptor is enumerated and this falls
+  // through to the plain dump, which is also what happens for a HAGC tag whose
+  // metadata did not decode.
+  const hagc = descriptors.find((d) => d.kind === KIND.HagcGainCurve)
+  if (hagc) {
+    return (
+      <>
+        <Collapsible title={t('viz_hagc') || 'Gain curve'} defaultOpen>
+          <GraphView bytes={bytes} id={hagc.id} />
+        </Collapsible>
+        <Collapsible title={t('viz_data')} defaultOpen={false}>{dataNode}</Collapsible>
       </>
     )
   }

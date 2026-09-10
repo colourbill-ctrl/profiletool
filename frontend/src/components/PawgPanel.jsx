@@ -14,10 +14,16 @@ const VERDICT = {
   '--':   { cls: 'notrun', label: 'NOT RUN' },
 }
 
+// Display order mirrors the order iccPawgReport emits the items in. `hdr` is
+// last because AddHdrItems() is appended last upstream, and it is ABSENT (not
+// NotRun) for any profile that is not of ICC.1 clause 8.10's HDR Profile
+// sub-class — so for an SDR profile this section simply has no items and the
+// render below skips it, exactly as it did before the section existed.
 const SECTIONS = [
   { key: 'security',    i18n: 'pawg_security' },
   { key: 'conformance', i18n: 'pawg_conformance' },
   { key: 'quality',     i18n: 'pawg_quality' },
+  { key: 'hdr',         i18n: 'pawg_hdr' },
 ]
 
 // Filter pills, in display order. `cls` is the style key shared with the row
@@ -59,7 +65,10 @@ export default function PawgPanel({ bytes }) {
 
   const grouped = useMemo(() => {
     if (!report) return {}
-    const g = { security: [], conformance: [], quality: [] }
+    // Seed the known sections so their relative order is fixed regardless of
+    // which ones the report actually populated; the fallback branch still
+    // catches any section name a newer iccPawgReport introduces.
+    const g = { security: [], conformance: [], quality: [], hdr: [] }
     for (const it of report.items) (g[it.section] || (g[it.section] = [])).push(it)
     return g
   }, [report])

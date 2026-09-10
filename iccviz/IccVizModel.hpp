@@ -111,6 +111,13 @@ enum class Kind : unsigned int {
   // InkReversalL     = 7,   // retired — per-channel L* tone-reversal scan (removed); value reserved
   NeutralAxisInking = 8,// device colorant along the neutral axis from a PCS→device LUT,
                         // plus the neutral tone response and its round-trip ΔE (graph)
+  // Gain curve(s) of a headroomAdaptiveGainCurveTag, one series per alternate
+  // image. Enumerated only in a build that has the HDR modules
+  // (PROFILETOOL_HAS_HDR); against a clean iccDEV master the tag type does not
+  // exist, so no descriptor is ever produced and the value simply goes unused.
+  // The enum stays append-only either way — a receiver keying on the number
+  // must not see it shift when the HDR modules come and go.
+  HagcGainCurve  = 9,
 };
 
 enum class Output : unsigned char { Graph, Raster };
