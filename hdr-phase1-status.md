@@ -2,19 +2,19 @@
 
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
-**Date:** 2026-09-10. **Built against:** `hdr-profiles` @ **`101fbffc`**. Library reports
-`2.3.2.3`.
+**Date:** 2026-09-10 (integrated `86c691a9` same day). **Built against:** `hdr-profiles` @
+**`86c691a9`**. Library reports `2.3.2.3`.
 
-> **Phase 1 items 1-5 are COMPLETE as of 2026-09-10.** The WASM was rebuilt clean against
-> `101fbffc` and now carries PAWG section `H`; the panel, the HAGC plot, the CICP display
-> module and our own conforming fixture are all in and verified. `build-wasm.sh --verify`
+> **Phase 1 items 1-5 COMPLETE, and iccDEV's C5 fix is integrated.** The handback below was
+> actioned upstream; we rebuilt on `86c691a9`, refreshed `test-corpus/hdr` from upstream's
+> rewritten corpus, and added `scripts/check-hdr-corpus.mjs`. `build-wasm.sh --verify`
 > reproduces `SHA256SUMS`.
 >
-> **Build from a PINNED worktree, not from `~/code/iccdev-hdr` directly.** The branch head
-> moved *twice during this session* (`4a761829` → `101fbffc`) — another session commits to
-> that worktree, which is exactly the torn-artifact hazard noted below. The build used
-> `git -C ~/code/iccdev worktree add --detach <scratch>/iccdev-hdr-build <sha>` plus a
-> `third_party` symlink, the same shape as the release runbook's clean-master step.
+> **Build from a PINNED worktree, not from `~/code/iccdev-hdr` directly.** The head moved
+> twice during the first build (`4a761829` -> `101fbffc`) and **five more times** before this
+> one (`659bbae7`, `36991ca7`, `c49b3b93`, `9451bf36`, `86c691a9`), three of which change PAWG
+> output. Pin an explicit SHA:
+> `git -C ~/code/iccdev worktree add --detach <path> <sha>` plus a `third_party` symlink.
 
 Companion docs: `hdr-profiles-handback.md` (inbound state from the iccDEV session),
 `hdr-profiles-iccdev-brief.md` (pointer to the original plan).
@@ -158,54 +158,84 @@ Companion docs: `hdr-profiles-handback.md` (inbound state from the iccDEV sessio
 rebuilding upstream's *current* `Testing/HDR/*.xml` through our iccxml and re-running both
 the validator and PAWG on the result.
 
-### → HAND BACK to iccDEV (`~/code/iccdev-hdr`)
+### → HANDED BACK, and RESOLVED upstream (integrated at `86c691a9`)
 
-- **PAWG C5 false-positives on every conforming HDR Profile.**
-  `C5 WARN: standard tags outside the local class rule table: 'B2A0'`. Reproduced on
-  **upstream's own current fixtures** (`HagcDisplay`, `HagcCommonParams`, `HagcHexData`, each
-  rebuilt from current XML) as well as ours — so this is not a profiletool artifact.
-  Cause: in `Tools/CmdLine/IccPawgReport/PawgReport.cpp`, `displayRule` draws its optional
-  set from `kCommonOptional` = {CalibrationDateTime, CharTarget, Cicp, ChromaticAdaptation,
-  Chromaticity, HAGC}. `icSigAToB0Tag` is in `kMatrixTrcAlternative`, but `icSigBToA0Tag` is
-  in **none** of the display class's required / alternative / optional sets, so it falls
-  through `IsAllowedForClass()` to the warning. Clause 8.10.6 mandates the A2B0 and 8.10.3 c)
-  mandates pairing it with a B2A0, so every profile that follows the clause trips this.
-  **This is the same shape as the two fixes already recorded in the comment above
-  `kCommonOptional`** (cicpTag via #2001, then headroomAdaptiveGainCurveTag) — a permitted
-  tag missing from the class table. Likely fix: add `icSigBToA0Tag` there with the same style
-  of comment.
+- **PAWG C5 false-positive on every conforming HDR Profile — FIXED.** iccDEV's fix put
+  `icSigBToA0Tag` in **`kMatrixTrcAlternative`**, beside the `icSigAToB0Tag` it pairs with —
+  neither of the two scopes we suggested, and rightly so. Their reasoning: this was never an
+  HDR defect. ICC.1:2022 8.3.3/8.4.3 permit a LUT-based Input or Display profile (which is why
+  `AToB0Tag` was already in that array), and for a Display profile ICC.1 then *requires* the
+  paired `BToA0Tag` — so **any** LUT-based Display profile was being reported for doing what
+  the specification demands; 8.10.6 merely made the whole HDR corpus hit it at once. Scoping
+  to the HDR sub-class would have left the general case broken, and `kCommonOptional` was wrong
+  in the other direction because the output and link rules read it too, where `BToA0Tag` is
+  *required* rather than optional.
+  **Verified here both ways:** C5 is now `OK` on `HagcDisplay`, `HdrDisplayMetadata`,
+  `HagcCommonParams`, `HagcHexData` and our own fixture; and still `WARN`s
+  `'c2sp','s2cp','svcn'` on `Testing/Display/LaserProjector.icc`, so the check narrowed rather
+  than being disabled. An ordinary non-HDR Display profile carrying a B2A0 now reports OK,
+  which is intended.
 
-- **Question, not a defect — HAGC vs the published ADGC.** ICC added an `ADGC` tag
-  (`'ADGC'` / type `'adgc'`, `adaptiveGainCurveType`) to ICC.1 on **17 April 2025**, with
-  **ISO 21496-1** as a normative reference. The branch has no reference to `ADGC` or 21496
-  anywhere; it implements `headroomAdaptiveGainCurveTag` / `'hagc'` against **SMPTE
-  ST 2094-50:2026** and cites the **29-08-2026 revision** of the amendment (43 occurrences).
-  Both describe headroom-adaptive gain-curve tone mapping. Which signature will profiles in
-  the wild carry? It decides what `TagVisuals.jsx` and the iccviz descriptor key on.
+- **ADGC vs HAGC — NOT settled; do not re-cut.** iccDEV's position: ADGC is real, published
+  (17 Apr 2025) and **live in ICC.1 today**; the HAGC proposal's covering argument says it
+  replaces ADGC, but the **votable text does not remove it**, so on the operative text both are
+  live (their ADGC-05). The container difference is structural, not a rename — ADGC carries
+  curve data inline with positionNumbers, HAGC wraps a whole ST 2094-50 block supporting
+  multiple alternates — so no straight signature swap should be expected. Their advice: keep
+  keying on `'hagc'`, but key on the tag actually found rather than assuming one, since a
+  profile may legally carry ADGC today.
+  **We already satisfy that.** `TagVisuals.jsx` keys on the *descriptor*
+  (`d.kind === KIND.HagcGainCurve`), never on a signature; the only place `'hagc'` is named is
+  iccviz's `Enumerate`. Supporting ADGC later is one change there plus an upstream tag-factory
+  entry, with no UI churn.
+  Also noted upstream: ADGC-01 (its header table's byte ranges collide three times, and one
+  range is unassigned — in *passed* text) and ADGC-03 (HAGC dropped the target-headroom field
+  ADGC carried, making 8.10.6's "target headroom shall be equal to 1.0" uncheckable by any
+  reader of a file).
 
-- **Minor / optional — `PawgReport.cpp` now includes `../IccCmdLineUtil.h`.** An embedder
-  compiling `PawgReport.cpp` outside the `Tools/CmdLine` build needs that parent directory on
-  its include path (we hit this as a hard build failure; see item 1). Worth a line in the
-  file, or keeping the include self-contained, if embedding is meant to stay easy.
+- **`IccCmdLineUtil.h` include — acknowledged, not patched.** It arrived with #2454's
+  `icJsonEscape` move, not from HDR work. iccDEV would raise it as an iccDEV-core item rather
+  than patch it on the ballot-gated branch; our CMakeLists fix stands and costs nothing.
 
-### → OURS, not upstream's
+### Upstream changes since `101fbffc` that affect us
 
-- **The three "metadata could not be decoded" fixtures are our STALE BINARIES.** Upstream's
-  current XML for `HagcCommonParams` and `HagcHexData` rebuilds as **valid** through the same
-  WASM. `HagcInvalidXOrder` is a deliberate NEGATIVE fixture and errors upstream too.
-- **`HdrInvalidTransfer` is meant to be valid.** Its own XML header says so in as many words:
-  *"despite the file name nothing about this profile is invalid"* — it is a CLASSIFICATION
-  fixture pinning that a non-member is not reported against. Our copy showing `error` is the
-  same stale-binary drift. The `hdr-corpus-manifest.tsv` records its expected class as
-  `hdr-content`, and the manifest exists precisely because validation verdict and clause-8.10
-  classification are different axes.
-- **Corpus refresh (19 → 42, XML-only) is our task.** Upstream rewrote `Testing/HDR/`
-  entirely, dropped the committed `.icc` files in favour of `mkprofiles` /
-  `CreateAllProfiles.sh`, and added `hdr-corpus-manifest.tsv` enforced by CTest
-  (`iccdev.hdr-corpus-manifest`). Our `test-corpus/hdr/` predates all of it.
-- **Still do NOT bulk-regenerate our `.icc` from our OWN committed XML.** Measured:
-  `HdrInvalidTransfer` and `HdrMissingBToA0` change verdict. The correct move is to re-copy
-  from upstream's current corpus, not to re-render our stale XML.
+- **`9451bf36` — H6 gained a Display-class guard.** It previously FAILed every Input-class HDR
+  Profile carrying an `AToB0Tag` without a `BToA0Tag`, including `HdrInputDisplayMeta`, which
+  the manifest classes `conforming`. 8.10.6 scopes that rule to Display profiles. Verified:
+  H6 on `HdrInputDisplayMeta` is now `OK`.
+- **`c49b3b93` — amendment revision 2026-09-06 supersedes 29-08-2026.** Every rule we implement
+  is unchanged, but a new 8.10.2 NOTE 7 shifts every later NOTE by one. **H8's detail text now
+  says "(NOTE 13)" where it said "(NOTE 12)"** — verified. Do not assert on that string.
+- **`36991ca7` / `659bbae7` — two rendering edge cases.** A profile whose forward matrix cannot
+  be built now returns status 3 instead of rendering pure black; a gain curve whose control
+  points all sit at X=0 now clips instead of collapsing to black.
+- **`86c691a9` also** makes absent-fixture HDR regression tests report Skipped (exit 77) rather
+  than PASS, and ships `iccHdrFallback` in iccDEV's own WASM npm package. That package is not
+  what we build — we build `validator-wasm/` from source — so it does not affect us.
+
+### → OURS — corpus refresh, now DONE
+
+`test-corpus/hdr` has been refreshed from upstream's rewritten corpus: **42 fixtures
+(19 before), generated from upstream's XML through our own `xmlToIcc`** since upstream no
+longer commits `.icc` files, plus `hdr-corpus-manifest.tsv` copied verbatim. All 42 reproduce
+their manifest classification exactly, which is what establishes that generating via iccxml is
+equivalent to upstream's `mkprofiles`.
+
+This retires the three earlier findings about stale binaries — those fixtures are gone,
+replaced by ones that decode. It also removes the trap that our old XML could not express two
+fixtures' defects, since we no longer re-render our own XML.
+
+**New: `scripts/check-hdr-corpus.mjs`** asserts the corpus against the manifest and is the
+profiletool-side equivalent of upstream's `iccdev.hdr-corpus-manifest` CTest. It exists because
+our expectations broke twice in two rebuilds — once on the corpus rewrite, once on the H6
+verdict correction. Classification is the axis that survives amendment revisions; remembered
+verdicts are not. It also lists any `.icc` present but absent from the manifest, so nothing
+sits in the corpus unchecked.
+
+**Assertion corrected:** "H1..H8 all OK on a conforming profile" was never safe. `HagcDisplay`
+is conforming but reports **H8 = N/A** — correctly, since it carries no 8.10.5 HDR Display
+entries, so rule d) applies. Use `HdrDisplayMetadata` or our own `ProfiletoolHdrDisplay` as the
+all-OK case. The "32 items, no HDR section" assertion for an SDR profile still holds.
 
 ### Note on our own fixture
 
