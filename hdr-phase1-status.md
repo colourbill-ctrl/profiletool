@@ -294,6 +294,15 @@ names the *entry*, the content side follows HDR-10 on the resolved *quantity*), 
 **reports** the divergence rather than failing on it. iccDEV has recorded it; the call is
 theirs and possibly the WG's.
 
+**API-shape evidence that the cross-axis divergence is an oversight** (iccDEV's find, verified
+here): `ResolveContentHeadroom()` has **two** forms — one taking the reference white as a
+parameter, one convenience overload passing `GetResolvedContentReferenceWhite()` — while
+`ResolveDisplayHeadroom()` has only the parameterless form. The two-argument shape was already
+reached for once and not mirrored. That is a sharper fingerprint than the layering, and it
+makes the cheap fix the right one: pass the resolved white into `ResolveDisplayHeadroom()`
+rather than teach the reader about a tag it structurally cannot see. Which value gets passed
+stays the WG question.
+
 **A third latent bug, ours, same class as the first two.** `ProfiletoolHdrDisplay` shipped
 carrying a **ten-value `DCV`** (chromaticities first, luminance at index 8) copied from a
 pre-refresh upstream fixture, where upstream's current convention is `maxLum minLum n` and the
@@ -305,6 +314,16 @@ arity instead of parsing on a guess. While testing that, found and fixed a furth
 guard itself — `null / 203` is `0` in JavaScript, not `NaN`, so an unreadable entry was being
 reported as a wrong *value* rather than an unverifiable one; division now propagates null and
 the row reports **UNCHECKED**.
+
+**...and a fourth, found by the audit that the third one prompted.** The same stale ten-value
+`DCV` was ALSO in `ProfiletoolHdrRefWhiteConflict`, which I derived from the parent fixture
+*before* normalising it — again shielded by a `derh` display rule, again invisible to a
+value-only check reporting 90/90. Fixed, and the audit is now **permanent**:
+`check-hdr-headroom.mjs` reports any key appearing with inconsistent value shapes across the
+corpus and exits non-zero, so the class cannot recur silently. Verified it fires on exactly
+that shape while the value check still says 90/90. **Upstream's 42 are consistent** — every
+`DCV`/`MDCV`/`CLL` is `maxLum minLum n`; both offenders were ours. iccDEV had this on their
+list as unaudited, so the result is passed back.
 
 **Assertion corrected:** "H1..H8 all OK on a conforming profile" was never safe. `HagcDisplay`
 is conforming but reports **H8 = N/A** — correctly, since it carries no 8.10.5 HDR Display

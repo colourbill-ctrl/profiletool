@@ -137,7 +137,7 @@
       <DictEntry Name="CLL" Value="600.0 300.0 9"/>
       <DictEntry Name="DERH" Value="2.0"/>
       <DictEntry Name="DRWL" Value="203.0"/>
-      <DictEntry Name="DCV" Value="0.708 0.292 0.170 0.797 0.131 0.046 0.3127 0.3290 812.0 0.005"/>
+      <DictEntry Name="DCV" Value="812.0 0.005 1"/>
     </dictType> </metaDataTag>
 
     <profileDescriptionTag> <multiLocalizedUnicodeType>

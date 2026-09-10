@@ -61,6 +61,16 @@ can be derived here: `derh` is taken directly, and every other rule divides a lu
 reference white (`CRWL`, else the HAGC tag's `HDRReferenceWhite`, else the 203 cd/m² default).
 Headroom is a **ratio**, not log2 stops. All 84 values across the 42 rows agree.
 
+It also runs an **entry-arity audit**. Every reader of these `dictType` entries reads them
+*positionally*, so a key appearing with two different value shapes across the corpus is a
+silent misparse waiting to happen — taking `[0]` from a ten-value `DCV` (chromaticities first,
+luminance at index 8) yields **0.708 as a peak luminance** rather than failing. We shipped
+exactly that twice, both times in a fixture whose display rule was `derh` and therefore
+consulted no `DCV` at all. Auditing shapes across the whole corpus catches it *even when no
+rule currently reads the entry*, which is the only way to catch it early: the bug is invisible
+precisely while nothing exercises it. Upstream's 42 are consistent — every `DCV`, `MDCV` and
+`CLL` is `maxLum minLum n` — both offenders were ours.
+
 Its own limit, stated so it is not overread: it verifies the manifest's **numbers** given the
 rule its `source` column names; it does not independently decide **which** rule applies. So it
 catches a wrong value or a fixture whose metadata drifted — not a wrong rule selection, which
@@ -205,6 +215,15 @@ inside `CIccHdrMetadataReader`, which reads only the `metadataTag` and structura
 the HAGC tag; the content path is resolved one level up where both carriers are visible. The
 asymmetry follows from where each resolver sits.
 
+The **API shape** is a sharper fingerprint of oversight than the layering:
+`ResolveContentHeadroom()` has *two* forms — one taking the reference white as a parameter, and
+a convenience overload passing `GetResolvedContentReferenceWhite()`. `ResolveDisplayHeadroom()`
+has only the parameterless form. The two-argument shape was already reached for once, for the
+content path, and simply not mirrored. That also makes the cheap fix the right one: pass the
+resolved white into `ResolveDisplayHeadroom()` rather than teach the reader about a tag it
+cannot see. *Which* value gets passed is still the WG question and the fix should not prejudge
+it.
+
 **Neither side is obviously wrong**, which is why this is a fixture and not a bug report.
 8.10.5 c) says "CRWL is taken from the HDR Image metadata of 8.10.4", naming the *entry*; the
 content side follows the HDR-10 ruling on the resolved *quantity*. Whether those mean the same
@@ -286,5 +305,5 @@ c310045aa2eeca12c4d0dd87cf4dd916b8f62e64155039a4febb769adf3dd52d  HdrTrcTagsPres
 c93706a78c25c822bca2d66ee9c0952d875b380c8069afb73f9a4b3bb23e1dff  HdrVersion46.icc
 0578eb94d5f15cb26d3be8c4a6f1541bcd81b948832bd8a49008ff043acc7ac6  ProfiletoolHdrCrossAxisWhite.icc
 b9933202e0ff4a95299d4a6f342e97851270e9506ccf72325e670d1c9f4dca7f  ProfiletoolHdrDisplay.icc
-a9250b1bb1984eb375c03ea07970695db2b22c48a3839ee8fe9f0a9981e3ed2a  ProfiletoolHdrRefWhiteConflict.icc
+53997216ad1db9415dbba5f4a65930526d0b6257fcaee28a56c4cbe45e3eaa81  ProfiletoolHdrRefWhiteConflict.icc
 ```

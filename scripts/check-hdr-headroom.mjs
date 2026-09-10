@@ -27,7 +27,7 @@
 //
 // Usage:  node scripts/check-hdr-headroom.mjs [--dir <path>] [--manifest <path>]
 
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -213,6 +213,32 @@ for (const f of crossAxis) {
               `display headroom rule c) divides by ${displayWhite} (CRWL entry) — same quantity, two divisors`)
 }
 
+// ENTRY-ARITY AUDIT. Every reader of these dictType entries -- ours, IccProfLib's,
+// anyone's -- reads them POSITIONALLY, so a key that appears with two different
+// value shapes across the corpus is a silent misparse waiting to happen: taking
+// [0] from a ten-value DCV (chromaticities first, luminance at index 8) yields
+// 0.708 as a peak luminance rather than failing. We shipped exactly that twice,
+// both times shielded by a fixture whose display rule was `derh` and so consulted
+// no DCV at all. Auditing shapes across the whole corpus catches it even when no
+// rule currently reads the entry -- which is the only way to catch it early,
+// since the bug is invisible precisely while nothing exercises it.
+const arities = {}
+for (const f of readdirSync(CORPUS).filter((f) => f.endsWith('.xml'))) {
+  const xml = readFileSync(join(CORPUS, f), 'utf8')
+  for (const m of xml.matchAll(/<DictEntry\s+Name="([^"]*)"\s+Value="([^"]*)"/g)) {
+    const n = m[2].trim().split(/\s+/).length
+    ;(arities[m[1]] ||= new Map()).set(n, [...(arities[m[1]].get(n) || []), f.replace(/\.xml$/, '')])
+  }
+}
+let arityProblem = false
+for (const [key, shapes] of Object.entries(arities)) {
+  if (shapes.size <= 1) continue
+  arityProblem = true
+  const detail = [...shapes.entries()]
+    .map(([n, files]) => `${n} value(s) in ${files.join(', ')}`).join('; ')
+  console.log(`  ARITY       ${key} appears with inconsistent shapes — ${detail}`)
+}
+
 // COVERAGE, not correctness. A green run says the values agree; it does not say
 // which RULES were exercised to get there. The reference-white precedence is only
 // tested by a fixture carrying BOTH carriers with DIFFERENT values — invert the
@@ -230,4 +256,4 @@ console.log(discriminating.length
   : `  reference-white precedence: NOT EXERCISED — no manifest fixture carries both a HAGC
 ` +
     `    reference white and a differing CRWL entry, so inverting the order still passes.`)
-process.exit(checked - agree || problems.some((p) => p.startsWith('MISSING')) ? 1 : 0)
+process.exit(checked - agree || arityProblem || problems.some((p) => p.startsWith('MISSING')) ? 1 : 0)
