@@ -296,6 +296,54 @@ date; `OPEN` entries carry the options so input can be dropped in by ID. IDs are
 referenced from the group sections above. Categories: **IA** app-identity/nav ·
 **A/B/C/D-UX** per-group user-experience · **ARCH** build/dependency.*
 
+### DL-HDRIMG1 — Phase-2 HDR container scope: HEIC + EXR first, TIFF demoted · ✅ RESOLVED 2026-09-09
+**Call.** Phase 2 of the HDR tranche implements **HEIC first, EXR alongside it**. The
+16-bit TIFF HDR encoding question — the standing Phase-2 blocker — is **demoted from gate
+to backlog item**: it is now one container's problem, not the entry condition for the whole
+phase. Supersedes the "load a TIFF for display" framing in `hdr-phase1-status.md`.
+
+**Why these two.** They are the two ends of the real audience and neither routes through
+TIFF. HEIC is what Apple devices generate natively — it is the only format where a user can
+hand profiletool an HDR file straight off a phone, and it carries **both** an embedded ICC
+profile *and* ISO 21496-1 gain-map metadata, so it exercises the HAGC/ADGC work end to end.
+EXR is what the reference/VFX side actually holds, is unbounded float, and has **no ICC slot
+at all** — which makes it the clean test of the "profiletool authors the profile, the file
+supplies only pixels" path. Together they cover embedded-profile and no-profile HDR without
+either one standing in for the other. Full format matrix + sources:
+`hdr-image-formats-survey.md`.
+
+**The two facts that make this cheap.**
+1. **HEIC ICC extraction needs no decoder.** The profile sits in an ISOBMFF `colr` box
+   (`prof` full / `rICC` restricted) — a box walk, not an HEVC decode. Profile inspection
+   therefore works on **100%** of browsers with zero codec dependency, and the same walker
+   covers AVIF, WebP `ICCP` and JP2/JPX colour boxes for free.
+2. **HEIC pixel decode can borrow the browser's HEVC.** libheif ships a **`webcodecs`
+   decoder backend that exists only in emscripten builds** because it calls the browser's
+   WebCodecs API. That avoids statically linking libde265 **and** sidesteps the HEVC patent
+   question, since the platform already carries the licence. Coverage is platform-gated
+   (Safari effectively universal; Chrome ~96.7% macOS / ~86% Windows / ~54.6% Linux; Firefox
+   and Edge close to absent), so **pixels degrade, profiles never do** — the inspection half
+   of the tab must not depend on the display half.
+
+**EXR library choice — deliberately left open.** `tinyexr` (BSD-3, single-header, C11, reuses
+our existing zlib, known WASM builds) vs full **OpenEXR + Imath** (BSD-3, reference
+behaviour, established Emscripten wrappers). tinyexr omits **DWAA/DWAB** on patent grounds,
+and DWA is common in production EXRs — so **verify the codec matrix against tinyexr's own
+README before choosing**; if real-world DWA files must open, that decides it for OpenEXR.
+
+**Licence note.** libheif is **LGPL**. profiletool ships as a statically linked WASM bundle
+from a public host, so the LGPL relinking obligation applies and wants a deliberate answer
+(object files or equivalent made available) before HEIC pixel decode ships. Nothing blocks
+the box-walk half, which uses none of libheif. OpenEXR/Imath/tinyexr are all BSD-3 and carry
+no such obligation.
+
+**Sequencing that follows.** (1) ISOBMFF `colr` walker in `iccimage` — HEIC + AVIF profile
+extraction, no new dependency, no size cost. (2) EXR decode — pixel source for the display /
+A-B half. (3) HEIC pixel decode via libheif + `webcodecs`, feature-detected, with an explicit
+"this browser cannot decode HEVC" state. (4) Gain-map metadata (ISO 21496-1 / Ultra HDR MPF)
+shown beside the profile's own adaptive gain curve. 16-bit TIFF HDR encoding sits after all
+of these and keeps its own decision note when it is reached.
+
 ### DL-GAMUT1 — Gamut compare: engine, renderer, scope · ✅ RESOLVED 2026-07-18 (revised same day)
 **Call.** The **Compare tab** is the sole home for gamut and overlays **1..N** profiles:
 a **3-D gamut shell** + a **2-D gamut slice** (NO volume/status table — user, 2026-07-18),
