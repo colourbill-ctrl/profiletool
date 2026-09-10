@@ -218,8 +218,23 @@ the validator and PAWG on the result.
 `test-corpus/hdr` has been refreshed from upstream's rewritten corpus: **42 fixtures
 (19 before), generated from upstream's XML through our own `xmlToIcc`** since upstream no
 longer commits `.icc` files, plus `hdr-corpus-manifest.tsv` copied verbatim. All 42 reproduce
-their manifest classification exactly, which is what establishes that generating via iccxml is
-equivalent to upstream's `mkprofiles`.
+their manifest classification.
+
+**That 42/42 is a CROSS-BUILD result, not an independent one** — corrected after iccDEV pushed
+back on our first framing; the correction was theirs, not ours. `xmlToIcc` links the same
+IccXML library `mkprofiles.sh` drives as `iccFromXml`, and we read classification back through
+`icGetHdrProfileInfo()`, which is both what upstream's CTest asserts against and where the
+manifest's own numbers came from. A bug in the XML parse or in 8.10.1 classification would
+reproduce identically on both sides and still read 42/42 — a classifier cannot corroborate
+itself.
+
+What it *does* prove, and nothing upstream covers it: the **Emscripten build** of IccProfLib +
+IccXML classifies all 42 fixtures identically to the native build. That is a cross-toolchain,
+cross-ABI agreement — the shape that catches float-width, struct-packing and endianness
+assumptions — and it confirms PAWG's three-way H1 mapping agrees with the manifest on every
+row across a second ABI. Say "cross-build agreement"; never let "independent" become
+load-bearing here. Genuine independence needs a classifier written from clause 8.10 by someone
+else, or third-party HDR profiles; neither exists yet.
 
 This retires the three earlier findings about stale binaries — those fixtures are gone,
 replaced by ones that decode. It also removes the trap that our old XML could not express two
@@ -231,6 +246,18 @@ our expectations broke twice in two rebuilds — once on the corpus rewrite, onc
 verdict correction. Classification is the axis that survives amendment revisions; remembered
 verdicts are not. It also lists any `.icc` present but absent from the manifest, so nothing
 sits in the corpus unchecked.
+
+**New: `scripts/check-hdr-headroom.mjs`** — the axis that is *not* downstream of iccDEV's
+classifier, added on their suggestion after they corrected the "independent" framing above. It
+recomputes the manifest's four headroom columns from the XML with **no ICC code linked**
+(imports: `node:fs`, `node:path`, `node:url` only). Clause 8.10.4/8.10.5 are arithmetic over
+the `dictType` entries — `derh` direct, everything else a luminance over a reference white
+(`CRWL`, else the HAGC `HDRReferenceWhite`, else 203 cd/m²); headroom is a ratio, not stops.
+**84/84 values agree.** It verifies the manifest's numbers given the rule its `source` column
+names; it does not decide which rule applies, so it cannot catch a wrong rule *selection*.
+Both scripts were mutation-tested — a corrupted manifest number, a drifted fixture entry, a
+wrong class and a missing fixture each produce a non-zero exit — because an all-pass checker
+that has never been seen to fail asserts nothing.
 
 **Assertion corrected:** "H1..H8 all OK on a conforming profile" was never safe. `HagcDisplay`
 is conforming but reports **H8 = N/A** — correctly, since it carries no 8.10.5 HDR Display

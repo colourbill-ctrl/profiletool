@@ -8,9 +8,24 @@ plus 1 of our own.** Refreshed 2026-09-10.
 Upstream is **XML-only**: it stopped committing `.icc` files and builds them with
 `Testing/HDR/mkprofiles.sh` / `.bat`, which is the single source of its build list. We cannot
 run that here, so the `.icc` files in this directory are **generated from the committed XML
-through our own iccxml WASM** (`xmlToIcc`) — the same IccLibXML code path, so the results are
-equivalent. All 42 reproduce their manifest classification exactly, which is the check that
-they are.
+through our own iccxml WASM** (`xmlToIcc`). All 42 reproduce their manifest classification.
+
+**What that agreement does and does not prove.** It is a **cross-build check, not an
+independent one.** `xmlToIcc` links the same IccXML library that `mkprofiles.sh` drives as
+`iccFromXml`, and the classification is read back through `icGetHdrProfileInfo()` — the very
+function upstream's `iccdev.hdr-corpus-manifest` CTest asserts against, and the function the
+manifest's own numbers came from. A bug in either the XML parse or the 8.10.1 classification
+would reproduce identically on both sides and still read 42/42.
+
+What it *does* establish is worth having and nothing upstream covers it: the **Emscripten
+build** of IccProfLib + IccXML classifies all 42 fixtures identically to the native build.
+That is a cross-toolchain, cross-ABI agreement — the shape that catches float-width,
+struct-packing and endianness assumptions — and it confirms PAWG's three-way H1 mapping agrees
+with the manifest on every row across a second ABI.
+
+Genuine independence would need a classifier written from clause 8.10 by someone else, or a
+corpus of third-party HDR profiles. Neither exists yet. Write "cross-build agreement", not
+"independent confirmation".
 
 `hdr-corpus-manifest.tsv` is copied **verbatim** from upstream so it can be re-copied on the
 next refresh without a merge. It records each fixture's clause-8.10 **classification**, which
@@ -30,6 +45,26 @@ The check maps the PAWG report back to a classification with no extra API — `A
 returns early for class `none` so the report has no HDR section at all; `H1 == OK` means
 `conforming`; `H1 == N/A` means `hdr-content`. It also lists any `.icc` present but *not* in
 the manifest, so a fixture can never sit here silently unchecked.
+
+Note its ceiling: **it can only ever be as right as `icGetHdrProfileInfo()`**, because that is
+what it reads. It catches corpus drift and cross-build divergence; it cannot catch a
+classifier that is wrong in the same way on both sides.
+
+```bash
+node scripts/check-hdr-headroom.mjs    # the axis that is NOT downstream of that classifier
+```
+
+`check-hdr-headroom.mjs` recomputes the manifest's four headroom columns **from the XML, with
+no ICC code linked at all** — its only imports are `node:fs`, `node:path` and `node:url`.
+Clause 8.10.4 and 8.10.5 are arithmetic over the `dictType` metadata entries, so the values
+can be derived here: `derh` is taken directly, and every other rule divides a luminance by a
+reference white (`CRWL`, else the HAGC tag's `HDRReferenceWhite`, else the 203 cd/m² default).
+Headroom is a **ratio**, not log2 stops. All 84 values across the 42 rows agree.
+
+Its own limit, stated so it is not overread: it verifies the manifest's **numbers** given the
+rule its `source` column names; it does not independently decide **which** rule applies. So it
+catches a wrong value or a fixture whose metadata drifted — not a wrong rule selection, which
+would need the unpublished clause text.
 
 ## Why the corpus was replaced wholesale
 
