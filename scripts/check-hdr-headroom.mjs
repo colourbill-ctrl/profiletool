@@ -61,25 +61,42 @@ function readXml(path) {
   return { entries, hagcWhite: white ? parseFloat(white[1]) : null }
 }
 
-// First number of a multi-valued entry. CLL is "maxCLL maxFALL n"; DCV and MDCV
-// are "maxLuminance minLuminance n" — in both, the peak luminance leads, which is
-// also what the reader does (IccHdrProfile.cpp: m_dcvMaxLuminance = lums[0]).
+// Registry value shapes, per key. Every one leads with the MAXIMUM luminance,
+// which is all this file reads (IccProfLib does the same: lums[0]):
 //
-// The arity check is not defensive padding. Our own ProfiletoolHdrDisplay shipped
-// carrying a TEN-value DCV — chromaticities first, luminance at index 8 — copied
-// from a pre-refresh upstream fixture. Taking [0] from that yields 0.708 as a peak
-// luminance, silently. It never fired only because that fixture's display rule is
-// `derh`, which consults no DCV at all: the same "an assumption that is never
-// exercised is not a verified assumption" trap as the reference-white precedence.
-// So an unexpected shape returns null and is reported UNCHECKED rather than parsed
-// on a guess.
-const EXPECTED_ARITY = 3
-function peakOf(v) {
+//   CLL   max, AVERAGE, primaries           (MaxCLL / MaxFALL)
+//   MDCV  max, min, primaries
+//   CCV   max, average, min, primaries      (FOUR values)
+//   DCV   max, min, primaries               (HDR Display registration)
+//
+// An earlier version of this comment called every entry "maxLum minLum n". That
+// shorthand came from an iccDEV description that was itself corrected against the
+// registry pages: CLL's second field is an AVERAGE, not a minimum, and CCV carries
+// four values. peakOf() only ever took index 0, so no headroom number was affected
+// — but an arity check must expect 4 for CCV, and prose naming CLL's second field
+// "min" is simply wrong.
+//
+// The arity check itself is not defensive padding. Our own fixtures twice shipped
+// a TEN-value DCV (chromaticities first, luminance at index 8) copied from a
+// pre-refresh upstream fixture; taking [0] from that yields 0.708 as a peak, and
+// it hid both times behind a `derh` rule that consults no DCV.
+const EXPECTED_ARITY = { CLL: 3, MDCV: 3, CCV: 4, DCV: 3 }
+
+// 0.0 IS "UNKNOWN", NOT A PEAK. The CLL, MDCV and CCV registry entries and the DCV
+// registration all say "Value of 0.0 means that the respective value is unknown".
+// So an unknown maximum supplies no peak at all, and resolution falls through to
+// the next rule (8.10.4 a -> b -> the 1000 default; 8.10.5 b/c -> d). Treating it
+// as a real 0 would compute 0/white = 0, which is below every target and — in
+// IccProfLib before 9141d99f — also switched the target-volume clamp off. If the
+// manifest ever names a rule whose entry is unknown, that is a manifest/spec
+// inconsistency and this reports it UNCHECKED rather than inventing a number.
+function peakOf(key, v) {
   if (v == null) return null
   const parts = String(v).trim().split(/\s+/)
-  if (parts.length !== EXPECTED_ARITY) return null
+  if (EXPECTED_ARITY[key] != null && parts.length !== EXPECTED_ARITY[key]) return null
   const n = parseFloat(parts[0])
-  return Number.isFinite(n) ? n : null
+  if (!Number.isFinite(n) || n === 0) return null
+  return n
 }
 
 // Content reference white: the HAGC tag's HDRReferenceWhite if the tag carries
@@ -95,6 +112,14 @@ function peakOf(v) {
 // evaluate the curve at a white it was not built for. That reasoning is sound and
 // we follow it — but it is a ruling on an ambiguity, so if HDR-10 resolves the
 // other way this function changes.
+//
+// As of iccDEV 9141d99f the same resolved white divides BOTH axes: 8.10.5 c)'s
+// display headroom previously used the metadataTag CRWL entry alone (the metadata
+// reader cannot see the HAGC tag), so one profile could report two different
+// values for one quantity. That was iccDEV's to fix rather than a WG question —
+// the only real gap is which of the two carriers governs, which the ruling above
+// already answers — and ResolveDisplayHeadroom() now takes the white as a
+// parameter, mirroring ResolveContentHeadroom().
 //
 // This file first shipped with the order INVERTED (CRWL first) and still scored
 // 84/84, because no fixture in the upstream corpus carries both a HAGC reference
@@ -121,8 +146,8 @@ function expectedDisplay(src, x) {
   switch (src) {
     case '-':        return 0
     case 'derh':     return num(entries.DERH)
-    case 'dcv-drwl': return div(peakOf(entries.DCV), num(entries.DRWL))
-    case 'dcv-crwl': return div(peakOf(entries.DCV), num(entries.CRWL))
+    case 'dcv-drwl': return div(peakOf('DCV', entries.DCV), num(entries.DRWL))
+    case 'dcv-crwl': return div(peakOf('DCV', entries.DCV), referenceWhite(x))
     default:         return null
   }
 }
@@ -131,11 +156,39 @@ function expectedContent(src, x) {
   const { entries } = x
   switch (src) {
     case '-':            return 0
-    case 'cll':          return div(peakOf(entries.CLL),  referenceWhite(x))
-    case 'mdcv':         return div(peakOf(entries.MDCV), referenceWhite(x))
+    case 'cll':          return div(peakOf('CLL', entries.CLL),  referenceWhite(x))
+    case 'mdcv':         return div(peakOf('MDCV', entries.MDCV), referenceWhite(x))
     case 'default-1000': return div(DEFAULT_PEAK, referenceWhite(x))
     default:             return null
   }
+}
+
+// Which entries each rule reads, so an unchecked value can say WHY it could not be
+// checked. One catch-all sentence ("not implemented, or its entries are absent")
+// was wrong for the case that matters most — an entry that is present and well
+// formed but carries 0.0, which the registry defines as unknown — and a wrong
+// reason sends the reader to look in the wrong place.
+const READS = {
+  'dcv-drwl': ['DCV', 'DRWL'], 'dcv-crwl': ['DCV'], derh: ['DERH'],
+  cll: ['CLL'], mdcv: ['MDCV'], 'default-1000': [],
+}
+function whyUnchecked(src, x) {
+  if (!(src in READS)) return `rule '${src}' is not implemented here`
+  for (const key of READS[src]) {
+    const v = x.entries[key]
+    if (v == null) return `rule '${src}' reads ${key}, which this fixture does not carry`
+    const parts = String(v).trim().split(/\s+/)
+    if (EXPECTED_ARITY[key] != null && parts.length !== EXPECTED_ARITY[key]) {
+      return `${key} has ${parts.length} value(s) but the registry shape is ${EXPECTED_ARITY[key]}`
+    }
+    if (EXPECTED_ARITY[key] != null && parseFloat(parts[0]) === 0) {
+      return `${key}'s maximum is 0.0, which the registry defines as UNKNOWN — it supplies no ` +
+             `peak, so the manifest names a rule this entry cannot drive (resolution should have ` +
+             `fallen through to the next rule)`
+    }
+    if (!Number.isFinite(parseFloat(parts[0]))) return `${key} does not parse as a number`
+  }
+  return `rule '${src}' produced no value for a reason not classified here`
 }
 
 const close = (a, b) => Math.abs(a - b) <= RTOL * Math.max(1, Math.abs(b))
@@ -168,7 +221,7 @@ for (const c of rows) {
     const ours = fn(src, x)
     if (ours === null || Number.isNaN(ours)) {
       unchecked++
-      problems.push(`UNCHECKED    ${fixture} ${axis}: rule '${src}' not implemented, or its entries are absent`)
+      problems.push(`UNCHECKED    ${fixture} ${axis}: ${whyUnchecked(src, x)}`)
       continue
     }
     checked++
@@ -181,37 +234,19 @@ console.log(`hdr headroom: ${rows.length} rows, ${checked} values recomputed fro
             `${agree} agree, ${checked - agree} disagree, ${unchecked} unchecked`)
 for (const p of problems) console.log('  ' + p)
 
-// CROSS-AXIS INVARIANT. When a profile carries both carriers of the content
-// reference white AND both headroom axes resolve, clause 8.10.4's content headroom
-// and clause 8.10.5 c)'s display headroom divide by a quantity both clauses call
-// CRWL — so they should divide by the SAME value. In the current implementation
-// they do not: the content side resolves HAGC-first at icGetHdrProfileInfo() level,
-// while the display side calls CIccHdrMetadataReader::GetResolvedContentReferenceWhite(),
-// which is `m_bHasCrwl ? m_crwl : 203` and cannot see the HAGC tag at all — the
-// reader only ever reads the metadataTag.
+// NO CROSS-AXIS CHECK HERE, deliberately. An earlier version of this file
+// reported that 8.10.4 and 8.10.5 c) divide by different reference whites on any
+// fixture whose XML carried both carriers with different values. That was a
+// statement about IccProfLib's BEHAVIOUR made by a file that links no ICC code and
+// so cannot observe it: it detected the precondition from XML shape and then
+// asserted what the implementation did. When iccDEV fixed the divergence
+// (9141d99f), it would have gone on reporting it — a status claim with no evidence
+// behind it, pointing at a bug that no longer existed.
 //
-// Reported rather than asserted. Neither side is obviously wrong: 8.10.5 c) names
-// the ENTRY ("CRWL is taken from the HDR Image metadata of 8.10.4") while the
-// content side follows the HDR-10 ruling on the resolved QUANTITY, and whether
-// those mean the same thing is a question for the maintainer and possibly the WG.
-// So this prints the divergence and does not fail the run — flagging it as an
-// inconsistency rather than quietly agreeing with it, which is what a value-only
-// check would do.
-const crossAxis = rows.map((c) => c[0].trim()).filter((f) => {
-  const xp = join(CORPUS, `${f}.xml`)
-  if (!existsSync(xp)) return false
-  const x = readXml(xp)
-  return x.hagcWhite != null && x.entries.CRWL != null &&
-         Math.abs(x.hagcWhite - parseFloat(x.entries.CRWL)) > 1e-9 &&
-         x.entries.DCV != null && x.entries.DERH == null && x.entries.DRWL == null
-})
-for (const f of crossAxis) {
-  const x = readXml(join(CORPUS, `${f}.xml`))
-  const contentWhite = x.hagcWhite
-  const displayWhite = parseFloat(x.entries.CRWL)
-  console.log(`  CROSS-AXIS  ${f}: content headroom divides by ${contentWhite} (HAGC-first), ` +
-              `display headroom rule c) divides by ${displayWhite} (CRWL entry) — same quantity, two divisors`)
-}
+// An invariant about what the implementation DOES belongs where the implementation
+// is observed: check-hdr-corpus.mjs now reads H7's resolved content reference white
+// and H8's rule-c divisor out of the real PAWG report and flags them only if they
+// differ. This file keeps to what it can actually establish from the XML.
 
 // ENTRY-ARITY AUDIT. Every reader of these dictType entries -- ours, IccProfLib's,
 // anyone's -- reads them POSITIONALLY, so a key that appears with two different
@@ -230,13 +265,24 @@ for (const f of readdirSync(CORPUS).filter((f) => f.endsWith('.xml'))) {
     ;(arities[m[1]] ||= new Map()).set(n, [...(arities[m[1]].get(n) || []), f.replace(/\.xml$/, '')])
   }
 }
+// Two failure shapes, reported separately because they mean different things:
+//   inconsistent  one key, two arities across the corpus — somebody's reader
+//                 is wrong for half of them, whichever convention is right;
+//   off-registry  one arity everywhere, but not the registry's — a corpus can
+//                 be perfectly self-consistent and still uniformly wrong, which
+//                 a consistency check alone would pass.
 let arityProblem = false
 for (const [key, shapes] of Object.entries(arities)) {
-  if (shapes.size <= 1) continue
-  arityProblem = true
   const detail = [...shapes.entries()]
     .map(([n, files]) => `${n} value(s) in ${files.join(', ')}`).join('; ')
-  console.log(`  ARITY       ${key} appears with inconsistent shapes — ${detail}`)
+  if (shapes.size > 1) {
+    arityProblem = true
+    console.log(`  ARITY       ${key} appears with inconsistent shapes — ${detail}`)
+  } else if (EXPECTED_ARITY[key] != null && !shapes.has(EXPECTED_ARITY[key])) {
+    arityProblem = true
+    console.log(`  ARITY       ${key} has ${[...shapes.keys()][0]} value(s) everywhere; the registry ` +
+                `shape is ${EXPECTED_ARITY[key]} — ${detail}`)
+  }
 }
 
 // COVERAGE, not correctness. A green run says the values agree; it does not say
@@ -256,4 +302,8 @@ console.log(discriminating.length
   : `  reference-white precedence: NOT EXERCISED — no manifest fixture carries both a HAGC
 ` +
     `    reference white and a differing CRWL entry, so inverting the order still passes.`)
-process.exit(checked - agree || arityProblem || problems.some((p) => p.startsWith('MISSING')) ? 1 : 0)
+// UNCHECKED fails the run as well. A value that could not be verified is not a
+// verified value, and the exit status is the only part a CI gate reads — a count of
+// "1 unchecked" printed above an exit 0 is a pass to anything automated.
+process.exit(checked - agree || unchecked || arityProblem ||
+             problems.some((p) => p.startsWith('MISSING')) ? 1 : 0)

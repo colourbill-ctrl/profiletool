@@ -79,6 +79,8 @@ const rows = [...loadRows(MANIFEST), ...loadRows(LOCAL)]
 
 let pass = 0, fail = 0, missing = 0
 const problems = []
+const crossChecked = [], unparsed = []
+let crossFail = 0
 
 for (const row of rows) {
   const path = join(CORPUS, `${row.fixture}.icc`)
@@ -97,6 +99,34 @@ for (const row of rows) {
 
   if (actual === row.cls) { pass++ }
   else { fail++; problems.push(`MISMATCH ${row.fixture}: manifest=${row.cls} actual=${actual}  (${row.purpose})`) }
+
+  // CROSS-AXIS INVARIANT, observed rather than inferred. H7 states the content HDR
+  // reference white the profile resolves to; when H8 took rule 8.10.5 c) it states
+  // the divisor it actually used. Both are the same quantity, so they must match.
+  // Before iccDEV 9141d99f they did not on a profile carrying both carriers — H7
+  // said 300 while H8 divided by 203 and called it the same thing — and this is
+  // the check that reads that straight out of the report instead of predicting it.
+  //
+  // Parsed from report TEXT, which upstream is free to reword (H8's NOTE number has
+  // already moved once). So an unmatched shape is reported as UNPARSED — a status,
+  // never a silent pass — and the parse is kept deliberately narrow.
+  const h7 = hdr.find((i) => i.id === 'H7')
+  const h8 = hdr.find((i) => i.id === 'H8')
+  if (h8 && /8\.10\.5 c\)/.test(h8.detail || '')) {
+    const white = /content HDR reference white = ([0-9.]+) cd\/m\^2/.exec(h7?.detail || '')
+    const divisor = /\/ ([0-9.]+) cd\/m\^2 =/.exec(h8.detail)
+    if (!white || !divisor) {
+      unparsed.push(`${row.fixture}: H8 took rule c) but ${!white ? 'H7' : 'H8'} text did not match the expected shape`)
+    } else {
+      crossChecked.push(row.fixture)
+      const a = parseFloat(white[1]), b = parseFloat(divisor[1])
+      if (Math.abs(a - b) > 1e-6 * Math.max(1, Math.abs(a))) {
+        crossFail++
+        problems.push(`CROSS-AXIS ${row.fixture}: H7 resolves the content reference white to ${a}, ` +
+                      `but H8 rule c) divided by ${b} — one quantity, two values in one report`)
+      }
+    }
+  }
 }
 
 // Fixtures present but NOT in the manifest. Not an error — ProfiletoolHdrDisplay
@@ -110,10 +140,17 @@ const extras = readdirSync(CORPUS)
   .map((f) => f.replace(/\.icc$/, ''))
   .filter((f) => !named.has(f))
 
-console.log(`hdr corpus: ${rows.length} manifest rows — ${pass} match, ${fail} mismatch, ${missing} missing`)
+console.log(`hdr corpus: ${rows.length} rows — classification ${pass} match, ${fail} mismatch, ${missing} missing; ` +
+            `cross-axis ${crossChecked.length - crossFail}/${crossChecked.length} consistent`)
 for (const p of problems) console.log('  ' + p)
+// Coverage for the cross-axis invariant — name the rows it actually ran on, so
+// "no divergence" can never mean "no fixture reached rule c)".
+console.log(crossChecked.length
+  ? `  cross-axis (H7 white vs H8 rule-c divisor): checked on ${crossChecked.join(', ')}`
+  : `  cross-axis (H7 white vs H8 rule-c divisor): NOT EXERCISED — no fixture reached 8.10.5 c)`)
+for (const u of unparsed) console.log(`  UNPARSED   ${u}`)
 if (extras.length) {
   console.log(`  ${extras.length} fixture(s) not in the manifest (ours, checked only by the sweep):`)
   for (const e of extras) console.log(`    ${e}.icc`)
 }
-process.exit(fail + missing ? 1 : 0)
+process.exit(fail + missing + crossFail ? 1 : 0)

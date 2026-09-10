@@ -1,50 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  profiletool fixture: the TWO headroom axes divide by DIFFERENT reference whites.
+  profiletool fixture: BOTH headroom axes must divide by ONE reference white.
+
+  STATUS: REGRESSION FIXTURE. It was written to pin a divergence, and iccDEV fixed
+  that divergence in hdr-profiles 9141d99f. It now guards the fix.
 
   THE ONE THING THIS PINS. When a profile carries both carriers of the content HDR
-  reference white, clause 8.10.4's content headroom and clause 8.10.5 c)'s display
-  headroom are divided by different values of a quantity both clauses call CRWL:
+  reference white — the HAGC tag's HDRReferenceWhite and the metadataTag CRWL entry
+  — clause 8.10.4's content headroom and clause 8.10.5 c)'s display headroom must
+  divide by the SAME resolved white. Under iccDEV's HDR-10 ruling that is HAGC first,
+  so 300 here, on both axes:
 
-    8.10.4 content headroom  divides by info.contentReferenceWhite, which is
-                             resolved HAGC-first (the HDR-10 ruling), so 300 here.
-    8.10.5 c) display headroom  calls CIccHdrMetadataReader::ResolveDisplayHeadroom(),
-                             which uses GetResolvedContentReferenceWhite() =
-                             `m_bHasCrwl ? m_crwl : 203` — blind to the HAGC tag,
-                             so 203 here.
+      content headroom = CLL 600 / 300 = 2
+      display headroom = DCV 600 / 300 = 2
 
-  With CLL and DCV both at 600 cd/m^2 this profile therefore reports:
+  WHAT IT CAUGHT. Before 9141d99f, 8.10.5 c) called
+  CIccHdrMetadataReader::ResolveDisplayHeadroom(), whose only form used
+  GetResolvedContentReferenceWhite() = `m_bHasCrwl ? m_crwl : 203` — so it divided
+  by 203 and reported 2.9557, while the content axis divided by 300. PAWG's own
+  report contradicted itself on this profile:
 
-      content headroom = 600 / 300 = 2.0
-      display headroom = 600 / 203 = 2.9557
+      H7  content HDR reference white = 300 cd/m^2, stated by the profile
+      H8  ... / content HDR reference white = 600 cd/m^2 / 203 cd/m^2 = 2.956
 
-  Same numerator, same profile, one quantity, two answers.
+  The cause was layering, and the API shape showed it: ResolveContentHeadroom() had
+  a two-argument form taking the white as a parameter, ResolveDisplayHeadroom() did
+  not, and the metadata reader cannot see the HAGC tag. The fix mirrored the
+  parameter. This was iccDEV's to fix, not a WG question — which carrier governs is
+  the only real gap, and the HDR-10 ruling already answers it; the divergence was
+  that ruling reaching one axis and not the other.
 
-  WHY IT HAPPENS, which is the part that suggests it was not intended. The display
-  path lives inside CIccHdrMetadataReader, which reads only the metadataTag and
-  structurally cannot see the HAGC tag at all. The content path is resolved one
-  level up in icGetHdrProfileInfo(), where both carriers are visible. So the
-  asymmetry follows from where each resolver sits, not from a decision that the
-  two axes should differ — and the content-side comment's care ("the divisor is
-  info.contentReferenceWhite, not the reader's own CRWL") reads like someone who
-  noticed the distinction on one side only.
+  CONSTRUCTION. No DERH and no DRWL, so 8.10.5 falls through a) and b) to c), the only
+  display rule that consults the content reference white. CLL and DCV carry the same
+  600 peak, so the divisor is the only thing that can make the two axes differ.
+  Transfer is LINEAR, because 8.10.4's content resolution is gated on it — under PQ
+  or HLG the content axis would never be computed and the fixture would prove
+  nothing.
 
-  NEITHER SIDE IS OBVIOUSLY WRONG, which is why this is a fixture and not a bug
-  report. 8.10.5 c) says "CRWL is taken from the HDR Image metadata of 8.10.4",
-  which names the ENTRY and would justify the reader's behaviour; the content side
-  follows the HDR-10 ruling on the resolved QUANTITY. Whether those mean the same
-  thing is a question for the maintainer and possibly the WG. This fixture exists
-  so that whichever way it is resolved, the change is visible rather than silent.
+  Checked two ways: scripts/check-hdr-headroom.mjs recomputes both values from this
+  XML with no ICC code; scripts/check-hdr-corpus.mjs reads H7 and H8 out of the real
+  PAWG report and fails if they name different values.
 
-  CONSTRUCTION. Derived from ProfiletoolHdrRefWhiteConflict by removing DERH and
-  adding DCV: with no DERH and no DRWL, 8.10.5 falls through a) and b) to c),
-  which is the only display rule that consults a reference white at all. Transfer
-  stays LINEAR, because 8.10.4's content resolution is gated on it
-  (IccHdrProfile.cpp: `info.nTransferCharacteristics == icCicpTransferLinear`) and
-  under PQ or HLG the content axis would never be computed.
-
-  REGISTRY CAVEAT (inherited): the ICC dictType Metadata Registry defining CRWL,
-  DCV and CLL is unpublished, so those keys are reconstructions.
+  REGISTRY CAVEAT (inherited): the ICC dictType Metadata Registry defining CRWL, DCV
+  and CLL is unpublished in this revision, so those keys are reconstructions.
 -->
 <IccProfile>
   <Header>

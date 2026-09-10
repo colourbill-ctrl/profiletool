@@ -2,8 +2,8 @@
 
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
-**Date:** 2026-09-10 (integrated `86c691a9` same day). **Built against:** `hdr-profiles` @
-**`86c691a9`**. Library reports `2.3.2.3`.
+**Date:** 2026-09-10. **Built against:** `hdr-profiles` @ **`9141d99f`** (was `86c691a9`).
+Library reports `2.3.2.3`.
 
 > **Phase 1 items 1-5 COMPLETE, and iccDEV's C5 fix is integrated.** The handback below was
 > actioned upstream; we rebuilt on `86c691a9`, refreshed `test-corpus/hdr` from upstream's
@@ -158,6 +158,26 @@ Companion docs: `hdr-profiles-handback.md` (inbound state from the iccDEV sessio
 rebuilding upstream's *current* `Testing/HDR/*.xml` through our iccxml and re-running both
 the validator and PAWG on the result.
 
+### Integrated at `9141d99f` (iccDEV's corrections round)
+
+- **Cross-axis divisor fixed** — above. Verified here by observation, not inference: the new
+  cross-axis check in `check-hdr-corpus.mjs` reads H7's white and H8's rule-c divisor from the
+  real report. Red against the `86c691a9` build (`300` vs `203`), green against `9141d99f`.
+- **`0.0` maximum = "unknown"** (registry: `CLL`, `MDCV`, `CCV`; the `DCV` registration). An
+  unknown maximum no longer supplies a peak — resolution falls through (8.10.4 a → b → 1000
+  default; 8.10.5 b/c → d). Previously `CLL "0.0 0.0 9"` gave a content headroom of 0 and also
+  switched the target-volume clamp off. `check-hdr-headroom.mjs` now treats a `0.0` maximum as
+  unknown too and reports such a row UNCHECKED instead of computing `0 / white`.
+- **`MDCV` primaries code 2 is reserved**, unlike `CLL`/`CCV` where 2 means "the profile's matrix
+  tags". Now left unresolved upstream. Reporting-only; nothing here reads MDCV primaries.
+- **Registry shapes corrected.** `CLL` is max, *average*, primaries; `CCV` is **four** values. Our
+  earlier `maxLum minLum n` shorthand (from iccDEV's description, since corrected) was wrong for
+  both. No number changed — every reader takes index 0 — but the arity audit now checks each key
+  against its registry shape as well as for consistency.
+- **No item count or H1..H8 membership change;** SDR still 32 items. Upstream added no fixture or
+  manifest row (their tests edit existing fixtures in memory), so our verbatim manifest copy is
+  unaffected.
+
 ### → HANDED BACK, and RESOLVED upstream (integrated at `86c691a9`)
 
 - **PAWG C5 false-positive on every conforming HDR Profile — FIXED.** iccDEV's fix put
@@ -281,18 +301,19 @@ Actions taken here:
 - **`test-corpus/hdr/profiletool-fixtures.tsv`** gives our own fixtures the same expectations in
   the same column shape, kept separate so upstream's manifest stays verbatim.
 
-**Second defect: the two headroom axes divide by DIFFERENT reference whites** — found by
-iccDEV while verifying our fixture, pinned here by **`ProfiletoolHdrCrossAxisWhite`**. 8.10.4's
-content headroom divides by the HAGC-first value (300), while 8.10.5 c)'s display headroom
-calls `CIccHdrMetadataReader::GetResolvedContentReferenceWhite()` = `m_bHasCrwl ? m_crwl : 203`
-(203) — one quantity, two divisors, same profile. **PAWG's own report contradicts itself**:
-H7 says "content HDR reference white = 300", H8 says "... / content HDR reference white =
-600 / 203 = 2.956". The structural cause, which argues it was unintended: the display resolver
-lives inside the metadata reader, which cannot see the HAGC tag at all; the content resolver
-sits one level up where both carriers are visible. Neither side is obviously wrong (8.10.5 c)
-names the *entry*, the content side follows HDR-10 on the resolved *quantity*), so the checker
-**reports** the divergence rather than failing on it. iccDEV has recorded it; the call is
-theirs and possibly the WG's.
+**Second defect: the two headroom axes divided by DIFFERENT reference whites — FIXED in
+iccDEV `9141d99f`, integrated here.** 8.10.4's content headroom divided by the HAGC-first
+white (300) while 8.10.5 c)'s display headroom used the `CRWL` entry alone (203), because the
+metadata reader cannot see the HAGC tag. PAWG contradicted itself on
+`ProfiletoolHdrCrossAxisWhite` (H7: white 300; H8: `600 / 203 = 2.956`). Since `9141d99f` both
+axes divide by one resolved white and H8 prints the divisor it used: `600 / 300 = 2`.
+**Framing withdrawn:** we (following iccDEV's first read) had called this a question for the
+maintainer "and possibly the WG". iccDEV withdrew that and was right to — the only real gap is
+which carrier governs, and the HDR-10 ruling already answers it; the divergence was that ruling
+reaching one axis and not the other. iccDEV's re-check of their defect register against the
+documents the amendment delegates to (metadata registry, ICC.1, ST 2094-50) found four items
+that were the same mistake: "undefined because the amendment is silent" when a delegated
+document defines it.
 
 **API-shape evidence that the cross-axis divergence is an oversight** (iccDEV's find, verified
 here): `ResolveContentHeadroom()` has **two** forms — one taking the reference white as a
@@ -305,7 +326,7 @@ stays the WG question.
 
 **A third latent bug, ours, same class as the first two.** `ProfiletoolHdrDisplay` shipped
 carrying a **ten-value `DCV`** (chromaticities first, luminance at index 8) copied from a
-pre-refresh upstream fixture, where upstream's current convention is `maxLum minLum n` and the
+pre-refresh upstream fixture, where the registry shape is max-first (`DCV`: max, min, primaries) and the
 reader takes `lums[0]`. Reading `[0]` from ours yields **0.708 as a peak luminance**. It never
 fired only because that fixture's display rule is `derh`, which consults no DCV — an assumption
 that is never exercised is not a verified assumption, for the third time in this exchange.
@@ -322,7 +343,7 @@ value-only check reporting 90/90. Fixed, and the audit is now **permanent**:
 `check-hdr-headroom.mjs` reports any key appearing with inconsistent value shapes across the
 corpus and exits non-zero, so the class cannot recur silently. Verified it fires on exactly
 that shape while the value check still says 90/90. **Upstream's 42 are consistent** — every
-`DCV`/`MDCV`/`CLL` is `maxLum minLum n`; both offenders were ours. iccDEV had this on their
+`DCV`/`MDCV`/`CLL` matches its registry shape (note `CLL` is max, *average*, primaries, and `CCV` has four values — the `maxLum minLum n` shorthand we first used was wrong for both); both offenders were ours. iccDEV had this on their
 list as unaudited, so the result is passed back.
 
 **Assertion corrected:** "H1..H8 all OK on a conforming profile" was never safe. `HagcDisplay`

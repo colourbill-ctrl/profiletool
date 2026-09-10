@@ -41,6 +41,13 @@ Regenerate the `.icc` files from a pinned iccDEV worktree, then verify:
 node scripts/check-hdr-corpus.mjs      # asserts all 42 against the manifest
 ```
 
+**Ten checksums will change on every refresh, and that is not drift.** The ten `BT2100*`
+fixtures carry `<CreationDateTime>now</CreationDateTime>`, so IccXML stamps the conversion time
+into the header and the profile ID — an MD5 over the profile — changes with it. Regenerating them
+alters 19 bytes (the header's hh:mm:ss and all 16 ID bytes) and nothing else. The other 35
+fixtures pin an explicit date and regenerate byte-identically. So after a refresh, a checksum change
+confined to `BT2100*` is expected; one anywhere else is real and worth reading.
+
 The check maps the PAWG report back to a classification with no extra API — `AddHdrItems()`
 returns early for class `none` so the report has no HDR section at all; `H1 == OK` means
 `conforming`; `H1 == N/A` means `hdr-content`. It also lists any `.icc` present but *not* in
@@ -68,8 +75,27 @@ luminance at index 8) yields **0.708 as a peak luminance** rather than failing. 
 exactly that twice, both times in a fixture whose display rule was `derh` and therefore
 consulted no `DCV` at all. Auditing shapes across the whole corpus catches it *even when no
 rule currently reads the entry*, which is the only way to catch it early: the bug is invisible
-precisely while nothing exercises it. Upstream's 42 are consistent — every `DCV`, `MDCV` and
-`CLL` is `maxLum minLum n` — both offenders were ours.
+precisely while nothing exercises it. Upstream's 42 are consistent, and match the registry
+shapes — both offenders were ours. The shapes, per the registry (every one leads with the
+**maximum**, which is all anything here reads):
+
+| Entry | Values |
+|---|---|
+| `CLL` | max, **average**, primaries (MaxCLL / MaxFALL) |
+| `MDCV` | max, min, primaries |
+| `CCV` | max, average, min, primaries — **four** values |
+| `DCV` | max, min, primaries (HDR Display registration) |
+
+An earlier version of this README called all of them "maxLum minLum n". That was wrong for
+`CLL`, whose second field is an average, and would have been wrong for `CCV`; iccDEV corrected
+their own shorthand against the registry pages. The audit checks each key against these
+registry shapes, not only for consistency — a corpus can be uniformly wrong.
+
+**A maximum of `0.0` means "unknown"**, per the `CLL`, `MDCV` and `CCV` registry entries and the
+`DCV` registration. It supplies no peak, so resolution falls through to the next rule; the
+checker reports such a row UNCHECKED rather than computing `0 / white`. iccDEV previously
+treated `0.0` as a real peak (giving a content headroom of 0, which also disabled the
+target-volume clamp); fixed in `9141d99f`.
 
 Its own limit, stated so it is not overread: it verifies the manifest's **numbers** given the
 rule its `source` column names; it does not independently decide **which** rule applies. So it
@@ -188,48 +214,45 @@ Two things came out of that:
 - **`check-hdr-headroom.mjs` reports coverage**, not just agreement — it names whether the
   precedence was exercised at all, so an untested axis can never again read as a tested one.
 
-## The two headroom axes divide by different reference whites
+## The two headroom axes divided by different reference whites — FIXED upstream
 
-Found while verifying the fixture above, and pinned by `ProfiletoolHdrCrossAxisWhite`.
+Found while verifying the precedence fixture; pinned by `ProfiletoolHdrCrossAxisWhite`; fixed in
+iccDEV `hdr-profiles` **`9141d99f`**. That fixture is now a regression guard.
 
-When a profile carries both carriers of the content HDR reference white, the two headroom
-axes divide by **different values of a quantity both clauses call CRWL**:
+When a profile carried both carriers of the content HDR reference white, the two headroom axes
+divided by **different values of the same quantity**: 8.10.4's content headroom used the
+HAGC-first white (300 here), while 8.10.5 c)'s display headroom used the `CRWL` entry alone (203),
+because `CIccHdrMetadataReader::ResolveDisplayHeadroom()` had only a form that called
+`GetResolvedContentReferenceWhite()` = `m_bHasCrwl ? m_crwl : 203`, and the metadata reader cannot
+see the HAGC tag at all.
 
-| Axis | Divisor | Resolved by |
-|---|---|---|
-| 8.10.4 content headroom | HAGC-first (300 here) | `icGetHdrProfileInfo()`, which sees both carriers |
-| 8.10.5 c) display headroom | the `CRWL` entry (203 here) | `CIccHdrMetadataReader::GetResolvedContentReferenceWhite()` = `m_bHasCrwl ? m_crwl : 203` |
+**PAWG's own report contradicted itself** on the fixture: H7 said "content HDR reference white =
+300 cd/m²", and H8 said "... / content HDR reference white = 600 cd/m² / **203** cd/m² = 2.956".
 
-**PAWG's own report contradicts itself on this fixture**, which is the clearest statement of
-the problem:
+The API shape was the clearest sign it was an oversight: `ResolveContentHeadroom()` already had a
+two-argument form taking the white as a parameter; `ResolveDisplayHeadroom()` did not. The fix
+mirrored it. Since `9141d99f` both axes divide by one resolved white, and H8 prints the divisor it
+actually used: `600 cd/m² / 300 cd/m² = 2`.
 
-- **H7** — "content HDR reference white = 300 cd/m², stated by the profile"
-- **H8** — "Display Colour Volume maximum luminance / **content HDR reference white** =
-  600 cd/m² / **203** cd/m² = 2.956"
+**Correction to what we wrote here before.** This README previously called the divergence a
+question for the maintainer "and possibly the WG", on the reasoning that 8.10.5 c) names the CRWL
+*entry*. iccDEV withdrew that framing, and they were right to: the only genuine gap is which of
+the two carriers governs when both are present, and the HDR-10 ruling (HAGC first) already
+answers it. The divergence was that ruling reaching one axis and not the other — iccDEV's to fix,
+not the WG's. iccDEV reports that re-checking their whole defect register against the documents
+the amendment delegates to (the metadata registry, ICC.1, SMPTE ST 2094-50) found four items that
+were the same mistake: calling something undefined because the amendment was silent when a
+delegated document states it.
 
-H8 names its divisor *content HDR reference white* and uses 203, while H7 in the same report
-says that quantity is 300.
+**How it is checked now.** `check-hdr-corpus.mjs` reads H7's resolved white and H8's rule-c divisor
+out of the **real PAWG report** and fails if they differ — and names which rows reached rule c) at
+all, so "no divergence" can never mean "not exercised". It was red-tested against the pre-fix
+build (it flags `300` vs `203`) before being run green against the fix.
 
-**Why it happens** — and this is what suggests it was not intended: the display path lives
-inside `CIccHdrMetadataReader`, which reads only the `metadataTag` and structurally cannot see
-the HAGC tag; the content path is resolved one level up where both carriers are visible. The
-asymmetry follows from where each resolver sits.
-
-The **API shape** is a sharper fingerprint of oversight than the layering:
-`ResolveContentHeadroom()` has *two* forms — one taking the reference white as a parameter, and
-a convenience overload passing `GetResolvedContentReferenceWhite()`. `ResolveDisplayHeadroom()`
-has only the parameterless form. The two-argument shape was already reached for once, for the
-content path, and simply not mirrored. That also makes the cheap fix the right one: pass the
-resolved white into `ResolveDisplayHeadroom()` rather than teach the reader about a tag it
-cannot see. *Which* value gets passed is still the WG question and the fix should not prejudge
-it.
-
-**Neither side is obviously wrong**, which is why this is a fixture and not a bug report.
-8.10.5 c) says "CRWL is taken from the HDR Image metadata of 8.10.4", naming the *entry*; the
-content side follows the HDR-10 ruling on the resolved *quantity*. Whether those mean the same
-thing is for the maintainer and possibly the WG. `check-hdr-headroom.mjs` **reports** the
-divergence rather than failing on it — flagging an inconsistency instead of quietly agreeing
-with it, which is what a value-only check would do.
+An earlier `check-hdr-headroom.mjs` reported this divergence from **XML shape alone** — it saw
+both carriers and asserted what IccProfLib would do, without being able to observe it. After the
+fix it would have kept reporting a bug that no longer existed. That check was removed: a file that
+links no ICC code can only establish what the XML says, not what the library does.
 
 ## `Profiletool*` — ours, not upstream's
 
