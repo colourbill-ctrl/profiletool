@@ -1,6 +1,6 @@
 # HDR test corpus
 
-**42 fixtures mirrored from iccDEV `Testing/HDR/` @ `86c691a9` (branch `hdr-profiles`),
+**42 fixtures mirrored from iccDEV `Testing/HDR/` @ `5dd3ab4b` (branch `hdr-profiles`),
 plus 1 of our own.** Refreshed 2026-09-10.
 
 ## How this directory relates to upstream
@@ -95,7 +95,7 @@ registry shapes, not only for consistency — a corpus can be uniformly wrong.
 `DCV` registration. It supplies no peak, so resolution falls through to the next rule; the
 checker reports such a row UNCHECKED rather than computing `0 / white`. iccDEV previously
 treated `0.0` as a real peak (giving a content headroom of 0, which also disabled the
-target-volume clamp); fixed in `9141d99f`.
+target-volume clamp); fixed in `88672a2e`.
 
 Its own limit, stated so it is not overread: it verifies the manifest's **numbers** given the
 rule its `source` column names; it does not independently decide **which** rule applies. So it
@@ -217,7 +217,7 @@ Two things came out of that:
 ## The two headroom axes divided by different reference whites — FIXED upstream
 
 Found while verifying the precedence fixture; pinned by `ProfiletoolHdrCrossAxisWhite`; fixed in
-iccDEV `hdr-profiles` **`9141d99f`**. That fixture is now a regression guard.
+iccDEV `hdr-profiles` **`88672a2e`**. That fixture is now a regression guard.
 
 When a profile carried both carriers of the content HDR reference white, the two headroom axes
 divided by **different values of the same quantity**: 8.10.4's content headroom used the
@@ -231,7 +231,7 @@ see the HAGC tag at all.
 
 The API shape was the clearest sign it was an oversight: `ResolveContentHeadroom()` already had a
 two-argument form taking the white as a parameter; `ResolveDisplayHeadroom()` did not. The fix
-mirrored it. Since `9141d99f` both axes divide by one resolved white, and H8 prints the divisor it
+mirrored it. Since `88672a2e` both axes divide by one resolved white, and H8 prints the divisor it
 actually used: `600 cd/m² / 300 cd/m² = 2`.
 
 **Correction to what we wrote here before.** This README previously called the divergence a
@@ -278,7 +278,7 @@ upstream should be.
   `ProfiletoolHdrDisplay`) when an all-OK case is wanted.
 - **Assert against the manifest, not against remembered verdicts.** Item verdicts legitimately
   change when the amendment revision moves — H6 gained a Display-class guard in iccDEV
-  `9451bf36`, which flipped `HdrInputDisplayMeta` from FAIL to OK. The classification axis is
+  `7ea04aa3`, which flipped `HdrInputDisplayMeta` from FAIL to OK. The classification axis is
   the stable one.
 
 ## Checksums

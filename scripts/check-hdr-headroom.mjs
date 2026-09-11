@@ -87,7 +87,7 @@ const EXPECTED_ARITY = { CLL: 3, MDCV: 3, CCV: 4, DCV: 3 }
 // So an unknown maximum supplies no peak at all, and resolution falls through to
 // the next rule (8.10.4 a -> b -> the 1000 default; 8.10.5 b/c -> d). Treating it
 // as a real 0 would compute 0/white = 0, which is below every target and — in
-// IccProfLib before 9141d99f — also switched the target-volume clamp off. If the
+// IccProfLib before 88672a2e — also switched the target-volume clamp off. If the
 // manifest ever names a rule whose entry is unknown, that is a manifest/spec
 // inconsistency and this reports it UNCHECKED rather than inventing a number.
 function peakOf(key, v) {
@@ -113,7 +113,7 @@ function peakOf(key, v) {
 // we follow it — but it is a ruling on an ambiguity, so if HDR-10 resolves the
 // other way this function changes.
 //
-// As of iccDEV 9141d99f the same resolved white divides BOTH axes: 8.10.5 c)'s
+// As of iccDEV 88672a2e the same resolved white divides BOTH axes: 8.10.5 c)'s
 // display headroom previously used the metadataTag CRWL entry alone (the metadata
 // reader cannot see the HAGC tag), so one profile could report two different
 // values for one quantity. That was iccDEV's to fix rather than a WG question —
@@ -240,7 +240,7 @@ for (const p of problems) console.log('  ' + p)
 // statement about IccProfLib's BEHAVIOUR made by a file that links no ICC code and
 // so cannot observe it: it detected the precondition from XML shape and then
 // asserted what the implementation did. When iccDEV fixed the divergence
-// (9141d99f), it would have gone on reporting it — a status claim with no evidence
+// (88672a2e), it would have gone on reporting it — a status claim with no evidence
 // behind it, pointing at a bug that no longer existed.
 //
 // An invariant about what the implementation DOES belongs where the implementation

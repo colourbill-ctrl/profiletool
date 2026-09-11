@@ -2,17 +2,17 @@
 
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
-**Date:** 2026-09-10. **Built against:** `hdr-profiles` @ **`9141d99f`** (was `86c691a9`).
-Library reports `2.3.2.3`.
+**Date:** 2026-09-10. **Built against:** `hdr-profiles` @ **`505b9c6d`**, the published head
+on `origin`. Library reports `2.3.2.3`.
 
 > **Phase 1 items 1-5 COMPLETE, and iccDEV's C5 fix is integrated.** The handback below was
-> actioned upstream; we rebuilt on `86c691a9`, refreshed `test-corpus/hdr` from upstream's
+> actioned upstream; we rebuilt on `5dd3ab4b`, refreshed `test-corpus/hdr` from upstream's
 > rewritten corpus, and added `scripts/check-hdr-corpus.mjs`. `build-wasm.sh --verify`
 > reproduces `SHA256SUMS`.
 >
 > **Build from a PINNED worktree, not from `~/code/iccdev-hdr` directly.** The head moved
-> twice during the first build (`4a761829` -> `101fbffc`) and **five more times** before this
-> one (`659bbae7`, `36991ca7`, `c49b3b93`, `9451bf36`, `86c691a9`), three of which change PAWG
+> twice during the first build (`17dfb263` -> `8375a5f8`) and **five more times** before this
+> one (`d678508f`, `bd8bdeeb`, `5f3a60b6`, `7ea04aa3`, `5dd3ab4b`), three of which change PAWG
 > output. Pin an explicit SHA:
 > `git -C ~/code/iccdev worktree add --detach <path> <sha>` plus a `third_party` symlink.
 
@@ -108,7 +108,7 @@ Companion docs: `hdr-profiles-handback.md` (inbound state from the iccDEV sessio
 
 ## Phase 1 items 1-5 — DONE 2026-09-10
 
-1. **WASM rebuilt clean against `101fbffc`** — all 7 modules, artifacts copied,
+1. **WASM rebuilt clean against `8375a5f8`** — all 7 modules, artifacts copied,
    `SHA256SUMS` refreshed, `--verify` green. **Required one build fix:** upstream #2454 moved
    the JSON escaping into `Tools/CmdLine/IccCmdLineUtil.h`, and `PawgReport.cpp` now includes
    it, so `iccpawg` failed with `'IccCmdLineUtil.h' file not found`. Fixed by adding
@@ -158,11 +158,80 @@ Companion docs: `hdr-profiles-handback.md` (inbound state from the iccDEV sessio
 rebuilding upstream's *current* `Testing/HDR/*.xml` through our iccxml and re-running both
 the validator and PAWG on the result.
 
-### Integrated at `9141d99f` (iccDEV's corrections round)
+### iccDEV rewrote `hdr-profiles` before publishing it — SHAs changed, trees did not
+
+Before the first push, iccDEV scanned everything the branch would publish for SMPTE ST 2094-50
+text, which the SMPTE licence does not permit reproducing. Quotations in code comments were
+paraphrased in a new head commit; quotations in commit *messages* could only be removed by
+rewriting history, which they did while the branch was still unpublished. **Every tree is
+identical** — verified here by comparing the tree of every one of the 46 commits pairwise
+against the pre-rewrite backup — but message-bearing commits got new SHAs, and the old ones are
+**not on `origin`**. So this doc now cites the published SHAs. **Our own commit messages keep
+the old ones** (rewriting this branch's history is the owner's call); resolve them here:
+
+| Cited in our commit messages | Published on `origin/hdr-profiles` |
+|---|---|
+| `4a761829` | `17dfb263` |
+| `101fbffc` | `8375a5f8` |
+| `659bbae7` | `d678508f` |
+| `36991ca7` | `bd8bdeeb` |
+| `c49b3b93` | `5f3a60b6` |
+| `9451bf36` | `7ea04aa3` |
+| `86c691a9` | `5dd3ab4b` |
+| `9141d99f` | `88672a2e` |
+
+`4a761829` was not in iccDEV's list; it is derived here by pairing commits by position, and the
+pair is tree-verified like the rest.
+
+**We rebuilt at the new head rather than re-pinning without one.** iccDEV said no rebuild was
+needed, which is true of every rewritten commit — same tree — but not of the new head
+`505b9c6d`, which also rewords one sentence in `CIccTagHagc::Describe()` — the one describing a
+HAGC tag with zero alternates — because its old wording matched SMPTE's. (Described here, not
+quoted: a first draft of this paragraph quoted the old sentence verbatim, which reintroduced the
+very text the rebuild was removing; the SMPTE scan below caught it.) That string is compiled
+into six of our WASM modules, so re-pinning to `505b9c6d` without a
+rebuild would have recorded a provenance our binaries did not match.
+
+**Our own branch was scanned against the SMPTE source text before anything here is published.**
+A first pass searched for the passages iccDEV had removed, and was clean — but iccDEV pointed
+out it could only ever find copies of *their* text, never SMPTE wording our docs picked up some
+other way. The scan that counts compares against the **source**: every n-gram of what this
+branch would publish, checked against `ST2094_50_PUB.txt` and the draft `ST2094_50.txt`, with
+ICC.1, the HAGC and HDR amendments, the ADGC spec, H.273, BT.2100 and the dictType registry
+**subtracted** (quoting ICC/ITU text is permitted, and SMPTE quotes some of it). Adapted from
+iccDEV's `ngram.py`/`msgscan.py`, which as written exclude `docs/` — right for them, wrong for
+us, since our docs are where wording would have been picked up.
+
+Scope: every line `main...HEAD` adds (133 files, docs included), all 10 commit messages in
+**full** rather than only their quoted spans, and the strings of every committed WASM module.
+
+Validated before trusted: a known SMPTE-only sentence, a technical one, and an 8-word fragment
+embedded mid-line and split across a line break were each found; a BT.2100 sentence that SMPTE
+also contains was correctly *not* flagged. **Limit:** it finds verbatim runs, not paraphrase —
+a scrambled rewording was not flagged, and could not be by this method.
+
+**Result.** At 7 words, five hits: three false positives (the *title* and URL of ISO 21496-1,
+which SMPTE cites; and a segment-parameter formula in upstream's `HagcInvalidXOrder` fixture,
+attributed to the ICC proposal), and **two genuine hits, both mine**: while documenting the
+removal of the SMPTE-matching `Describe()` sentence, I quoted that sentence verbatim — in this
+doc and in the message of commit `968c8f6`, the commit that claimed to remove it. The earlier
+grep had come back clean only because it ran *before* that paragraph was written; nothing
+re-scanned before the commit. The doc is fixed. **The commit message is not** — see below. A
+5-gram pass over the fixed docs finds nothing beyond common English, clause citations, URLs,
+field names and formula notation.
+
+**Open: commit `968c8f6`'s message still contains the phrase.** The branch is unpublished, so it
+can be removed by amending that commit — it is still `HEAD` — before anything is pushed. That is
+a rewrite of this branch's history and so the owner's call. If a wider rewrite is ever
+authorised instead (for instance to swap the old iccDEV SHAs in our messages for the published
+ones), note iccDEV's warning: `git filter-branch` **strips SSH signatures** unless given a
+signing `--commit-filter` — theirs stripped all 46 on the first attempt.
+
+### Integrated at `88672a2e` (iccDEV's corrections round)
 
 - **Cross-axis divisor fixed** — above. Verified here by observation, not inference: the new
   cross-axis check in `check-hdr-corpus.mjs` reads H7's white and H8's rule-c divisor from the
-  real report. Red against the `86c691a9` build (`300` vs `203`), green against `9141d99f`.
+  real report. Red against the `5dd3ab4b` build (`300` vs `203`), green against `88672a2e`.
 - **`0.0` maximum = "unknown"** (registry: `CLL`, `MDCV`, `CCV`; the `DCV` registration). An
   unknown maximum no longer supplies a peak — resolution falls through (8.10.4 a → b → 1000
   default; 8.10.5 b/c → d). Previously `CLL "0.0 0.0 9"` gave a content headroom of 0 and also
@@ -178,7 +247,7 @@ the validator and PAWG on the result.
   manifest row (their tests edit existing fixtures in memory), so our verbatim manifest copy is
   unaffected.
 
-### → HANDED BACK, and RESOLVED upstream (integrated at `86c691a9`)
+### → HANDED BACK, and RESOLVED upstream (integrated at `5dd3ab4b`)
 
 - **PAWG C5 false-positive on every conforming HDR Profile — FIXED.** iccDEV's fix put
   `icSigBToA0Tag` in **`kMatrixTrcAlternative`**, beside the `icSigAToB0Tag` it pairs with —
@@ -217,19 +286,19 @@ the validator and PAWG on the result.
   `icJsonEscape` move, not from HDR work. iccDEV would raise it as an iccDEV-core item rather
   than patch it on the ballot-gated branch; our CMakeLists fix stands and costs nothing.
 
-### Upstream changes since `101fbffc` that affect us
+### Upstream changes since `8375a5f8` that affect us
 
-- **`9451bf36` — H6 gained a Display-class guard.** It previously FAILed every Input-class HDR
+- **`7ea04aa3` — H6 gained a Display-class guard.** It previously FAILed every Input-class HDR
   Profile carrying an `AToB0Tag` without a `BToA0Tag`, including `HdrInputDisplayMeta`, which
   the manifest classes `conforming`. 8.10.6 scopes that rule to Display profiles. Verified:
   H6 on `HdrInputDisplayMeta` is now `OK`.
-- **`c49b3b93` — amendment revision 2026-09-06 supersedes 29-08-2026.** Every rule we implement
+- **`5f3a60b6` — amendment revision 2026-09-06 supersedes 29-08-2026.** Every rule we implement
   is unchanged, but a new 8.10.2 NOTE 7 shifts every later NOTE by one. **H8's detail text now
   says "(NOTE 13)" where it said "(NOTE 12)"** — verified. Do not assert on that string.
-- **`36991ca7` / `659bbae7` — two rendering edge cases.** A profile whose forward matrix cannot
+- **`bd8bdeeb` / `d678508f` — two rendering edge cases.** A profile whose forward matrix cannot
   be built now returns status 3 instead of rendering pure black; a gain curve whose control
   points all sit at X=0 now clips instead of collapsing to black.
-- **`86c691a9` also** makes absent-fixture HDR regression tests report Skipped (exit 77) rather
+- **`5dd3ab4b` also** makes absent-fixture HDR regression tests report Skipped (exit 77) rather
   than PASS, and ships `iccHdrFallback` in iccDEV's own WASM npm package. That package is not
   what we build — we build `validator-wasm/` from source — so it does not affect us.
 
@@ -302,10 +371,10 @@ Actions taken here:
   the same column shape, kept separate so upstream's manifest stays verbatim.
 
 **Second defect: the two headroom axes divided by DIFFERENT reference whites — FIXED in
-iccDEV `9141d99f`, integrated here.** 8.10.4's content headroom divided by the HAGC-first
+iccDEV `88672a2e`, integrated here.** 8.10.4's content headroom divided by the HAGC-first
 white (300) while 8.10.5 c)'s display headroom used the `CRWL` entry alone (203), because the
 metadata reader cannot see the HAGC tag. PAWG contradicted itself on
-`ProfiletoolHdrCrossAxisWhite` (H7: white 300; H8: `600 / 203 = 2.956`). Since `9141d99f` both
+`ProfiletoolHdrCrossAxisWhite` (H7: white 300; H8: `600 / 203 = 2.956`). Since `88672a2e` both
 axes divide by one resolved white and H8 prints the divisor it used: `600 / 300 = 2`.
 **Framing withdrawn:** we (following iccDEV's first read) had called this a question for the
 maintainer "and possibly the WG". iccDEV withdrew that and was right to — the only real gap is

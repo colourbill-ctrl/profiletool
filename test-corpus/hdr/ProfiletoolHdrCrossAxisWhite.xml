@@ -3,7 +3,7 @@
   profiletool fixture: BOTH headroom axes must divide by ONE reference white.
 
   STATUS: REGRESSION FIXTURE. It was written to pin a divergence, and iccDEV fixed
-  that divergence in hdr-profiles 9141d99f. It now guards the fix.
+  that divergence in hdr-profiles 88672a2e. It now guards the fix.
 
   THE ONE THING THIS PINS. When a profile carries both carriers of the content HDR
   reference white — the HAGC tag's HDRReferenceWhite and the metadataTag CRWL entry
@@ -14,7 +14,7 @@
       content headroom = CLL 600 / 300 = 2
       display headroom = DCV 600 / 300 = 2
 
-  WHAT IT CAUGHT. Before 9141d99f, 8.10.5 c) called
+  WHAT IT CAUGHT. Before 88672a2e, 8.10.5 c) called
   CIccHdrMetadataReader::ResolveDisplayHeadroom(), whose only form used
   GetResolvedContentReferenceWhite() = `m_bHasCrwl ? m_crwl : 203` — so it divided
   by 203 and reported 2.9557, while the content axis divided by 300. PAWG's own

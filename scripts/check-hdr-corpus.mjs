@@ -103,7 +103,7 @@ for (const row of rows) {
   // CROSS-AXIS INVARIANT, observed rather than inferred. H7 states the content HDR
   // reference white the profile resolves to; when H8 took rule 8.10.5 c) it states
   // the divisor it actually used. Both are the same quantity, so they must match.
-  // Before iccDEV 9141d99f they did not on a profile carrying both carriers — H7
+  // Before iccDEV 88672a2e they did not on a profile carrying both carriers — H7
   // said 300 while H8 divided by 203 and called it the same thing — and this is
   // the check that reads that straight out of the report instead of predicting it.
   //
