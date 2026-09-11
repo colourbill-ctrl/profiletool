@@ -8,8 +8,9 @@
   THE ONE THING THIS PINS. When a profile carries both carriers of the content HDR
   reference white — the HAGC tag's HDRReferenceWhite and the metadataTag CRWL entry
   — clause 8.10.4's content headroom and clause 8.10.5 c)'s display headroom must
-  divide by the SAME resolved white. Under iccDEV's HDR-10 ruling that is HAGC first,
-  so 300 here, on both axes:
+  divide by the SAME resolved white. 8.10.4 resolves it HAGC-first - its default is
+  conditioned on there being no HAGC tag AND no CRWL entry, and 8.10.4 a) divides by
+  "the value derived above" - so 300 here, on both axes:
 
       content headroom = CLL 600 / 300 = 2
       display headroom = DCV 600 / 300 = 2
@@ -27,8 +28,15 @@
   a two-argument form taking the white as a parameter, ResolveDisplayHeadroom() did
   not, and the metadata reader cannot see the HAGC tag. The fix mirrored the
   parameter. This was iccDEV's to fix, not a WG question — which carrier governs is
-  the only real gap, and the HDR-10 ruling already answers it; the divergence was
-  that ruling reaching one axis and not the other.
+  the only real gap, and 8.10.4 answers it for the content axis; the divergence was
+  that resolution reaching one axis and not the other.
+
+  WHAT THIS FIXTURE PINS IS A CHOICE, NOT A DEFECT. 8.10.5 c) literally names the
+  ENTRY - CRWL "taken from the HDR Image metadata of 8.10.4", defaulting "when no
+  CRWL entry is present", a condition that never mentions the HAGC tag. Dividing the
+  display axis by the HAGC-first value decides that one named quantity has one
+  value, against that clause's literal words. If 8.10.5 c) is ever aligned the other
+  way, this fixture is what changes.
 
   CONSTRUCTION. No DERH and no DRWL, so 8.10.5 falls through a) and b) to c), the only
   display rule that consults the content reference white. CLL and DCV carry the same
@@ -112,7 +120,7 @@
 
     <!-- Same simple gain curve as ProfiletoolHdrDisplay — one alternate, fixed
          mixing type 2, PCHIP-derived slopes. HDRReferenceWhite is 300.0 here so
-         it DISAGREES with the CRWL entry below; under the HAGC-first ruling this
+         it DISAGREES with the CRWL entry below; under 8.10.4's resolution this
          value is the one 8.10.4 divides by. -->
     <headroomAdaptiveGainCurveTag> <headroomAdaptiveGainCurveType>
       <HagcMetadata ApplicationVersion="1" MinApplicationVersion="1"

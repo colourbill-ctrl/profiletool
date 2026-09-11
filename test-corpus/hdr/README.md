@@ -195,8 +195,17 @@ Worth reading before trusting any green run here.
 Clause 8.10.4 states **no precedence** between the two carriers of the content HDR reference
 white — the HAGC tag's `HDRReferenceWhite` and the `metadataTag` `CRWL` entry — and states its
 203 cd/m² default twice with conditions that disagree exactly where a HAGC tag is present.
-That is iccDEV register item **HDR-10**. `icGetHdrProfileInfo()`'s ruling is **HAGC first,
-then CRWL, then 203**, because the gain curve in that tag was authored against that white.
+The resolution is **HAGC first, then CRWL, then 203**, and for the content axis that is what the
+clause says rather than a house rule: 8.10.4's default paragraph fires only when there is **no
+HAGC tag and no CRWL entry** — coherent only if the HAGC tag supplies the white when present —
+and 8.10.4 a) then divides `CLL.max` by "the value derived above", i.e. by that derivation.
+8.10.3 ranks the HAGC tag highest and has it applied as its own Annex 1 defines, which agrees,
+but it is explicitly *informative* and ranks descriptors rather than metadata values, so it
+supports the reading without carrying it.
+
+This README previously called the ordering iccDEV's **ruling**. That was accurate when written:
+iccDEV has since re-examined 8.10.3/8.10.4 and reclassified it, narrowing the open register item
+to 8.10.5 c)'s wording alone.
 
 `check-hdr-headroom.mjs` first shipped with that order **inverted** and scored a clean 84/84,
 because **no fixture in upstream's 42 can tell the two apart**: only `HagcDisplay` and
@@ -207,7 +216,7 @@ implementations disagreed on precedence yet agreed on every value.
 Two things came out of that:
 
 - **`ProfiletoolHdrRefWhiteConflict`** now makes the orders disagree (HAGC 300 vs CRWL 203,
-  CLL 600, Linear transfer so the division actually happens: 600/300 = 2 under the ruling,
+  CLL 600, Linear transfer so the division actually happens: 600/300 = 2 under the clause,
   600/203 = 2.9557 under the inverted rule). Re-introducing the original bug now fails on
   exactly that row. It is also the only fixture in either corpus that reaches PAWG **H7's
   DISAGREE branch**, and it gives HDR-10 its first executable case.
@@ -237,9 +246,16 @@ actually used: `600 cd/m² / 300 cd/m² = 2`.
 **Correction to what we wrote here before.** This README previously called the divergence a
 question for the maintainer "and possibly the WG", on the reasoning that 8.10.5 c) names the CRWL
 *entry*. iccDEV withdrew that framing, and they were right to: the only genuine gap is which of
-the two carriers governs when both are present, and the HDR-10 ruling (HAGC first) already
-answers it. The divergence was that ruling reaching one axis and not the other — iccDEV's to fix,
-not the WG's. iccDEV reports that re-checking their whole defect register against the documents
+the two carriers governs when both are present, and 8.10.4 answers that for the content axis.
+The divergence was that resolution reaching one axis and not the other — iccDEV's to fix, not
+the WG's.
+
+**What the fix does and does not settle.** 8.10.5 c) still literally names the *entry*: CRWL
+"taken from the HDR Image metadata of 8.10.4", defaulting "when no CRWL entry is present" — a
+condition that never mentions the HAGC tag. So dividing the display axis by the HAGC-first value
+is a decision that one named quantity has one value, taken **against that clause's literal
+words**, not a correction of an unambiguous error. `ProfiletoolHdrCrossAxisWhite` therefore pins
+a *choice*; if 8.10.5 c)'s wording is ever aligned the other way, that fixture is what changes. iccDEV reports that re-checking their whole defect register against the documents
 the amendment delegates to (the metadata registry, ICC.1, SMPTE ST 2094-50) found four items that
 were the same mistake: calling something undefined because the amendment was silent when a
 delegated document states it.

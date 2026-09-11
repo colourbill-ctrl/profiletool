@@ -102,24 +102,29 @@ function peakOf(key, v) {
 // Content reference white: the HAGC tag's HDRReferenceWhite if the tag carries
 // one, else the metadataTag CRWL entry, else the 203 default.
 //
-// THIS ORDERING IS NOT DERIVED — IT IS iccDEV'S DOCUMENTED RULING, and it is the
-// one place this file is downstream of their reading rather than of the clause.
-// Clause 8.10.4 states NO precedence between the two carriers, and states its 203
-// default twice with conditions that disagree exactly where an HAGC tag is
-// present; that is open register item HDR-10. iccDEV's ruling (IccHdrProfile.cpp,
-// the HDR-10 marker) is HAGC first, on the grounds that the gain curve in that
-// same tag was authored against that white, so dividing by the other one would
-// evaluate the curve at a white it was not built for. That reasoning is sound and
-// we follow it — but it is a ruling on an ambiguity, so if HDR-10 resolves the
-// other way this function changes.
+// THIS ORDERING IS DERIVED FROM THE CLAUSE for the axis this function feeds.
+// 8.10.4's default paragraph fires only when there is NO HAGC tag *and* no CRWL
+// entry — a condition that is only coherent if the HAGC tag supplies the white
+// when it is present — and 8.10.4 a) then divides CLL.max by "the value derived
+// above", i.e. by that same HAGC-aware derivation. That is normative text, so
+// HAGC-first is what the clause says for content headroom, not a house rule.
+// (8.10.3 ranks the HAGC tag highest among tone-mapping descriptors and has it
+// applied as its own Annex 1 defines, which agrees — but 8.10.3 is explicitly
+// INFORMATIVE and ranks descriptors rather than metadata values, so it supports
+// the reading without carrying it. 8.10.4 a) is the load-bearing half.)
 //
-// As of iccDEV 88672a2e the same resolved white divides BOTH axes: 8.10.5 c)'s
-// display headroom previously used the metadataTag CRWL entry alone (the metadata
-// reader cannot see the HAGC tag), so one profile could report two different
-// values for one quantity. That was iccDEV's to fix rather than a WG question —
-// the only real gap is which of the two carriers governs, which the ruling above
-// already answers — and ResolveDisplayHeadroom() now takes the white as a
-// parameter, mirroring ResolveContentHeadroom().
+// An earlier version of this comment called the ordering iccDEV's ruling rather
+// than a derivation. That was accurate when written and is not now: iccDEV
+// re-examined 8.10.3/8.10.4 and reclassified it. Recorded because the distinction
+// decides what happens if the register item moves — a ruling could be reversed,
+// a clause reading changes only if the clause does.
+//
+// WHERE IT REMAINS A RULING: 8.10.5 c), which this file's `dcv-crwl` rule feeds.
+// That clause literally names the ENTRY — CRWL "taken from the HDR Image metadata
+// of 8.10.4", defaulting "when no CRWL entry is present", a condition that never
+// mentions the HAGC tag. Dividing the display axis by the HAGC-first value is
+// therefore a decision that one named quantity has one value, taken against
+// 8.10.5 c)'s literal words. Our cross-axis check pins that CHOICE, not a defect.
 //
 // This file first shipped with the order INVERTED (CRWL first) and still scored
 // 84/84, because no fixture in the upstream corpus carries both a HAGC reference

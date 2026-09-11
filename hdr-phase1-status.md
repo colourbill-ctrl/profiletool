@@ -362,11 +362,16 @@ while `icGetHdrProfileInfo()` resolves it HAGC-then-CRWL — opposite orders, bo
 The reason is that **upstream's 42 fixtures cannot distinguish them**: only `HagcDisplay` and
 `HdrLinearHagcWhite` carry a HAGC reference white, neither carries a `CRWL` entry, and our own
 `ProfiletoolHdrDisplay` carries both but sets them equal. Clause 8.10.4 states no precedence at
-all (register item HDR-10); HAGC-first is iccDEV's documented *ruling*, not a derivation.
+all. HAGC-first is **what 8.10.4 says** for the content axis: its default paragraph is
+conditioned on there being no HAGC tag *and* no CRWL entry, and 8.10.4 a) divides by "the value
+derived above". (8.10.3 agrees but is informative and ranks descriptors, so it supports rather
+than carries the reading.) We first recorded this as iccDEV's *ruling*, which was accurate then;
+they have since re-examined the clause and reclassified it, narrowing the open register item to
+8.10.5 c)'s wording alone.
 Actions taken here:
 - **Precedence corrected** to HAGC-first, with the file now stating plainly that this one rule
-  is iccDEV's ruling rather than something we derived — the single place the "no ICC code
-  linked" checker is still downstream of their reading.
+  follows 8.10.4 for the content axis, and remains a *ruling* only where it feeds 8.10.5 c),
+  which literally names the CRWL entry and whose default condition never mentions the HAGC tag.
 - **`ProfiletoolHdrRefWhiteConflict`** added: HAGC white 300 vs CRWL 203, CLL 600, **Linear**
   transfer so 8.10.4's division actually happens (it is gated on Linear). HAGC-first gives 2,
   CRWL-first gives 2.9557. Re-introducing the original bug now fails on exactly that row.
@@ -386,8 +391,11 @@ metadata reader cannot see the HAGC tag. PAWG contradicted itself on
 axes divide by one resolved white and H8 prints the divisor it used: `600 / 300 = 2`.
 **Framing withdrawn:** we (following iccDEV's first read) had called this a question for the
 maintainer "and possibly the WG". iccDEV withdrew that and was right to — the only real gap is
-which carrier governs, and the HDR-10 ruling already answers it; the divergence was that ruling
-reaching one axis and not the other. iccDEV's re-check of their defect register against the
+which carrier governs, and 8.10.4 answers that for the content axis; the divergence was that
+resolution reaching one axis and not the other. Note what the fix does *not* settle: 8.10.5 c)
+still names the CRWL entry literally, so dividing the display axis by the HAGC-first value is a
+decision that one named quantity has one value, taken against that clause's wording rather than
+correcting an unambiguous error. Our cross-axis check pins that choice. iccDEV's re-check of their defect register against the
 documents the amendment delegates to (metadata registry, ICC.1, ST 2094-50) found four items
 that were the same mistake: "undefined because the amendment is silent" when a delegated
 document defines it.

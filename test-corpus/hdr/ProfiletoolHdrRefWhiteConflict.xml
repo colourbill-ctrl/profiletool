@@ -5,10 +5,13 @@
   THE ONE THING THIS PINS. Clause 8.10.4 states no precedence between the two
   carriers of the content HDR reference white, and states its 203 cd/m^2 default
   twice with conditions that disagree exactly where an HAGC tag is present. That
-  is iccDEV register item HDR-10. icGetHdrProfileInfo()'s ruling is HAGC first,
-  then CRWL, then 203 — on the grounds that the gain curve in that same tag was
-  authored against that white, so dividing by the other would evaluate the curve
-  at a white it was not built for.
+  is answered by 8.10.4 itself for the content axis: its default paragraph is
+  conditioned on there being no HAGC tag AND no CRWL entry - coherent only if the
+  HAGC tag supplies the white when present - and 8.10.4 a) then divides CLL.max by
+  "the value derived above". 8.10.3 ranks the HAGC tag highest and has it applied
+  as its own Annex 1 defines, which agrees, but is informative and ranks
+  descriptors rather than values. (Recorded here first as iccDEV's ruling, which
+  was accurate then; they have since re-examined the clause and reclassified it.)
 
   Nothing in iccDEV's 42-fixture corpus can distinguish those two orders. Only
   HagcDisplay and HdrLinearHagcWhite carry a HAGC reference white, and neither
@@ -22,7 +25,7 @@
       HAGC HDRReferenceWhite = 300      CLL peak = 600
       metadataTag CRWL       = 203
 
-      HAGC first (the ruling)  ->  600 / 300 = 2.0
+      HAGC first (the clause)  ->  600 / 300 = 2.0
       CRWL first (the bug)     ->  600 / 203 = 2.9557
 
   Transfer is LINEAR (cicp 8) and not PQ, deliberately: 8.10.4's content-headroom
@@ -110,7 +113,7 @@
 
     <!-- Same simple gain curve as ProfiletoolHdrDisplay — one alternate, fixed
          mixing type 2, PCHIP-derived slopes. HDRReferenceWhite is 300.0 here so
-         it DISAGREES with the CRWL entry below; under the HAGC-first ruling this
+         it DISAGREES with the CRWL entry below; under 8.10.4's resolution this
          value is the one 8.10.4 divides by. -->
     <headroomAdaptiveGainCurveTag> <headroomAdaptiveGainCurveType>
       <HagcMetadata ApplicationVersion="1" MinApplicationVersion="1"
