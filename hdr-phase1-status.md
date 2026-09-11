@@ -203,7 +203,15 @@ iccDEV's `ngram.py`/`msgscan.py`, which as written exclude `docs/` — right for
 us, since our docs are where wording would have been picked up.
 
 Scope: every line `main...HEAD` adds (133 files, docs included), all 10 commit messages in
-**full** rather than only their quoted spans, and the strings of every committed WASM module.
+**full** rather than only their quoted spans, and the text inside every **binary** the branch
+changes — which `git diff` does not emit at all, so a diff-based scan silently reads none of it:
+the 7 WASM modules (`strings`), the 45 `.icc` fixtures (their `desc`/`cprt`/`dict` text), and the
+9 translation workbooks. The workbooks were themselves silently skipped on the first attempt:
+this xlsx writer stores text inline in each sheet rather than in `sharedStrings.xml`, so that
+extraction produced nothing and an empty-file guard passed over it without a word. Re-run from
+the sheet XML — 9,612 cells, with a known string checked present — clean. As iccDEV put it after
+finding their own extension filter had skipped two files: list what a scan EXCLUDED, because a
+clean result says nothing about files it never read.
 
 Validated before trusted: a known SMPTE-only sentence, a technical one, and an 8-word fragment
 embedded mid-line and split across a line break were each found; a BT.2100 sentence that SMPTE
