@@ -2,8 +2,16 @@
 
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
-**Date:** 2026-09-10. **Built against:** `hdr-profiles` @ **`505b9c6d`**, the published head
-on `origin`. Library reports `2.3.2.3`.
+**Date:** 2026-09-12. **Built against:** `hdr-profiles` @ **`6bf5c5ea`** — the published head
+on `origin`, and a merge of `origin/master` into the HDR branch. Library reports `2.3.2.3`.
+
+> **Pin history, because the SHAs in our older commit messages will not all resolve:**
+> `505b9c6d` → `589cfb3e` (corpus text only, no rebuild — proved with `--verify`) →
+> `6bf5c5ea` (merge from master; 8 IccProfLib files, so a real rebuild). Phase 2 steps 1,
+> 2 and 4 were built against `589cfb3e` on purpose: `6bf5c5ea` existed only locally on
+> iccDEV's machine at the time, and citing an unpublished SHA is what cost this branch a
+> 35-citation remap earlier. It is published now and unchanged — verified here as the
+> tip, with a tree identical to the one those steps were tested against.
 
 > **Phase 1 items 1-5 COMPLETE, and iccDEV's C5 fix is integrated.** The handback below was
 > actioned upstream; we rebuilt on `5dd3ab4b`, refreshed `test-corpus/hdr` from upstream's
