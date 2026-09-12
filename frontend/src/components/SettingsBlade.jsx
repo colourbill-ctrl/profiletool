@@ -17,6 +17,11 @@ const CONTACT_URL = 'https://www.colourbill.com/?contact=profiletool'
 // query used across the rest of profiletool (layout, header table, tag table,
 // profile viewer) and chardata's own ICC viewer breakpoint. The blade
 // defaults to collapsed on mobile so the main content isn't covered.
+// Drag-to-resize, same pattern as PoolPane's right-edge bar. The blade is pinned to the
+// RIGHT, so its bar sits on the LEFT (inner) edge and dragging left widens it.
+const WIDTH_KEY = 'profiletool.bladeWidth'
+const MIN_W = 220, MAX_W = 560, DEFAULT_W = 220
+
 function isMobile() {
   return typeof window !== 'undefined' && window.innerWidth <= 720
 }
@@ -48,6 +53,13 @@ export default function SettingsBlade({ onOpenHelp }) {
   const [collapsed, setCollapsed] = useState(() =>
     isMobile() || localStorage.getItem('profiletool.bladeCollapsed') === '1'
   )
+  const [width, setWidth] = useState(() => {
+    const w = parseInt(localStorage.getItem(WIDTH_KEY) || '', 10)
+    return Number.isFinite(w) ? Math.min(MAX_W, Math.max(MIN_W, w)) : DEFAULT_W
+  })
+  // True while dragging: switches off the width transition, which would otherwise
+  // make the panel trail the pointer by 0.2 s on every move.
+  const [resizing, setResizing] = useState(false)
 
   // Theme: apply on mount + whenever it changes; subscribe to system theme
   // changes only while the user has picked "system" (matches chardata).
@@ -70,6 +82,36 @@ export default function SettingsBlade({ onOpenHelp }) {
       document.body.classList.remove('blade-open', 'blade-collapsed')
     }
   }, [collapsed])
+
+  // Persist the width, and publish it as --blade-width so body.blade-open's padding-right
+  // (index.css) tracks the real panel width. Without this the centred layout would still
+  // reserve a fixed 220 px and slide under a widened blade.
+  useEffect(() => {
+    localStorage.setItem(WIDTH_KEY, String(width))
+    document.documentElement.style.setProperty('--blade-width', `${width}px`)
+    return () => document.documentElement.style.removeProperty('--blade-width')
+  }, [width])
+
+  const dragState = useRef(null)
+  const onResizeDown = useCallback((e) => {
+    dragState.current = { startX: e.clientX, startW: width }
+    setResizing(true)
+    const onMove = (ev) => {
+      if (!dragState.current) return
+      // Left edge: moving the pointer LEFT (negative dx) grows the panel.
+      const next = dragState.current.startW - (ev.clientX - dragState.current.startX)
+      setWidth(Math.min(MAX_W, Math.max(MIN_W, next)))
+    }
+    const onUp = () => {
+      dragState.current = null
+      setResizing(false)
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    e.preventDefault()
+  }, [width])
 
   const onThemeChange = useCallback((v) => {
     setTheme(v)
@@ -96,10 +138,16 @@ export default function SettingsBlade({ onOpenHelp }) {
   return (
     <>
       <aside
-        className={`${styles.blade} ${collapsed ? styles.collapsed : ''}`}
+        className={`${styles.blade} ${collapsed ? styles.collapsed : ''} ${resizing ? styles.resizing : ''}`}
+        style={collapsed ? undefined : { width }}
         aria-label={t('settings')}
         ref={dialogRef}
       >
+        {/* Only while open: a collapsed blade is a 6 px edge with nothing to resize.
+            On mobile the drawer width is fixed by CSS and this bar is hidden there. */}
+        {!collapsed && (
+          <div className={styles.resize} onMouseDown={onResizeDown} role="separator" aria-orientation="vertical" />
+        )}
         <div className={styles.tabs}>
           <button
             className={styles.tabBtn}

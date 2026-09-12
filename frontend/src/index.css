@@ -39,7 +39,8 @@ body {
 /* SettingsBlade toggles these classes so the centered .layout can re-flow
    instead of being overlapped by the right-side blade. The 44 px collapsed
    width covers the 38 px floating tab column plus a 6 px breathing edge. */
-body.blade-open      { padding-right: 220px; }
+/* --blade-width is set by SettingsBlade from its drag-resizable width; 220 px default. */
+body.blade-open      { padding-right: var(--blade-width, 220px); }
 body.blade-collapsed { padding-right: 44px; }
 
 /* Mobile breakpoint matches the rest of the app (720 px). Below this width

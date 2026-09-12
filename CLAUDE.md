@@ -97,6 +97,7 @@ Each component has a co-located `*.module.css` file. Global tokens (colours, fon
 
 State is in `localStorage`:
 - `profiletool.bladeCollapsed` — `'0' | '1'`
+- `profiletool.bladeWidth` — open width in px (220–560), set by the drag bar on the blade's inner edge; published as `--blade-width` so `body.blade-open`'s `padding-right` tracks it
 - `profiletool.bgTheme` — `'system' | 'light' | 'dark'`
 - `profiletool.lang` — `'system'` or any code from `i18n.jsx::LANG_OPTIONS`
 
