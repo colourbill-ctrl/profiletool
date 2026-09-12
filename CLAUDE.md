@@ -173,6 +173,37 @@ NO_WASM=1 scripts/deploy.sh         # frontend-only rebuild + rsync
 
 nginx server block: the chardata.colourbill.com vhost needs a `location /profiletool/` that aliases to `/var/www/profiletool/` with `try_files $uri $uri/ /profiletool/index.html;` (SPA fallback). Drop the legacy `:5173` server block once `/profiletool/` is live.
 
+### Two deploys: `/profiletool/` (main) and `/profiletool-beta/` (beta branch)
+
+There are **two SPA deploys on the same box**, mirroring tiffview's `/tiffview` vs
+`/tiffstage` pair — with the roles the other way round, because here `main` *is*
+production:
+
+| URL | Branch | Workflow | Directory |
+|---|---|---|---|
+| `chardata.colourbill.com/profiletool/` | `main` | `.github/workflows/deploy.yml` | `/var/www/profiletool/` |
+| `chardata.colourbill.com/profiletool-beta/` | `beta` | `.github/workflows/deploy-beta.yml` | `/var/www/profiletool-beta/` |
+
+`main`'s workflow is untouched by the beta arrangement, so the published deploy is
+unaffected by anything on `beta`.
+
+**How one codebase serves two paths.** `frontend/vite.config.js` takes its `base` from
+`PROFILETOOL_BASE`, defaulting to `/profiletool/`; the beta workflow sets
+`/profiletool-beta/`. Nothing else needs changing, because every `WASM_DIR` in
+`src/lib/*.js` is derived from `import.meta.env.BASE_URL` rather than hardcoded. The
+beta job greps `dist/index.html` for the expected prefix after building, so a wrong
+base fails the deploy instead of shipping a bundle that 404s on every asset.
+
+**Server-side prerequisites — one-off, and NOT done by the workflow.** Until both
+exist the deploy job will succeed while the URL 404s:
+
+1. `mkdir -p /var/www/profiletool-beta` on the Lightsail box, owned by the deploy user
+   (otherwise rsync fails).
+2. An nginx `location /profiletool-beta/` in the `chardata.colourbill.com` vhost,
+   aliasing `/var/www/profiletool-beta/` with
+   `try_files $uri $uri/ /profiletool-beta/index.html;` for SPA fallback — the same
+   shape as the existing `/profiletool/` location.
+
 ### Releasing (runbook)
 
 Patch release that rebuilds the WASM against the latest iccDEV (the common case):

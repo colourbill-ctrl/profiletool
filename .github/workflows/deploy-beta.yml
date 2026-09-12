@@ -1,0 +1,95 @@
+# (c) 2026 William Li
+# DEPLOYMENT-SPECIFIC (chardata.colourbill.com).
+# Beta deploy of the `beta` branch to chardata.colourbill.com/profiletool-beta/.
+#
+# Two SPAs, one box, same secrets:
+#   /profiletool/       <- main, the published release     (deploy.yml)
+#   /profiletool-beta/  <- the beta branch, this file
+#
+# Mirrors tiffview's /tiffview vs /tiffstage pair, with the roles the other way
+# round: there, staging tracks main and production is a pinned tag; here main IS
+# production and the branch is what moves ahead of it. main's deploy.yml is left
+# untouched, so nothing about the published deploy changes.
+name: Deploy beta to Lightsail
+
+on:
+  push:
+    branches: [beta]
+  workflow_dispatch:
+
+# Its own concurrency group: a beta deploy must never cancel a production one,
+# and the two rsync to different directories.
+concurrency:
+  group: deploy-profiletool-beta
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Same secrets as the production deploy (same box, same key):
+#   SSH_HOST (Lightsail ORIGIN IP — not the Cloudflare-proxied hostname, whose
+#   port 22 is closed), SSH_USER, SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS.
+#
+# SERVER-SIDE PREREQUISITES, one-off, outside this workflow:
+#   1. mkdir -p /var/www/profiletool-beta  (owned by SSH_USER, or rsync fails)
+#   2. an nginx `location /profiletool-beta/` aliasing that directory with
+#      `try_files $uri $uri/ /profiletool-beta/index.html;` for SPA fallback.
+# Without both, this job succeeds and the URL 404s.
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        # Pinned to a commit SHA, not a mutable tag: this job holds the deploy key.
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        with:
+          # Full history so vite.config.js's `git describe` version label resolves.
+          fetch-depth: 0
+
+      - name: Set up Node 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # Same gate and the same honest limit as production: SHA256SUMS is committed
+      # beside the binaries by the build that produced them, so this catches
+      # corruption, a partial commit or artifact/manifest drift — not a malicious
+      # commit, which would update both. Proving the binaries match the C++ still
+      # needs `scripts/build-wasm.sh --verify` in an Emscripten + iccDEV environment.
+      - name: Verify committed WASM checksums
+        working-directory: frontend/public/wasm
+        run: sha256sum -c SHA256SUMS
+
+      - name: Build SPA (base /profiletool-beta/)
+        working-directory: frontend
+        env:
+          PROFILETOOL_BASE: /profiletool-beta/
+        run: |
+          npm ci
+          npm run build
+          test -f dist/index.html
+          # Fail loudly rather than shipping a bundle that would 404 on every asset:
+          # if base were wrong, index.html would reference /profiletool/assets/.
+          grep -q '/profiletool-beta/assets/' dist/index.html
+
+      - name: Load deploy key
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555  # v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust Lightsail host
+        run: |
+          mkdir -p ~/.ssh
+          if [ -n "${{ secrets.SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          else
+            echo "::warning::SSH_KNOWN_HOSTS secret not set — falling back to ssh-keyscan (TOFU). Set it to pin the host key."
+            ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          fi
+
+      - name: Rsync dist to Lightsail (/var/www/profiletool-beta/)
+        run: |
+          rsync -avz --delete frontend/dist/ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/profiletool-beta/"

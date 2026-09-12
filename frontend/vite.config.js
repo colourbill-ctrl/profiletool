@@ -29,7 +29,16 @@ function resolveAppVersion() {
 // http://localhost:5173/ continues to work as before.
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/profiletool/' : '/',
+  // Production builds are served from a sub-path, so `base` must match the deploy
+  // location or every asset and the WASM loader resolve to the wrong URL. Dev keeps
+  // '/' so localhost:5173 works unprefixed.
+  //
+  // PROFILETOOL_BASE overrides it, which is what lets one branch deploy to a second
+  // location: the beta deploy builds with '/profiletool-beta/'. Everything downstream
+  // follows automatically — each WASM_DIR in src/lib/*.js is derived from
+  // import.meta.env.BASE_URL rather than hardcoded. Same mechanism as tiffview's
+  // TIFFVIEW_BASE, which drives its /tiffview vs /tiffstage pair.
+  base: command === 'build' ? (process.env.PROFILETOOL_BASE || '/profiletool/') : '/',
   server: { port: 5173 },
   define: {
     __APP_VERSION__: JSON.stringify(resolveAppVersion()),
