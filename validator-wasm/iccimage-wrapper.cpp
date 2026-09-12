@@ -919,6 +919,156 @@ emscripten::val probeExrStream(Reader& r) {
   return last;
 }
 
+
+// ── gain maps (ISO 21496-1 / Ultra HDR) ─────────────────────────────────────
+//
+// WHY THIS IS HERE. A gain map is the mechanism behind essentially every consumer HDR
+// photo: an SDR base image plus a per-pixel map that reconstructs an HDR rendition.
+// It is the same territory the profile's own adaptive gain curve describes, so showing
+// the two side by side is what lets an author see whether the file's gain map and the
+// profile's curve agree.
+//
+// WHAT IS PARSED AND WHAT IS ONLY DETECTED — the distinction matters and is reported:
+//
+//   Ultra HDR (JPEG)   PARSED. Its metadata is XMP in the `hdrgm` namespace, publicly
+//                      specified by Google, so the fields are read and reported with
+//                      their real values.
+//   ISO 21496-1        DETECTED ONLY. Its binary layout is defined in the ISO document,
+//   (HEIC/AVIF `tmap`) which is not public. Rather than guess at field offsets and
+//                      report numbers that might be wrong, this reports that a gain map
+//                      is present and says why it is not parsed. A confident wrong
+//                      number here would be worse than no number.
+
+// Ultra HDR's XMP is a text packet; the fields are plain attributes. Both images in an
+// Ultra HDR file live in one buffer (the gain map is appended after the primary's EOI),
+// and the hdrgm fields sit in the GAIN MAP's packet rather than the primary's — so the
+// whole buffer is scanned rather than only the first APP1.
+bool xmpFindAttr(const Bytes& b, const char* name, std::string& out) {
+  const std::string key = std::string(name) + "=\"";
+  const char* hay = (const char*)b.data();
+  for (std::size_t i = 0; i + key.size() < b.size(); ++i) {
+    if (std::memcmp(hay + i, key.data(), key.size()) != 0) continue;
+    std::size_t j = i + key.size();
+    const std::size_t start = j;
+    while (j < b.size() && hay[j] != '"') ++j;
+    if (j >= b.size()) return false;
+    out.assign(hay + start, j - start);
+    return true;
+  }
+  return false;
+}
+bool bytesContain(const Bytes& b, const char* needle) {
+  const std::size_t n = std::strlen(needle);
+  if (b.size() < n) return false;
+  for (std::size_t i = 0; i + n <= b.size(); ++i)
+    if (std::memcmp(b.data() + i, needle, n) == 0) return true;
+  return false;
+}
+
+// Walk iinf/infe to find an item of the given type. `tmap` is the derived item that
+// carries an ISO 21496-1 tone-map (gain map) in HEIF and AVIF.
+bool isoHasItemType(const ReadAt& rd, std::uint64_t b, std::uint64_t e, const char* want, int depth = 0) {
+  if (depth > kMaxBoxDepth) return false;
+  BoxIter it{rd, b, e};
+  char t[5]; std::uint64_t bb, be_;
+  while (it.next(t, bb, be_)) {
+    if (!std::strcmp(t, "meta")) {
+      if (be_ - bb >= 4 && isoHasItemType(rd, bb + 4, be_, want, depth + 1)) return true;
+    } else if (!std::strcmp(t, "iinf")) {
+      // FullBox; version 0 has a uint16 count, later versions uint32. The children are
+      // infe boxes, which the generic iterator walks for us.
+      std::uint8_t vf[4];
+      if (be_ - bb < 4 || rd(bb, vf, 4) != 4) continue;
+      const std::uint64_t kids = bb + 4 + (vf[0] == 0 ? 2 : 4);
+      if (kids < be_ && isoHasItemType(rd, kids, be_, want, depth + 1)) return true;
+    } else if (!std::strcmp(t, "infe")) {
+      std::uint8_t vf[4];
+      if (be_ - bb < 4 || rd(bb, vf, 4) != 4) continue;
+      if (vf[0] < 2) continue;                       // item_type only exists from v2
+      const std::uint64_t idLen = (vf[0] == 2) ? 2 : 4;
+      const std::uint64_t typeAt = bb + 4 + idLen + 2;   // + protection_index
+      std::uint8_t ty[4];
+      if (typeAt + 4 > be_ || rd(typeAt, ty, 4) != 4) continue;
+      if (!std::memcmp(ty, want, 4)) return true;
+    }
+  }
+  return false;
+}
+
+// Takes a Uint8Array, NOT a std::string. embind re-encodes a JS string as UTF-8, so a
+// byte like 0xFF becomes two bytes and every offset after it shifts — which silently
+// broke JPEG magic detection when this was first written, while leaving the ISOBMFF
+// cases passing because their header bytes happen to be ASCII-safe.
+emscripten::val gainMapInfo(emscripten::val bytesVal) {
+  emscripten::val r = emscripten::val::object();
+  const Bytes b = toBytes(bytesVal);
+  r.set("present", false);
+  if (b.empty() || b.size() > kMaxImageBytes) { r.set("error", std::string("Empty or oversized input.")); return r; }
+
+  const Fmt fmt = detectFormat(b);
+
+  if (fmt == Fmt::Jpeg) {
+    const bool ns = bytesContain(b, "http://ns.adobe.com/hdr-gain-map/1.0/");
+    const bool gc = bytesContain(b, "Item:Semantic=\"GainMap\"");
+    if (ns || gc) {
+      r.set("present", true);
+      r.set("kind", std::string("ultrahdr"));
+      r.set("parsed", true);
+      r.set("gcontainer", gc);          // the directory entry that locates the gain map
+      emscripten::val f = emscripten::val::object();
+      // Names, requiredness and defaults per the public Ultra HDR specification. A
+      // field that is absent is reported as its DEFAULT with defaulted=true rather
+      // than omitted, because "absent" and "absent, therefore this value" are
+      // different statements and the second is the one a reader needs.
+      static const struct { const char* attr; const char* key; const char* dflt; } kFields[] = {
+        { "hdrgm:Version",            "version",          nullptr },
+        { "hdrgm:GainMapMin",         "gainMapMin",       "0.0" },
+        { "hdrgm:GainMapMax",         "gainMapMax",       nullptr },
+        { "hdrgm:Gamma",              "gamma",            "1.0" },
+        { "hdrgm:OffsetSDR",          "offsetSDR",        "0.015625" },
+        { "hdrgm:OffsetHDR",          "offsetHDR",        "0.015625" },
+        { "hdrgm:HDRCapacityMin",     "hdrCapacityMin",   "0.0" },
+        { "hdrgm:HDRCapacityMax",     "hdrCapacityMax",   nullptr },
+        { "hdrgm:BaseRenditionIsHDR", "baseRenditionIsHDR", "False" },
+      };
+      emscripten::val defaulted = emscripten::val::array();
+      int nDef = 0;
+      for (const auto& fd : kFields) {
+        std::string v;
+        if (xmpFindAttr(b, fd.attr, v)) {
+          f.set(fd.key, v);
+        } else if (fd.dflt) {
+          f.set(fd.key, std::string(fd.dflt));
+          defaulted.set(nDef++, std::string(fd.key));
+        }
+      }
+      r.set("fields", f);
+      r.set("defaulted", defaulted);
+      return r;
+    }
+    return r;
+  }
+
+  if (fmt == Fmt::Isobmff) {
+    const ReadAt rd = [&b](std::uint64_t off, void* dst, std::size_t n) -> std::size_t {
+      if (off >= b.size()) return 0;
+      const std::size_t k = (std::size_t)std::min<std::uint64_t>(n, b.size() - off);
+      std::memcpy(dst, b.data() + off, k); return k;
+    };
+    if (isoHasItemType(rd, 0, b.size(), "tmap")) {
+      r.set("present", true);
+      r.set("kind", std::string("iso21496"));
+      r.set("parsed", false);
+      r.set("note", std::string(
+        "A tone-map (gain map) item is present. Its metadata is defined by ISO 21496-1, "
+        "whose binary layout is not public, so the values are not decoded here."));
+    }
+    return r;
+  }
+
+  return r;
+}
+
 emscripten::val probeImageStreamImpl(int id) {
   Reader r; r.id = id;
   std::uint8_t magic[8]; r.seek(0);
@@ -1317,6 +1467,7 @@ EMSCRIPTEN_BINDINGS(iccimage) {
   emscripten::function("findProfile", &findProfile);
   emscripten::function("findProfileStream", &findProfileStream);
   emscripten::function("probeImage", &probeImage);
+  emscripten::function("gainMapInfo", &gainMapInfo);
   emscripten::function("decodeImage", &decodeImage);
   emscripten::function("encodeImage", &encodeImage);
 }
