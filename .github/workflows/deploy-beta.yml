@@ -3,8 +3,8 @@
 # Beta deploy of the `beta` branch to chardata.colourbill.com/profiletool-beta/.
 #
 # Two SPAs, one box, same secrets:
-#   /profiletool/       <- main, the published release     (deploy.yml)
-#   /profiletool-beta/  <- the beta branch, this file
+#   /profiletool/       <- main, the published release, auto-deployed  (deploy.yml)
+#   /profiletool-beta/  <- whatever branch you dispatch this on, this file
 #
 # Mirrors tiffview's /tiffview vs /tiffstage pair, with the roles the other way
 # round: there, staging tracks main and production is a pinned tag; here main IS
@@ -12,13 +12,15 @@
 # untouched, so nothing about the published deploy changes.
 name: Deploy beta to Lightsail
 
+# MANUAL ONLY. Deliberately has no `push` trigger: pushing the beta branch should
+# publish code without also publishing a deploy. Run it from Actions -> "Deploy beta
+# to Lightsail" -> Run workflow, and pick the branch to deploy.
 on:
-  push:
-    branches: [beta]
   workflow_dispatch:
 
 # Its own concurrency group: a beta deploy must never cancel a production one,
-# and the two rsync to different directories.
+# and the two rsync to different directories. cancel-in-progress stays true because a
+# manual re-run is a correction of the run before it.
 concurrency:
   group: deploy-profiletool-beta
   cancel-in-progress: true

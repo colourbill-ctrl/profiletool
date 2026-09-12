@@ -182,10 +182,21 @@ production:
 | URL | Branch | Workflow | Directory |
 |---|---|---|---|
 | `chardata.colourbill.com/profiletool/` | `main` | `.github/workflows/deploy.yml` | `/var/www/profiletool/` |
-| `chardata.colourbill.com/profiletool-beta/` | `beta` | `.github/workflows/deploy-beta.yml` | `/var/www/profiletool-beta/` |
+| `chardata.colourbill.com/profiletool-beta/` | `beta` (manual) | `.github/workflows/deploy-beta.yml` | `/var/www/profiletool-beta/` |
 
-`main`'s workflow is untouched by the beta arrangement, so the published deploy is
-unaffected by anything on `beta`.
+`main` auto-deploys on push. **The beta deploy is `workflow_dispatch` only** — pushing
+`beta` publishes code without publishing a deploy; you run the deploy from Actions when
+you want one. `main`'s workflow is untouched, so the published deploy is unaffected by
+anything on `beta`.
+
+> **The workflow must be on the DEFAULT BRANCH to be dispatchable.** GitHub only offers
+> a `workflow_dispatch` workflow if the file exists on the default branch (`main`) —
+> once it does, the Run-workflow dialog lets you pick which branch to deploy. A
+> dispatch-only workflow living solely on `beta` cannot be triggered at all. tiffview
+> does exactly this: both `deploy-tiffview.yml` (dispatch-only) and
+> `deploy-tiffstage.yml` live on its `main`. So landing `deploy-beta.yml` on `main` is a
+> prerequisite for using it — a workflow-file-only commit, which changes no shipped
+> asset, since workflows are not part of `dist/`.
 
 **How one codebase serves two paths.** `frontend/vite.config.js` takes its `base` from
 `PROFILETOOL_BASE`, defaulting to `/profiletool/`; the beta workflow sets
