@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLang, LANG_OPTIONS, systemLangNative } from '../i18n.jsx'
 import { useNumberBase } from '../numberBase.jsx'
+import EnvironmentPanel from './EnvironmentPanel.jsx'
 import styles from './SettingsBlade.module.css'
 
 // Help opens the in-app guide pane (GuidePanel), which renders the same content
@@ -174,6 +175,16 @@ export default function SettingsBlade({ onOpenHelp }) {
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
+          </div>
+
+          {/* What this browser, platform and display can actually do. Lives here rather
+              than on a profile tab because it describes the ENVIRONMENT, not the file —
+              the Profile tabs mirror the physical ICC structure and take no feature
+              panels. Renders the same capabilities.js table the gating reads, so the
+              explanation and the behaviour cannot drift apart (DL-HDRENV1). */}
+          <div className={styles.sectionLabel}>{t('env_title')}</div>
+          <div className={styles.section}>
+            <EnvironmentPanel />
           </div>
         </div>
       </aside>

@@ -525,3 +525,23 @@ HDR section; it remains the one we may freely mutate.
   fold in opportunistically.
 - **Phase 3** — enable HDR for Compare and Combine. Until then show "HDR profiles not
   supported".
+
+- **Phase 4 — DEFERMENTS (new, 2026-09-12).** Everything knowingly postponed, gathered in one
+  place so a deferral cannot quietly become an omission. Nothing here is a bug or an oversight;
+  each has a recorded reason and a condition that would reopen it.
+
+  | # | Deferred | Reason | Reopens when |
+  |---|---|---|---|
+  | 4.1 | **HEIC display outside Safari** | libheif is LGPL-3.0 (relinking obligation on a public static WASM bundle, forever, for one format); writing our own needs grid-tile composition, ~48 HEVC tiles per iPhone photo | A permissively licensed HEVC still decoder appears, or HEIC display off Safari becomes a requirement worth the obligation — `DL-HDRENV1` |
+  | 4.2 | **JPEG XL** | libjxl's WASM build is awkward, and JXL's ICC profile is Brotli-deconstructed so even *reading* it needs the library. Apache-2.0, so not a licence problem — a cost one | JXL demand appears, or the WASM build becomes routine — `DL-HDRIMG1` |
+  | 4.3 | **16-bit TIFF HDR encoding** (scale/offset vs half-float) | Demoted from Phase-2 gate to backlog: AVIF/HEIC/EXR all express HDR natively, so TIFF was never the necessary vehicle | TIFF becomes the required HDR container. Wants its own decision note first — constraints already measured, do not re-derive |
+  | 4.4 | **EXR DWAA/DWAB** | tinyexr does not implement them (verified against v3.2.0). Refused **by name**, not silently | Real DWA files turn up: swap tinyexr for OpenEXR behind the same entry points |
+  | 4.5 | **ISO 21496-1 gain-map field parsing** | Binary layout is paywalled. Detected and reported *present, not decoded* rather than guessed | The layout becomes available |
+  | 4.6 | **ADGC tag parsing** | Published header table is self-contradictory AND unreconstructable (its only normative reference was unpublished at ratification) | ICC corrects the table, or ISO 21496-1 publishes — iccDEV register item ADGC-01 |
+  | 4.7 | **`validation.messages[]` rendering** | Predates HDR: IccProfLib's validation output is invisible for *every* profile. Still profiletool's call | Independent of HDR; take it whenever |
+  | 4.8 | **Firefox HDR rendering** | Firefox renders no HDR images and reads no gain maps — not ours to fix. Treated as an SDR-only target | Gecko ships HDR image support (bug 1539685) |
+  | 4.9 | **`LICENSE` file** | Repository states no terms of its own while deploying publicly and vendoring BSD-3 source. Not HDR at all | Needs an owner decision, and is worth closing regardless |
+
+  4.1–4.6 share one shape and it is worth naming: each is a case where the honest output is
+  *"present, not decoded"* or *"refused by name"*, and the alternative would be a **confident
+  wrong answer nothing downstream can detect**.

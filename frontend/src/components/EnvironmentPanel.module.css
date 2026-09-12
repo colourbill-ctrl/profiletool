@@ -1,0 +1,29 @@
+/* (c) 2026 William Li */
+.wrap { font-size: 0.84rem; }
+.loading, .error { font-size: 0.84rem; color: var(--muted, #6b7280); padding: 4px 0; }
+.error { color: var(--danger, #b42318); }
+
+.summary { font-weight: 600; margin-bottom: 6px; }
+
+.facts { display: flex; flex-direction: column; gap: 2px; margin-bottom: 6px; }
+.fact { display: flex; justify-content: space-between; gap: 8px; }
+.factLabel { color: var(--muted, #6b7280); }
+.factValue { font-variant-numeric: tabular-nums; }
+
+.note { margin: 0 0 8px; font-size: 0.76rem; line-height: 1.4; color: var(--muted, #6b7280); }
+
+.table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+.table th, .table td { padding: 2px 4px; text-align: center; border-bottom: 1px solid var(--border, #e3e7ee); }
+.table th { font-weight: 500; color: var(--muted, #6b7280); font-size: 0.76rem; }
+.table th:first-child, .table td:first-child { text-align: left; }
+.fmt { white-space: nowrap; }
+/* Marks a format profiletool decodes itself, so its row does not depend on the browser. */
+.ours { color: var(--accent, #4a90e2); font-weight: 700; margin-left: 3px; }
+
+.yes { color: #15803d; }
+.no  { color: #b42318; }
+
+.reasons { margin: 0; padding-left: 1.1em; font-size: 0.76rem; line-height: 1.45; color: var(--muted, #6b7280); }
+.reasons li { margin-bottom: 3px; }
+
+@media (max-width: 700px) { .table th, .table td { padding: 3px 2px; } }
