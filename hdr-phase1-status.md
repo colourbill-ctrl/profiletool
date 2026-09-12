@@ -491,14 +491,17 @@ HDR section; it remains the one we may freely mutate.
      authors the profile and pairs it. `tinyexr` vs full OpenEXR+Imath is **open**: tinyexr
      omits DWAA/DWAB on patent grounds and DWA is common in production EXRs, so check the
      codec matrix against tinyexr's README before choosing.
-  3. **HEIC pixel decode** via libheif's **`webcodecs` backend, which exists only in
-     emscripten builds** because it calls the browser's WebCodecs API — no libde265 linked,
-     and the HEVC patent question sits with the platform that already holds the licence.
-     Coverage is platform-gated (Safari ~universal; Chrome ~96.7% macOS / ~86% Win / ~54.6%
-     Linux; Firefox and Edge near-absent), so feature-detect: **pixels degrade, profiles
-     never do.** ⚠ libheif is **LGPL** and we ship a statically linked WASM bundle publicly —
-     the relinking obligation needs a deliberate answer before this step ships. Step 1 is
-     unaffected (no libheif).
+  3. ~~**HEIC pixel decode** via libheif~~ — **WITHDRAWN 2026-09-12, see `DL-HDRENV1`.** HEIC
+     display now comes from the **browser's own decoder**, which makes it **Safari-only**: Chrome
+     decodes HEIC on no platform, macOS included. libheif is LGPL-3.0 and would put a relinking
+     obligation on every release for one format; writing our own was costed and rejected too,
+     since iPhone HEICs are grid-tiled (~48 HEVC tiles per photo) and would need tile composition.
+     Inspection is unaffected — step 1 reads the profile with no codec, so those targets validate
+     the profile and plot the gain curve without showing the picture.
+     **Replaced by an Environment feature cluster**: detect and display browser, platform and
+     display capability, folded in with panelapp's HDR-monitor diagnostics, plus one capability
+     table gating what each platform is offered. Per-format, per-target matrix and the licensing
+     segmentation: **`hdr-platform-capabilities.md`**.
   4. **Gain-map awareness** — ISO 21496-1:2025 metadata (and Ultra HDR's MPF variant) shown
      next to the profile's own adaptive gain curve. HEIC being first makes test material
      free: any recent iPhone produces exactly this file.

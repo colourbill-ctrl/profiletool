@@ -296,6 +296,51 @@ date; `OPEN` entries carry the options so input can be dropped in by ID. IDs are
 referenced from the group sections above. Categories: **IA** app-identity/nav ·
 **A/B/C/D-UX** per-group user-experience · **ARCH** build/dependency.*
 
+### DL-HDRENV1 — HEIC via the browser only; Environment cluster; platform-gated capabilities · ✅ RESOLVED 2026-09-12
+**Call.** **Do not implement HEIC decoding ourselves.** Use the browser's own decoder where it
+exists, accept that it does not exist everywhere, and make that visible. Adds an **Environment
+feature cluster** — detect and display browser, platform and display capability — folded together
+with the HDR-monitor diagnostics from `~/code/panelapp`, since the two share every detection
+signal. Supersedes DL-HDRIMG1's step 3 (HEIC pixel decode via libheif), which is **withdrawn**.
+
+Full matrix, per-target and per-format, with sources: **`hdr-platform-capabilities.md`**.
+
+**Why.** libheif is LGPL-3.0, and statically linking it into a publicly deployed WASM bundle
+carries a relinking obligation — ship object files or load it separately — on every release,
+forever, for one format. Writing our own HEIC decoder instead was costed and rejected separately:
+iPhone HEICs are grid-tiled (a 4032×3024 photo is ~48 HEVC tiles plus thumbnails, gain map and
+depth, ~61 streams), so it means implementing tile composition, not just a demuxer. Browser-native
+costs neither, because the platform holds the HEVC licence and runs the decoder.
+
+**What it costs, stated plainly.** HEIC *display* becomes **Safari-only**. Chrome decodes HEIC on
+no platform, macOS included. So two of the three primary targets — Chrome/Windows and Chrome/macOS
+— cannot show an iPhone photo's pixels.
+
+**Why that cost is acceptable:** inspect and display are different capabilities. Phase 2 step 1
+already extracts the ICC profile from HEIC and AVIF by walking ISOBMFF boxes with **no codec**, so
+on those targets the profile still validates, the tags still render and the gain curve still plots
+— only the picture is missing. That is a useful state, and the UI must present it as one rather
+than as a failure.
+
+**Targets.** Primary: Chrome/Windows, Safari/iOS (and macOS, ideally with an XDR display),
+Chrome/macOS. Secondary: Firefox/Windows and macOS — which is an **SDR-only** target: it decodes
+AVIF but renders no HDR images and reads no gain maps.
+
+**Binding constraints for the implementation.**
+1. **One capability table as the single source of truth**, mapping (browser, platform, display) →
+   permitted operations. Both the UI gating and the Environment display read it, so what the user
+   is told and what the code allows cannot drift apart.
+2. **Refusals name the reason.** "HEIC display needs Safari; this is Chrome" is actionable;
+   "cannot open this file" is both useless and false, since inspection works.
+3. **Feature-detect, do not sniff the user agent**, wherever a real probe exists — `ImageDecoder`
+   type support, `matchMedia`, an attempted canvas configure. UA strings attribute a *reason* to a
+   user; they do not decide capability.
+4. `screen.colorInfo` is unimplemented, so display headroom **cannot** be queried. H_target is
+   supplied or assumed, never auto-derived.
+
+**Related, unresolved, and independent of HEIC:** the repository has no `LICENSE` file while
+deploying publicly and vendoring BSD-3 source.
+
 ### DL-HDRIMG1 — Phase-2 HDR container scope: HEIC + EXR first, TIFF demoted · ✅ RESOLVED 2026-09-09
 **Call.** Phase 2 of the HDR tranche implements **HEIC first, EXR alongside it**. The
 16-bit TIFF HDR encoding question — the standing Phase-2 blocker — is **demoted from gate
