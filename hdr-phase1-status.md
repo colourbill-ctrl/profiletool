@@ -502,6 +502,17 @@ HDR section; it remains the one we may freely mutate.
      display capability, folded in with panelapp's HDR-monitor diagnostics, plus one capability
      table gating what each platform is offered. Per-format, per-target matrix and the licensing
      segmentation: **`hdr-platform-capabilities.md`**.
+     **Display facts are live (2026-09-12, `hdr-display-triggers-plan.md`).** Dragging the
+     window to another monitor refreshes HDR / gamut / pixel ratio through media-query
+     `change` listeners (always on), and — after an opt-in **Identify displays**
+     (`window-management` permission) — names the monitor and shows Chromium's raw
+     `hdrHeadroom` (experimental flag). `lib/displayWatcher.js` coalesces both triggers into
+     one re-read; the Environment panel keeps a 20-line event log for diagnosis. Measured in
+     Chromium 149: `window-management` is queryable without prompting (`window-placement`
+     throws); `hdrHeadroom` is **0 on an SDR screen** and absent without the flag, so it is
+     shown raw, not converted. Tests: `scripts/check-display-watcher.mjs` (57, mutation-tested
+     9/9) plus a headless wiring run (20). **Not yet seen on two real monitors** — that is the
+     manual checklist in the plan.
   4. **Gain-map awareness** — ISO 21496-1:2025 metadata (and Ultra HDR's MPF variant) shown
      next to the profile's own adaptive gain curve. HEIC being first makes test material
      free: any recent iPhone produces exactly this file.

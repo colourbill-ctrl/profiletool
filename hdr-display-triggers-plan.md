@@ -1,6 +1,20 @@
 # Plan: refresh HDR display info when the window changes monitor
 
-**Status:** READY TO IMPLEMENT on the user's "go". Written 2026-09-12 on branch `beta`.
+**Status:** IMPLEMENTED 2026-09-12 on branch `beta` — awaiting the manual two-monitor check (§7).
+
+**TO VERIFY items, as measured in Chromium 149 (headless):**
+- `navigator.permissions.query({ name: 'window-management' })` works without prompting
+  (`'prompt'` by default); `'window-placement'` throws `TypeError`.
+- Playwright's `grantPermissions` rejects `window-management` as unknown. CDP
+  `Browser.grantPermissions({ permissions: ['windowManagement'] })` works, but only in a
+  **persistent** context (a `newContext()` grant silently does not apply).
+- `hdrHeadroom` is `0` on headless's SDR screen with the flag and absent without it. A linear
+  ratio would read 1.0 for SDR, so the unit is probably not a ratio — but that is one
+  observation, so the UI shows the value raw and says the unit is unstandardised.
+- Harness notes: CDP cannot emulate `dynamic-range` (the query stays false). A
+  `setDeviceMetricsOverride` scale change updates `devicePixelRatio` at once but the
+  `resolution` query's `change` event is delivered only at the next media re-evaluation,
+  which headless does not run on its own; re-sending `setEmulatedMedia` forces it.
 **Scope:** triggers (1) and (2) from the multi-monitor investigation. Headroom (3) is wired
 in opportunistically through (2) where the browser exposes it. **Do not push** — see §8.
 

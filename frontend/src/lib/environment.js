@@ -13,6 +13,8 @@
 // on Windows"), never to decide what is allowed. A UA string attributes a reason; it does
 // not establish a fact. See DL-HDRENV1.
 
+import { readDisplay } from './displayWatcher.js'
+
 // ── naming (for display only — never for gating) ────────────────────────────
 function parseUserAgent(ua, uaData) {
   // navigator.userAgentData is the structured, non-spoofy form where it exists.
@@ -74,10 +76,6 @@ async function probeImageType(mime) {
     if (typeof ImageDecoder === 'undefined' || !ImageDecoder.isTypeSupported) return null
     return await ImageDecoder.isTypeSupported(mime)
   } catch { return null }
-}
-
-function probeMedia(q) {
-  try { return window.matchMedia(q).matches } catch { return null }
 }
 
 // Can a 2-D canvas hold brighter-than-white values? This is the pathway panelapp's
@@ -157,15 +155,11 @@ export async function detectEnvironment() {
     // null means "could not be probed here", which is NOT the same as false and must not
     // be collapsed into it — the capability table treats the two differently.
     decode: { heic, avif, jxl },
-    display: {
-      // `dynamic-range: high` is the browser's own answer to "is there an HDR path to
-      // this screen". It is necessary but not sufficient: it says nothing about how much
-      // headroom, which cannot be queried at all (screen.colorInfo is unimplemented).
-      hdr: probeMedia('(dynamic-range: high)'),
-      videoHdr: probeMedia('(video-dynamic-range: high)'),
-      p3: probeMedia('(color-gamut: p3)'),
-      rec2020: probeMedia('(color-gamut: rec2020)'),
-    },
+    // `dynamic-range: high` is the browser's own answer to "is there an HDR path to this
+    // screen". It is necessary but not sufficient: it says nothing about how much headroom.
+    // Read through displayWatcher.readDisplay so this first read and every refresh after a
+    // monitor change use the same queries — { hdr, videoHdr, p3, rec2020, dpr }.
+    display: readDisplay(),
     pathway: {
       float16Canvas: probeFloat16Canvas(),
       webgpu,

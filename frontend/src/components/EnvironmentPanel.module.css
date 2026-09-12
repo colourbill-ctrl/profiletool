@@ -46,3 +46,18 @@
   background: var(--surface-alt, #f3f4f6);
 }
 .copyBtn { flex: 0 0 auto; font-size: 0.72rem; padding: 2px 8px; cursor: pointer; }
+
+/* Live display tracking: the Identify-displays control and the event log. */
+.identify { margin: 0 0 8px; }
+.identifyBtn { font-size: 0.76rem; padding: 3px 10px; margin-bottom: 4px; cursor: pointer; }
+.identifyBtn:disabled { cursor: default; opacity: 0.6; }
+.identifyState { margin: 0 0 4px; font-size: 0.76rem; line-height: 1.4; }
+.log { margin: 0 0 8px; font-size: 0.76rem; }
+.log summary { cursor: pointer; color: var(--muted, #6b7280); }
+.logList {
+  margin: 4px 0 0; padding: 0; list-style: none; max-height: 14em; overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.7rem;
+}
+.logList li { padding: 1px 0; border-bottom: 1px dotted var(--border, #e3e7ee); overflow-wrap: anywhere; }
+.logTime { color: var(--muted, #6b7280); margin-right: 6px; }
+.logSrc { font-weight: 600; margin-right: 6px; }
