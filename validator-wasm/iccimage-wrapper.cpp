@@ -20,6 +20,13 @@
  * libpng's memory read/write callbacks; JPEG uses libjpeg's jpeg_mem_src/jpeg_mem_dest.
  * All entry points are bytes-in / bytes-out and independently bound (kMaxImageBytes cap).
  */
+// tinyexr: declarations only — the implementation lives in tinyexr-impl.cpp, which is
+// the one TU allowed to define TINYEXR_IMPLEMENTATION. The two macros must match that
+// file's, because they change the DECLARED interface as well as the implementation.
+#define TINYEXR_USE_MINIZ 0
+#define TINYEXR_USE_THREAD 0
+#include "third_party/tinyexr/tinyexr.h"
+
 #include <tiffio.h>
 #include <png.h>
 #include <csetjmp>
@@ -118,7 +125,7 @@ void quietTiff() {
 }
 
 // ── format detection by magic ───────────────────────────────────────────────
-enum class Fmt { Unknown, Tiff, Png, Jpeg, Isobmff };
+enum class Fmt { Unknown, Tiff, Png, Jpeg, Isobmff, Exr };
 Fmt detectFormat(const Bytes& b) {
   if (b.size() >= 4 && ((b[0] == 'I' && b[1] == 'I' && b[2] == 42 && b[3] == 0) ||
                         (b[0] == 'M' && b[1] == 'M' && b[2] == 0 && b[3] == 42)))
@@ -134,6 +141,9 @@ Fmt detectFormat(const Bytes& b) {
   // files for no gain. A non-image ISOBMFF simply carries no colr and yields none.
   if (b.size() >= 8 && b[4] == 'f' && b[5] == 't' && b[6] == 'y' && b[7] == 'p')
     return Fmt::Isobmff;
+  // OpenEXR: magic 0x76 0x2f 0x31 0x01, little-endian, then a 4-byte version/flags.
+  if (b.size() >= 4 && b[0] == 0x76 && b[1] == 0x2f && b[2] == 0x31 && b[3] == 0x01)
+    return Fmt::Exr;
   return Fmt::Unknown;
 }
 
@@ -451,6 +461,9 @@ Bytes findProfileImpl(const Bytes& b) {
     case Fmt::Png:  return pngProfile(b);
     case Fmt::Jpeg: return jpegProfile(b);
     case Fmt::Isobmff: return isobmffProfile(b);
+    // EXR carries no ICC profile at all — it states colour through `chromaticities`,
+    // which probeImage/decodeImage report instead. Nothing to search for.
+    case Fmt::Exr:  return {};
     default:        return {};
   }
 }
@@ -685,6 +698,227 @@ emscripten::val probeJpegStream(Reader& r) {
   res.set("photometric", cmyk ? 5 : (ch >= 3 ? 2 : 1));
   return res;
 }
+
+// ── EXR (OpenEXR, via tinyexr) ──────────────────────────────────────────────
+//
+// EXR is a PIXEL SOURCE here and nothing else. The format carries no ICC profile at
+// all — it describes its colour through a `chromaticities` attribute (and optionally
+// `whiteLuminance`), which is why `findProfile` returns nothing for it rather than
+// searching. That is the whole point of supporting it: it is the HDR format whose
+// colour must be PAIRED with a profile rather than read out of one.
+//
+// Samples come back as 32-bit FLOAT, not integers, and that is not incidental — EXR
+// is unbounded, so values above 1.0 are the data rather than an overflow. Callers
+// must branch on `sampleFormat`.
+//
+// tinyexr does not implement DWAA/DWAB (see third_party/tinyexr/README.md). Such a
+// file is reported BY NAME below, because "could not decode this EXR" would send a
+// reader looking for corruption that is not there.
+
+
+// Find the `compression` attribute by walking the header's attribute records, without
+// asking tinyexr to parse anything. Header layout: 4-byte magic, 4-byte version, then
+// records of `name\0 type\0 int32 size, payload`, terminated by an empty name.
+// Returns the compression code, or -1 if it cannot be determined.
+int exrScanCompression(const Bytes& b) {
+  std::size_t p = 8;                                  // past magic + version
+  for (int guard = 0; guard < 512 && p < b.size(); ++guard) {
+    const std::size_t nameStart = p;
+    while (p < b.size() && b[p] != 0) ++p;
+    if (p >= b.size()) return -1;
+    const std::size_t nameLen = p - nameStart;
+    ++p;
+    if (nameLen == 0) return -1;                      // end of header, no attribute found
+    const std::size_t typeStart = p;
+    while (p < b.size() && b[p] != 0) ++p;
+    if (p >= b.size()) return -1;
+    ++p;
+    if (p + 4 > b.size()) return -1;
+    std::int32_t size = 0;
+    std::memcpy(&size, b.data() + p, 4);              // little-endian, as EXR stores it
+    p += 4;
+    if (size < 0 || p + (std::size_t)size > b.size()) return -1;
+    if (nameLen == 11 && !std::memcmp(b.data() + nameStart, "compression", 11) && size >= 1) {
+      return (int)b[p];
+    }
+    (void)typeStart;
+    p += (std::size_t)size;
+  }
+  return -1;
+}
+
+const char* exrCompressionName(int c) {
+  switch (c) {
+    case TINYEXR_COMPRESSIONTYPE_NONE:  return "none";
+    case TINYEXR_COMPRESSIONTYPE_RLE:   return "RLE";
+    case TINYEXR_COMPRESSIONTYPE_ZIPS:  return "ZIPS";
+    case TINYEXR_COMPRESSIONTYPE_ZIP:   return "ZIP";
+    case TINYEXR_COMPRESSIONTYPE_PIZ:   return "PIZ";
+    case TINYEXR_COMPRESSIONTYPE_PXR24: return "PXR24";
+    case TINYEXR_COMPRESSIONTYPE_B44:   return "B44";
+    case TINYEXR_COMPRESSIONTYPE_B44A:  return "B44A";
+    case TINYEXR_COMPRESSIONTYPE_DWAA:  return "DWAA";
+    case TINYEXR_COMPRESSIONTYPE_DWAB:  return "DWAB";
+    default: return "unknown";
+  }
+}
+inline bool exrCompressionSupported(int c) {
+  return c != TINYEXR_COMPRESSIONTYPE_DWAA && c != TINYEXR_COMPRESSIONTYPE_DWAB;
+}
+
+// Attach what the header says about colour. EXR has no profile, so these attributes
+// ARE its colour statement and the caller needs them to pair one: 8 chromaticity
+// numbers (RGB primaries + white, CIE xy) and the luminance of white in cd/m^2.
+void exrSetColourAttrs(emscripten::val& res, const EXRHeader& h) {
+  for (int i = 0; i < h.num_custom_attributes; ++i) {
+    const EXRAttribute& a = h.custom_attributes[i];
+    if (!std::strcmp(a.name, "chromaticities") && !std::strcmp(a.type, "chromaticities") && a.size >= 32) {
+      emscripten::val arr = emscripten::val::array();
+      for (int k = 0; k < 8; ++k) {
+        float f; std::memcpy(&f, a.value + k * 4, 4);       // EXR attributes are little-endian float32
+        arr.set(k, (double)f);
+      }
+      res.set("chromaticities", arr);                        // [rx,ry,gx,gy,bx,by,wx,wy]
+    } else if (!std::strcmp(a.name, "whiteLuminance") && a.size >= 4) {
+      float f; std::memcpy(&f, a.value, 4);
+      res.set("whiteLuminance", (double)f);
+    }
+  }
+}
+
+// Header-only probe. Reads the header and nothing else — the same "geometry without
+// the raster" contract the TIFF/PNG/JPEG probes have.
+emscripten::val probeExr(const Bytes& b) {
+  emscripten::val res = emscripten::val::object();
+  EXRVersion ver;
+  if (ParseEXRVersionFromMemory(&ver, b.data(), b.size()) != TINYEXR_SUCCESS) {
+    res.set("ok", false); res.set("error", std::string("Not a readable EXR.")); return res;
+  }
+  if (ver.multipart || ver.non_image) {
+    res.set("ok", false);
+    res.set("error", std::string("Multipart and deep EXR files are not supported."));
+    return res;
+  }
+  // Read the compression attribute OURSELVES before handing the header to tinyexr.
+  // tinyexr rejects DWAA/DWAB during its own header parse with "Unknown compression
+  // type", which would send a reader hunting for a corrupt file when the file is
+  // fine and merely uses a codec this build lacks. The attribute is a flat
+  // name\0type\0size,payload record in the header, so finding it is a short scan and
+  // it must happen first to say anything useful.
+  {
+    const int c = exrScanCompression(b);
+    if (c >= 0 && !exrCompressionSupported(c)) {
+      res.set("ok", false);
+      res.set("compression", std::string(exrCompressionName(c)));
+      res.set("error", std::string("This EXR uses ") + exrCompressionName(c) +
+                       " compression, which this build cannot decode.");
+      return res;
+    }
+  }
+
+  EXRHeader hdr; InitEXRHeader(&hdr);
+  const char* err = nullptr;
+  if (ParseEXRHeaderFromMemory(&hdr, &ver, b.data(), b.size(), &err) != TINYEXR_SUCCESS) {
+    res.set("ok", false);
+    res.set("error", std::string("EXR header: ") + (err ? err : "unreadable"));
+    FreeEXRErrorMessage(err); return res;
+  }
+  const int w = hdr.data_window.max_x - hdr.data_window.min_x + 1;
+  const int h = hdr.data_window.max_y - hdr.data_window.min_y + 1;
+  res.set("ok", w > 0 && h > 0);
+  if (w <= 0 || h <= 0) res.set("error", std::string("EXR data window is empty."));
+  res.set("width", w); res.set("height", h);
+  // We always deliver RGB(A)-shaped float to the caller; report what we WILL produce,
+  // matching the other probes, which report post-decode channel counts.
+  res.set("channels", hdr.num_channels >= 3 ? 3 : 1);
+  res.set("bitDepth", 32);
+  res.set("sampleFormat", std::string("float"));
+  res.set("photometric", hdr.num_channels >= 3 ? 2 : 1);
+  res.set("compression", std::string(exrCompressionName(hdr.compression_type)));
+  if (!exrCompressionSupported(hdr.compression_type)) {
+    res.set("ok", false);
+    res.set("error", std::string("This EXR uses ") + exrCompressionName(hdr.compression_type) +
+                     " compression, which this build cannot decode.");
+  }
+  exrSetColourAttrs(res, hdr);
+  FreeEXRHeader(&hdr);
+  return res;
+}
+
+emscripten::val decodeExr(const Bytes& b) {
+  emscripten::val r = emscripten::val::object();
+  // Probe first so an unsupported compression is named before we try to decode it,
+  // and so the colour attributes are reported even on the failure path — a DWA file
+  // still tells the user what colour it is in.
+  emscripten::val pre = probeExr(b);
+  if (!pre["ok"].as<bool>()) return pre;
+
+  float* rgba = nullptr; int w = 0, h = 0; const char* err = nullptr;
+  if (LoadEXRFromMemory(&rgba, &w, &h, b.data(), b.size(), &err) != TINYEXR_SUCCESS) {
+    r.set("ok", false);
+    r.set("error", std::string("EXR decode: ") + (err ? err : "failed"));
+    FreeEXRErrorMessage(err);
+    return r;
+  }
+  // LoadEXRFromMemory always yields RGBA float. Alpha is dropped to match every other
+  // decode path here (the pipeline is colour-only), so the buffer is repacked to RGB.
+  const std::uint64_t px = (std::uint64_t)w * (std::uint64_t)h;
+  if (px == 0 || px * 3ULL * sizeof(float) > (std::uint64_t)kMaxImageBytes) {
+    free(rgba);
+    r.set("ok", false); r.set("error", std::string("EXR too large.")); return r;
+  }
+  std::vector<float> rgb((std::size_t)(px * 3));
+  for (std::uint64_t i = 0; i < px; ++i) {
+    rgb[(std::size_t)(i * 3 + 0)] = rgba[i * 4 + 0];
+    rgb[(std::size_t)(i * 3 + 1)] = rgba[i * 4 + 1];
+    rgb[(std::size_t)(i * 3 + 2)] = rgba[i * 4 + 2];
+  }
+  free(rgba);
+
+  r.set("ok", true);
+  r.set("width", w); r.set("height", h);
+  r.set("channels", 3);
+  r.set("bitDepth", 32);
+  // The flag that stops a caller reading these bytes as integers. Values may exceed
+  // 1.0 and may be negative; that is HDR data, not corruption.
+  r.set("sampleFormat", std::string("float"));
+  r.set("photometric", 2);
+  r.set("samples", makeUint8Array((const std::uint8_t*)rgb.data(), rgb.size() * sizeof(float)));
+  if (pre.hasOwnProperty("chromaticities")) r.set("chromaticities", pre["chromaticities"]);
+  if (pre.hasOwnProperty("whiteLuminance")) r.set("whiteLuminance", pre["whiteLuminance"]);
+  r.set("compression", pre["compression"]);
+  return r;
+}
+
+
+// Streaming EXR probe. tinyexr parses from a contiguous buffer, but an EXR header is
+// at the very front of the file — before the offset table and every scanline — so a
+// bounded PREFIX is enough and the raster is never read. There is no hard limit on
+// header size (an attribute can be arbitrarily large), so the prefix grows on failure
+// rather than being guessed once; the ceiling keeps a malformed file from pulling the
+// whole raster in under the guise of a header.
+emscripten::val probeExrStream(Reader& r) {
+  static const std::size_t kSteps[] = { 256u * 1024u, 4u * 1024u * 1024u };
+  const double total = r.sizeOf();
+  if (total <= 0) {
+    emscripten::val res = emscripten::val::object();
+    res.set("ok", false); res.set("error", std::string("Empty source.")); return res;
+  }
+  emscripten::val last = emscripten::val::object();
+  last.set("ok", false); last.set("error", std::string("Not a readable EXR."));
+  for (std::size_t want : kSteps) {
+    const std::size_t n = (std::size_t)std::min<double>((double)want, total);
+    Bytes head(n);
+    r.seek(0);
+    if (r.read(head.data(), head.size()) != head.size()) break;
+    emscripten::val res = probeExr(head);
+    if (res["ok"].as<bool>()) return res;
+    last = res;
+    if ((double)n >= total) break;      // already had the whole file; growing cannot help
+  }
+  return last;
+}
+
 emscripten::val probeImageStreamImpl(int id) {
   Reader r; r.id = id;
   std::uint8_t magic[8]; r.seek(0);
@@ -694,6 +928,7 @@ emscripten::val probeImageStreamImpl(int id) {
     case Fmt::Tiff: return probeTiffStream(r);
     case Fmt::Png:  return probePngStream(r);
     case Fmt::Jpeg: return probeJpegStream(r);
+    case Fmt::Exr:  return probeExrStream(r);
     default: {
       emscripten::val res = emscripten::val::object();
       res.set("ok", false); res.set("error", std::string("Unrecognised image format."));
@@ -856,6 +1091,7 @@ emscripten::val decodeImageImpl(const Bytes& b) {
     case Fmt::Tiff: return decodeTiff(b);
     case Fmt::Png:  return decodePng(b);
     case Fmt::Jpeg: return decodeJpeg(b);
+    case Fmt::Exr:  return decodeExr(b);
     default: {
       emscripten::val r = emscripten::val::object();
       r.set("ok", false); r.set("error", std::string("Unrecognised image format."));

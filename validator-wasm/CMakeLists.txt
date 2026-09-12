@@ -390,8 +390,12 @@ if(BUILD_ICCIMAGE)
   FetchContent_Declare(tiff SOURCE_DIR "${ICCIMG_TIFF_SRC}")
   FetchContent_MakeAvailable(tiff)
 
-  add_executable(iccimage iccimage-wrapper.cpp)
+  # tinyexr-impl.cpp is the single TU carrying TINYEXR_IMPLEMENTATION; the wrapper
+  # includes only tinyexr's declarations. See third_party/tinyexr/README.md for why
+  # the header is vendored and what it does not support (DWAA/DWAB).
+  add_executable(iccimage iccimage-wrapper.cpp tinyexr-impl.cpp)
   target_link_libraries(iccimage PRIVATE TIFF::tiff)
+  target_include_directories(iccimage PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 
   target_compile_options(iccimage PRIVATE
     -O3 -fexceptions -Wno-deprecated-declarations
