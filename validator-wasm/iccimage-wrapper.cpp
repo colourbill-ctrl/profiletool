@@ -32,7 +32,9 @@ extern "C" {
 #include <emscripten/val.h>
 
 #include <atomic>
+#include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
@@ -116,7 +118,7 @@ void quietTiff() {
 }
 
 // ── format detection by magic ───────────────────────────────────────────────
-enum class Fmt { Unknown, Tiff, Png, Jpeg };
+enum class Fmt { Unknown, Tiff, Png, Jpeg, Isobmff };
 Fmt detectFormat(const Bytes& b) {
   if (b.size() >= 4 && ((b[0] == 'I' && b[1] == 'I' && b[2] == 42 && b[3] == 0) ||
                         (b[0] == 'M' && b[1] == 'M' && b[2] == 0 && b[3] == 42)))
@@ -125,6 +127,13 @@ Fmt detectFormat(const Bytes& b) {
     return Fmt::Png;
   if (b.size() >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF)
     return Fmt::Jpeg;
+  // ISOBMFF (HEIC, AVIF, and the rest of the ISO base media family). The first box
+  // is 'ftyp', so bytes 4..7 are the type and 0..3 its size. We deliberately do NOT
+  // gate on the brand ('heic', 'avif', 'mif1', …): the colr box we want is defined
+  // by ISO/IEC 14496-12 for the whole family, so brand-sniffing would reject valid
+  // files for no gain. A non-image ISOBMFF simply carries no colr and yields none.
+  if (b.size() >= 8 && b[4] == 'f' && b[5] == 't' && b[6] == 'y' && b[7] == 'p')
+    return Fmt::Isobmff;
   return Fmt::Unknown;
 }
 
@@ -247,12 +256,201 @@ void writeIccApp2(jpeg_compress_struct& cinfo, const Bytes& icc) {
   }
 }
 
+
+// ── ISOBMFF (HEIC / AVIF) embedded ICC ──────────────────────────────────────
+//
+// WHY THIS IS NOT A DECODER. HEIC and AVIF store the ICC profile in a `colr` box
+// inside the item-property container, which is plain ISOBMFF structure — so pulling
+// the profile out is a BOX WALK, not an HEVC or AV1 decode. That is the whole reason
+// this can live here: no libheif, no dav1d, no libde265, no WASM size cost, and it
+// works on every browser regardless of codec support. Only DISPLAYING such a file
+// needs a codec; inspecting its profile does not.
+//
+// Layout we care about (ISO/IEC 14496-12 + 23008-12):
+//
+//   meta                        FullBox: 4 bytes of version/flags before its children
+//    ├─ pitm                    primary item ID — which item the file is "of"
+//    └─ iprp
+//        ├─ ipco                the property array; colr boxes live here, 1-BASED index
+//        └─ ipma                item → property index associations
+//
+// WHY WE RESOLVE THE PRIMARY ITEM rather than taking the first colr we find. A modern
+// HDR photo is frequently MULTI-ITEM: an ISO 21496-1 gain map is a second image item
+// with its OWN colr, and thumbnails may carry theirs. Grabbing the first colr in ipco
+// would silently return the gain map's profile for a gain-map HEIC — wrong on exactly
+// the files this feature exists for. So we read pitm, then ipma, and take the colr the
+// primary item actually points at. Only if the association cannot be resolved do we
+// fall back to the first colr in ipco, which is better than nothing for a single-item
+// file whose ipma we failed to parse.
+//
+// 'prof' is a full ICC profile; 'rICC' is a restricted one (monochrome or 3-component
+// matrix/TRC). Both are real profiles and both are returned; 'nclx' is NOT a profile
+// at all (it is CICP code points) and is ignored here — those reach the user through
+// the cicpTag display module instead.
+
+// Reads n bytes at an absolute offset. One shape for both callers: the streaming
+// Reader over a JS File, and a plain in-memory buffer.
+using ReadAt = std::function<std::size_t(std::uint64_t off, void* dst, std::size_t n)>;
+
+constexpr int kMaxBoxDepth = 8;              // meta>iprp>ipco>colr is 4; 8 is slack
+constexpr std::uint64_t kMaxIccInImage = 64ULL * 1024 * 1024;   // sanity cap
+
+inline std::uint32_t be32(const std::uint8_t* p) {
+  return ((std::uint32_t)p[0] << 24) | ((std::uint32_t)p[1] << 16) |
+         ((std::uint32_t)p[2] << 8) | (std::uint32_t)p[3];
+}
+inline std::uint64_t be64(const std::uint8_t* p) {
+  return ((std::uint64_t)be32(p) << 32) | (std::uint64_t)be32(p + 4);
+}
+
+struct BoxIter {
+  const ReadAt& rd;
+  std::uint64_t pos, end;
+  // Header of the next box: its type, its payload range, and where the box ends.
+  // Returns false at the end of the range or on any malformed header, which is the
+  // only loop exit — every branch below must either advance `pos` or return false,
+  // or a crafted file could spin here forever.
+  bool next(char type[5], std::uint64_t& bodyBegin, std::uint64_t& bodyEnd) {
+    if (pos + 8 > end) return false;
+    std::uint8_t h[16];
+    if (rd(pos, h, 8) != 8) return false;
+    std::uint64_t size = be32(h);
+    std::memcpy(type, h + 4, 4); type[4] = 0;
+    std::uint64_t hdr = 8;
+    if (size == 1) {                       // 64-bit 'largesize' follows the type
+      if (pos + 16 > end) return false;
+      if (rd(pos + 8, h + 8, 8) != 8) return false;
+      size = be64(h + 8); hdr = 16;
+    } else if (size == 0) {                // box runs to the end of its container
+      size = end - pos;
+    }
+    if (size < hdr || pos + size > end) return false;   // overlapping/short box
+    bodyBegin = pos + hdr;
+    bodyEnd = pos + size;
+    pos += size;                            // guaranteed forward: size >= hdr >= 8
+    return true;
+  }
+};
+
+// Collected from the walk. Kept separate from the return value because the choice
+// between candidates needs pitm and ipma, which may be parsed AFTER the colr boxes.
+struct IsoColr {
+  std::vector<std::pair<std::uint32_t, Bytes>> props;  // 1-based ipco index -> profile
+  std::uint32_t primaryItem = 0;
+  bool havePitm = false;
+  std::vector<std::pair<std::uint32_t, std::vector<std::uint32_t>>> ipma;  // item -> prop indices
+};
+
+void isoScanIpco(const ReadAt& rd, std::uint64_t b, std::uint64_t e, IsoColr& out) {
+  BoxIter it{rd, b, e};
+  char t[5]; std::uint64_t bb, be_;
+  std::uint32_t index = 0;
+  while (it.next(t, bb, be_)) {
+    ++index;                                  // EVERY property counts toward the index
+    if (std::strcmp(t, "colr") != 0) continue;
+    std::uint8_t kind[4];
+    if (be_ - bb < 4 || rd(bb, kind, 4) != 4) continue;
+    const bool prof = !std::memcmp(kind, "prof", 4);
+    const bool ricc = !std::memcmp(kind, "rICC", 4);
+    if (!prof && !ricc) continue;             // 'nclx' is CICP, not a profile
+    const std::uint64_t n = be_ - bb - 4;
+    if (n == 0 || n > kMaxIccInImage) continue;
+    Bytes icc((std::size_t)n);
+    if (rd(bb + 4, icc.data(), icc.size()) != icc.size()) continue;
+    out.props.emplace_back(index, std::move(icc));
+  }
+}
+
+void isoScanIpma(const ReadAt& rd, std::uint64_t b, std::uint64_t e, IsoColr& out) {
+  std::uint8_t vf[4];
+  if (e - b < 8 || rd(b, vf, 4) != 4) return;
+  const std::uint8_t version = vf[0];
+  const std::uint32_t flags = ((std::uint32_t)vf[1] << 16) | ((std::uint32_t)vf[2] << 8) | vf[3];
+  std::uint8_t cnt[4];
+  if (rd(b + 4, cnt, 4) != 4) return;
+  std::uint64_t p = b + 8;
+  const std::uint32_t entries = be32(cnt);
+  for (std::uint32_t i = 0; i < entries; ++i) {
+    std::uint32_t itemId = 0;
+    // Item IDs widen to 32 bits at version >= 1; association indices widen with flags&1.
+    if (version < 1) { std::uint8_t x[2]; if (p + 2 > e || rd(p, x, 2) != 2) return; itemId = ((std::uint32_t)x[0] << 8) | x[1]; p += 2; }
+    else             { std::uint8_t x[4]; if (p + 4 > e || rd(p, x, 4) != 4) return; itemId = be32(x); p += 4; }
+    std::uint8_t c; if (p + 1 > e || rd(p, &c, 1) != 1) return; p += 1;
+    std::vector<std::uint32_t> idx;
+    for (std::uint8_t k = 0; k < c; ++k) {
+      if (flags & 1) { std::uint8_t x[2]; if (p + 2 > e || rd(p, x, 2) != 2) return; idx.push_back((((std::uint32_t)x[0] << 8) | x[1]) & 0x7FFF); p += 2; }
+      else           { std::uint8_t x;    if (p + 1 > e || rd(p, &x, 1) != 1) return; idx.push_back((std::uint32_t)(x & 0x7F)); p += 1; }
+    }
+    out.ipma.emplace_back(itemId, std::move(idx));
+  }
+}
+
+void isoWalk(const ReadAt& rd, std::uint64_t b, std::uint64_t e, int depth, IsoColr& out) {
+  if (depth > kMaxBoxDepth) return;
+  BoxIter it{rd, b, e};
+  char t[5]; std::uint64_t bb, be_;
+  while (it.next(t, bb, be_)) {
+    if (!std::strcmp(t, "meta")) {
+      if (be_ - bb >= 4) isoWalk(rd, bb + 4, be_, depth + 1, out);   // FullBox: skip version/flags
+    } else if (!std::strcmp(t, "iprp")) {
+      isoWalk(rd, bb, be_, depth + 1, out);
+    } else if (!std::strcmp(t, "ipco")) {
+      isoScanIpco(rd, bb, be_, out);
+    } else if (!std::strcmp(t, "ipma")) {
+      isoScanIpma(rd, bb, be_, out);
+    } else if (!std::strcmp(t, "pitm")) {
+      std::uint8_t vf[4];
+      if (be_ - bb >= 6 && rd(bb, vf, 4) == 4) {
+        if (vf[0] < 1) { std::uint8_t x[2]; if (rd(bb + 4, x, 2) == 2) { out.primaryItem = ((std::uint32_t)x[0] << 8) | x[1]; out.havePitm = true; } }
+        else           { std::uint8_t x[4]; if (be_ - bb >= 8 && rd(bb + 4, x, 4) == 4) { out.primaryItem = be32(x); out.havePitm = true; } }
+      }
+    }
+    // Everything else (mdat above all) is skipped without being read: this is what
+    // keeps the walk off the pixel data entirely.
+  }
+}
+
+Bytes isobmffProfileFrom(const ReadAt& rd, std::uint64_t fileSize) {
+  IsoColr c;
+  isoWalk(rd, 0, fileSize, 0, c);
+  if (c.props.empty()) return {};
+
+  // Prefer the colr the PRIMARY item points at — see the multi-item note above.
+  if (c.havePitm) {
+    for (const auto& assoc : c.ipma) {
+      if (assoc.first != c.primaryItem) continue;
+      // Take the first profile this item associates, in the item's OWN association
+      // order. We do not prefer 'prof' over 'rICC': both are valid ICC profiles, a
+      // conforming file associates one colr per item, and if an author did attach
+      // both, their ordering is the only statement of intent available to us.
+      for (std::uint32_t want : assoc.second) {
+        for (const auto& pr : c.props) {
+          if (pr.first == want) return pr.second;
+        }
+      }
+    }
+  }
+  // No pitm, or no association resolved: fall back to the first profile in ipco.
+  return c.props.front().second;
+}
+
+Bytes isobmffProfile(const Bytes& b) {
+  const ReadAt rd = [&b](std::uint64_t off, void* dst, std::size_t n) -> std::size_t {
+    if (off >= b.size()) return 0;
+    const std::size_t k = (std::size_t)std::min<std::uint64_t>(n, b.size() - off);
+    std::memcpy(dst, b.data() + off, k);
+    return k;
+  };
+  return isobmffProfileFrom(rd, b.size());
+}
+
 Bytes findProfileImpl(const Bytes& b) {
   if (b.empty() || b.size() > kMaxImageBytes) return {};
   switch (detectFormat(b)) {
     case Fmt::Tiff: return tiffProfile(b);
     case Fmt::Png:  return pngProfile(b);
     case Fmt::Jpeg: return jpegProfile(b);
+    case Fmt::Isobmff: return isobmffProfile(b);
     default:        return {};
   }
 }
@@ -389,6 +587,16 @@ Bytes jpegProfileStream(Reader& r) {
   return out;
 }
 
+Bytes isobmffProfileStream(Reader& r) {
+  const ReadAt rd = [&r](std::uint64_t off, void* dst, std::size_t n) -> std::size_t {
+    r.seek((double)off);
+    return r.read(dst, n);
+  };
+  const double total = r.sizeOf();
+  if (total <= 0) return {};
+  return isobmffProfileFrom(rd, (std::uint64_t)total);
+}
+
 Bytes findProfileStreamImpl(int id) {
   Reader r; r.id = id;
   std::uint8_t magic[8];
@@ -399,6 +607,7 @@ Bytes findProfileStreamImpl(int id) {
     case Fmt::Tiff: return tiffProfileStream(r);
     case Fmt::Png:  return pngProfileStream(r);
     case Fmt::Jpeg: return jpegProfileStream(r);
+    case Fmt::Isobmff: return isobmffProfileStream(r);
     default:        return {};
   }
 }
