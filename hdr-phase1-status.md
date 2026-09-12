@@ -298,6 +298,26 @@ signing `--commit-filter` — theirs stripped all 46 on the first attempt.
   ADGC carried, making 8.10.6's "target headroom shall be equal to 1.0" uncheckable by any
   reader of a file).
 
+  **If a profile ever carries an ADGC tag, "present, not decoded" is the only honest
+  answer — and that is already the behaviour.** Verified by building one: it validates
+  `valid`, and the tag surfaces as `Unknown 'adgc' = 61646763` with a raw hex dump. No
+  gain-curve plot is offered, because `TagVisuals` keys on the iccviz descriptor and
+  iccDEV implements no ADGC parser. It looks like a missing feature and is not one; do
+  not "fix" it.
+
+  ADGC-01 is why, and our own ISO 21496-1 finding completes it. A defective table is
+  normally reconstructable by checking the document it references — but ADGC's *only*
+  normative reference is "ISO 21496-1:20XX", a placeholder year, so it was unpublished
+  when ADGC was ratified, and Phase 2 step 4 established that its layout is still not
+  public. Defective **and** unreconstructable, so implementing it would mean guessing
+  field offsets.
+
+  The failure mode that guess produces is the one this branch keeps meeting: not a wrong
+  number but a **confident wrong number nothing downstream can detect**. A gain curve
+  decoded from a guessed layout renders plausibly and silently wrong — the same family as
+  the all-black matrix fallback and the inverted reference-white precedence. Same
+  reasoning as declining to parse ISO 21496-1 in step 4.
+
 - **`IccCmdLineUtil.h` include — acknowledged, not patched.** It arrived with #2454's
   `icJsonEscape` move, not from HDR work. iccDEV would raise it as an iccDEV-core item rather
   than patch it on the ballot-gated branch; our CMakeLists fix stands and costs nothing.
