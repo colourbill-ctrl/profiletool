@@ -14,6 +14,8 @@
 
 import { capabilityFor, capabilityMatrix, hdrPathway, environmentSummary } from
   '../frontend/src/lib/capabilities.js'
+import { classifyFile, rejectReason, FileKind, ImageFormat } from
+  '../frontend/src/lib/fileKind.js'
 
 // An HDR-capable, modern environment unless a case says otherwise.
 const base = {
@@ -102,6 +104,44 @@ for (const [, e] of CASES) {
 }
 console.log(`${inspectOk ? 'pass' : 'FAIL'}  inspect is unconditional across every format and environment`)
 inspectOk ? pass++ : fail++
+
+// ── file classification ─────────────────────────────────────────────────────
+// The first half of "what can we do with this file". Every format below must be
+// RECOGNISED, or the capability table never gets consulted at all — which is how HEIC,
+// AVIF and EXR were silently rejected before this change despite the WASM handling them.
+const icc = (() => { const b = new Uint8Array(132); b.set([0x61,0x63,0x73,0x70], 36); return b })()
+const ftyp = (brand) => { const b = new Uint8Array(16); b.set([0,0,0,16], 0)
+  b.set([0x66,0x74,0x79,0x70], 4); b.set([...brand].map(c => c.charCodeAt(0)), 8); return b }
+const CLASSIFY = [
+  ['ICC profile',   icc,                                              FileKind.ICC,   undefined],
+  ['TIFF LE',       new Uint8Array([0x49,0x49,0x2a,0x00]),            FileKind.IMAGE, ImageFormat.TIFF],
+  ['TIFF BE',       new Uint8Array([0x4d,0x4d,0x00,0x2a]),            FileKind.IMAGE, ImageFormat.TIFF],
+  ['PNG',           new Uint8Array([0x89,0x50,0x4e,0x47]),            FileKind.IMAGE, ImageFormat.PNG],
+  ['JPEG',          new Uint8Array([0xff,0xd8,0xff,0xe0]),            FileKind.IMAGE, ImageFormat.JPEG],
+  ['EXR',           new Uint8Array([0x76,0x2f,0x31,0x01]),            FileKind.IMAGE, ImageFormat.EXR],
+  ['HEIC (heic)',   ftyp('heic'),                                     FileKind.IMAGE, ImageFormat.HEIC],
+  ['HEIC (mif1)',   ftyp('mif1'),                                     FileKind.IMAGE, ImageFormat.HEIC],
+  ['AVIF (avif)',   ftyp('avif'),                                     FileKind.IMAGE, ImageFormat.AVIF],
+  ['AVIF sequence', ftyp('avis'),                                     FileKind.IMAGE, ImageFormat.AVIF],
+  ['not an image',  new Uint8Array([1,2,3,4,5,6,7,8]),                FileKind.UNKNOWN, undefined],
+]
+for (const [name, bytes, wantKind, wantFormat] of CLASSIFY) {
+  const got = classifyFile(bytes, name)
+  const ok = got.kind === wantKind && got.format === wantFormat
+  console.log(`${ok ? 'pass' : 'FAIL'}  classify ${name.padEnd(22)} kind=${got.kind} format=${got.format ?? '-'}`)
+  ok ? pass++ : fail++
+}
+
+// EXR having no ICC profile is a PROPERTY OF THE FORMAT, not a fault in the file, and the
+// message has to say so — "image has no embedded ICC profile" reads as a defect.
+{
+  const exr = rejectReason(FileKind.IMAGE, ImageFormat.EXR)
+  const jpg = rejectReason(FileKind.IMAGE, ImageFormat.JPEG)
+  const ok = /carries no ICC profile/.test(exr) && /no embedded ICC profile/.test(jpg) && exr !== jpg
+  console.log(`${ok ? 'pass' : 'FAIL'}  EXR refusal explains the format rather than blaming the file`)
+  console.log(`      EXR: ${exr}`)
+  ok ? pass++ : fail++
+}
 
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)

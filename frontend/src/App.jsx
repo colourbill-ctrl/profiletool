@@ -111,15 +111,15 @@ export default function App() {
     if (bytes.length > MAX_ICC_BYTES) {
       return { reject: { filename, reason: `too large (> ${MAX_ICC_BYTES / (1024*1024)} MB)` } }
     }
-    const { kind } = classifyFile(bytes, filename)
+    const { kind, format } = classifyFile(bytes, filename)
     if (!ACCEPTED_KINDS.has(kind)) {
-      return { reject: { filename, reason: rejectReason(kind) } }
+      return { reject: { filename, reason: rejectReason(kind, format) } }
     }
     // IMAGE: pull the embedded profile and ingest THAT (not the image). No
     // embedded profile → a clean rejection, same channel as any other reject.
     if (kind === FileKind.IMAGE) {
       const profile = await findEmbeddedProfile(bytes)
-      if (!profile) return { reject: { filename, reason: rejectReason(FileKind.IMAGE) } }
+      if (!profile) return { reject: { filename, reason: rejectReason(FileKind.IMAGE, format) } }
       bytes = profile
       filename = embeddedName(filename)
     }
@@ -148,8 +148,8 @@ export default function App() {
     } catch {
       return { reject: { filename: name, reason: 'could not be read' } }
     }
-    const { kind } = classifyFile(head, name)
-    if (!ACCEPTED_KINDS.has(kind)) return { reject: { filename: name, reason: rejectReason(kind) } }
+    const { kind, format } = classifyFile(head, name)
+    if (!ACCEPTED_KINDS.has(kind)) return { reject: { filename: name, reason: rejectReason(kind, format) } }
 
     if (kind === FileKind.IMAGE) {
       // STREAMING extraction: a worker reads only the image's metadata (header/IFD/
@@ -157,7 +157,7 @@ export default function App() {
       // a huge image never loads into memory just to grab its profile.
       let profile
       try { profile = await findEmbeddedProfileFromFile(file) } catch { profile = null }
-      if (!profile) return { reject: { filename: name, reason: rejectReason(FileKind.IMAGE) } }
+      if (!profile) return { reject: { filename: name, reason: rejectReason(FileKind.IMAGE, format) } }
       if (profile.length > MAX_ICC_BYTES) {
         return { reject: { filename: name, reason: `embedded profile too large (> ${MAX_ICC_BYTES / (1024*1024)} MB)` } }
       }
