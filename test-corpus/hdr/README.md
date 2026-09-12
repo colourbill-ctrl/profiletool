@@ -139,7 +139,7 @@ HAGC metadata no longer decoded at all.
 | `HdrHlgBt709Primaries` | IMPL-04: the first HLG fixture not in BT.2020 primaries |
 | `HdrInputDisplayMeta` | HDR Display metadata on an Input-class profile; draws an Information note |
 | `HdrLinearCll` | 8.10.4 rule a): CLL / CRWL |
-| `HdrLinearHagcWhite` | HDR-10 ruling: the HAGC tag's reference white wins over a CRWL entry |
+| `HdrLinearHagcWhite` | HDR-10: the HAGC tag's reference white governs, over 8.10.4's 203 default (no CRWL entry here) |
 | `HdrLinearMdcv` | 8.10.4 rule b): MDCV / CRWL |
 | `HdrLinearNoMetadata` | 8.10.4 rule c): the 1000 cd/m2 default |
 | `HdrMissingBToA0` | NEGATIVE: 8.10.6 mandatory BToA0 absent |
