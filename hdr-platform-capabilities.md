@@ -38,7 +38,7 @@ WASM, so browser-independent.
 | **ICC inspect** (any of the below) | ✅ | ✅ | ✅ |
 | **AVIF** display | ✅ | ✅ | ✅ |
 | **AVIF** HDR (PQ/HLG) | ✅ | ✅ | ✅ |
-| **AVIF** gain map | ⚠️ flag `#avif-gainmap-hdr-images` | ✅ | ⚠️ same flag |
+| **AVIF** gain map | ❓ unverified (see note) | ✅ | ❓ unverified (see note) |
 | **HEIC** display | ❌ **no native decode** | ✅ | ❌ **no native decode** |
 | **JPEG** display | ✅ | ✅ | ✅ |
 | **JPEG + gain map** (Ultra HDR) | ✅ Chrome 116+ | ✅ | ✅ Chrome 116+ |
@@ -46,6 +46,15 @@ WASM, so browser-independent.
 | **JPEG XL** | ❌ | ✅ | ❌ |
 | **EXR** **(ours)** | ✅ | ✅ | ✅ |
 | **TIFF** float **(ours)** | ✅ | ✅ | ✅ |
+
+> **Correction, 2026-09-12 — AVIF gain maps in Chrome.** This row originally said AVIF gain
+> maps need `chrome://flags/#avif-gainmap-hdr-images`. That flag **no longer exists** in
+> current Chromium: it is absent from `about_flags.cc`, Blink's `features.cc` and
+> `media_switches.cc`. Sources conflict on what replaced it — 2023 commits introduced it
+> disabled by default, a 2025 write-up says gain-map AVIF is on by default — and we have not
+> tested rendering ourselves. So the row says *unverified* rather than guessing, and the
+> Environment panel's flag advice deliberately does not mention it: telling a user to set a
+> flag that is not there sends them looking for nothing.
 
 ### Secondary target
 
@@ -71,8 +80,8 @@ SDR-displays, nothing renders as HDR.
    HEIC, the common case — an iPhone photo opened on a desktop Chrome — inspects but does not
    display.
 3. **Gain-map JPEG is the most portable HDR format we can show**, working on all three primary
-   targets. AVIF HDR is equally portable for PQ/HLG; only its *gain-map* variant is flagged in
-   Chrome.
+   targets. AVIF HDR is equally portable for PQ/HLG; its *gain-map* variant is unverified in
+   Chrome (see the note under the matrix).
 4. **Safari is the only target where everything works**, JPEG XL included.
 
 ## 3. HDR *rendering*, which is a third axis

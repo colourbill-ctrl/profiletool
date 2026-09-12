@@ -29,6 +29,10 @@ function parseUserAgent(ua, uaData) {
   // Safari must be last: every WebKit and Chromium UA contains "Safari".
   else if (/\bSafari\//.test(ua) && /\bVersion\//.test(ua)) browser = 'Safari'
 
+  // Brave ships Chrome's UA string; navigator.brave is its own marker. It matters here
+  // only because its flags page is brave://flags rather than chrome://flags.
+  if (browser === 'Chrome' && typeof navigator !== 'undefined' && navigator.brave) browser = 'Brave'
+
   let os = 'Unknown'
   if (/Windows/.test(ua)) os = 'Windows'
   else if (/\b(iPhone|iPad|iPod)\b/.test(ua)) os = 'iOS'
@@ -47,8 +51,19 @@ function parseUserAgent(ua, uaData) {
 // Every browser on iOS is WebKit underneath, so "Firefox on iPhone" has Safari's image
 // support, not Firefox's. Gating on the brand would be wrong in both directions. This is
 // the one place a UA-derived fact feeds a capability, and it is a fact about the ENGINE.
-const isWebKitEngine = (ua, os) =>
-  os === 'iOS' || (/\bAppleWebKit\//.test(ua) && !/\bChrome\/|\bChromium\/|\bFirefox\//.test(ua))
+//
+// Chromium is identified FIRST from navigator.userAgentData brands, which lists "Chromium"
+// for every Chromium browser whatever it calls itself. The UA-string fallback matches
+// `Chrome/` WITHOUT a word boundary: an earlier `\bChrome\/` missed "HeadlessChrome/", so
+// headless Chromium was classed as WebKit — which hid the flags section and made the
+// capability table claim it could display HEIC. Found by driving the real app in headless
+// Chromium, not by reading the code.
+function isWebKitEngine(ua, os, uaData) {
+  if (os === 'iOS') return true
+  const brands = uaData?.brands?.map((b) => b.brand) || []
+  if (brands.includes('Chromium')) return false
+  return /AppleWebKit\//.test(ua) && !/Chrome\/|Chromium\/|Firefox\//.test(ua)
+}
 
 // ── probes ──────────────────────────────────────────────────────────────────
 async function probeImageType(mime) {
@@ -66,23 +81,58 @@ function probeMedia(q) {
 }
 
 // Can a 2-D canvas hold brighter-than-white values? This is the pathway panelapp's
-// research recommends, and it is flagged in Chrome — so an attempted configure is the
-// only honest test. A thrown or ignored assignment means no.
+// research recommends, and it is flag-gated in Chrome — so an attempted configure is the
+// only honest test.
+//
+// THE OPTION IS `colorType`, NOT `pixelFormat`. Measured in Chromium 149 with and without
+// --enable-experimental-web-platform-features:
+//   - without the flag, 'rec2100-pq' is not a valid PredefinedColorSpace and getContext
+//     THROWS — so the colour space does not fail silently, the context does not exist;
+//   - with the flag, { colorType: 'float16' } yields colorType "float16", while
+//     { pixelFormat: 'float16' } is SILENTLY IGNORED and yields colorType "unorm8".
+// `pixelFormat: 'rgba-float16'` is the ImageData option. An earlier version of this probe
+// used pixelFormat on the canvas and so reported "no HDR canvas path" even with the flag
+// on — exactly the trap panelapp's notes warn about.
 function probeFloat16Canvas() {
   try {
     const c = document.createElement('canvas')
     c.width = c.height = 1
-    const ctx = c.getContext('2d', { colorSpace: 'rec2100-pq', pixelFormat: 'float16' })
+    const ctx = c.getContext('2d', { colorSpace: 'rec2100-pq', colorType: 'float16' })
     if (!ctx) return false
-    // Chrome silently ignores an unsupported colorSpace rather than throwing, so read
-    // it back instead of trusting that the call succeeded.
+    // Read back rather than trust the call: an unknown option is ignored, not refused.
     const got = ctx.getContextAttributes?.()
-    return got ? got.colorSpace === 'rec2100-pq' && got.pixelFormat === 'float16' : false
+    return got ? got.colorSpace === 'rec2100-pq' && got.colorType === 'float16' : false
   } catch { return false }
 }
 
-function probeWebGPU() {
-  try { return typeof navigator !== 'undefined' && !!navigator.gpu } catch { return false }
+// Does this browser expose a screen's HDR headroom? Chromium ships it on ScreenDetailed as
+// `hdrHeadroom` behind the same experimental flag (the open W3C proposal names it
+// `headroom`, so accept both). Checked on the PROTOTYPE, which needs no permission prompt —
+// actually reading a value would require getScreenDetails(). null when ScreenDetailed is
+// not exposed at all (Firefox, Safari, or an insecure context), which is "cannot tell",
+// not "no".
+function probeScreenHdrHeadroom() {
+  try {
+    if (typeof ScreenDetailed === 'undefined') return null
+    const P = ScreenDetailed.prototype
+    return 'hdrHeadroom' in P || 'headroom' in P
+  } catch { return null }
+}
+
+// Is WebGPU USABLE, not merely present? navigator.gpu exists wherever the API ships, but
+// requestAdapter() resolves null when there is no usable GPU — blocklisted hardware, some
+// VMs and drivers, headless runs. Checking only for the object reported an HDR route that
+// could not work, and graded the flag "recommended" where it was actually "required".
+// Bounded by a timeout so a stuck adapter request cannot hold up the whole panel.
+async function probeWebGPU() {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.gpu) return false
+    const adapter = await Promise.race([
+      navigator.gpu.requestAdapter(),
+      new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+    ])
+    return !!adapter
+  } catch { return false }
 }
 
 /**
@@ -94,15 +144,16 @@ export async function detectEnvironment() {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
   const { browser, os, majorVersion } = parseUserAgent(ua, navigator?.userAgentData)
 
-  const [heic, avif, jxl] = await Promise.all([
+  const [heic, avif, jxl, webgpu] = await Promise.all([
     probeImageType('image/heic'),
     probeImageType('image/avif'),
     probeImageType('image/jxl'),
+    probeWebGPU(),
   ])
 
   return {
     browser, os, majorVersion,
-    webkitEngine: isWebKitEngine(ua, os),
+    webkitEngine: isWebKitEngine(ua, os, navigator?.userAgentData),
     // null means "could not be probed here", which is NOT the same as false and must not
     // be collapsed into it — the capability table treats the two differently.
     decode: { heic, avif, jxl },
@@ -117,7 +168,8 @@ export async function detectEnvironment() {
     },
     pathway: {
       float16Canvas: probeFloat16Canvas(),
-      webgpu: probeWebGPU(),
+      webgpu,
+      screenHeadroom: probeScreenHdrHeadroom(),
     },
     // Recorded so the Environment panel can say WHY, and so a bug report carries it.
     userAgent: ua,

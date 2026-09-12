@@ -27,3 +27,22 @@
 .reasons li { margin-bottom: 3px; }
 
 @media (max-width: 700px) { .table th, .table td { padding: 3px 2px; } }
+
+/* Browser flags. Highlighted only when a flag is KNOWN to be off; otherwise a quiet line. */
+.flagsAttention, .flagsQuiet { margin: 0 0 8px; padding: 7px 8px; border-radius: 4px; }
+.flagsAttention { background: #fff7e6; border: 1px solid #f0b429; }
+.flagsQuiet { background: transparent; border: 1px solid var(--border, #e3e7ee); }
+:global(body.dark) .flagsAttention { background: rgba(240, 180, 41, 0.12); border-color: #b7891f; }
+.flagsTitle { font-weight: 600; font-size: 0.8rem; margin-bottom: 4px; }
+.flag + .flag { margin-top: 6px; }
+.flagHead { display: flex; justify-content: space-between; gap: 8px; }
+.flagName { font-size: 0.8rem; }
+.unknown { color: var(--muted, #6b7280); font-style: italic; }
+.flagWhy { margin: 4px 0; font-size: 0.76rem; line-height: 1.4; }
+.flagUrlRow { display: flex; gap: 6px; align-items: center; }
+.flagUrl {
+  flex: 1; min-width: 0; overflow-wrap: anywhere; user-select: all;
+  font-size: 0.72rem; padding: 2px 4px; border-radius: 3px;
+  background: var(--surface-alt, #f3f4f6);
+}
+.copyBtn { flex: 0 0 auto; font-size: 0.72rem; padding: 2px 8px; cursor: pointer; }

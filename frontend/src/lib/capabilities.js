@@ -137,3 +137,58 @@ export function environmentSummary(env) {
   if (env.display?.hdr === false) return `${name} · SDR display`
   return name
 }
+
+// ── browser flags ────────────────────────────────────────────────────────────
+//
+// Which Chromium flags would unlock HDR capabilities this browser is not currently showing.
+//
+// A WEB PAGE CANNOT READ OR SET BROWSER FLAGS. So "enabled" here is INFERRED from the
+// features a flag unlocks, not read from chrome://flags. That is also why a state can be
+// null: when no signal is observable, the honest answer is "cannot tell". And a page cannot
+// open a flags page either — links, location.href and window.open to chrome:// are all
+// refused ("Not allowed to load local resource", measured in Chromium 149) — so the UI
+// offers the address to copy rather than a link.
+//
+// Only one flag is listed because only one matters: both HDR features we use are Blink
+// "experimental" runtime features (CanvasHDR, ScreenDetailedHdrHeadroom), and "experimental"
+// status is enabled by exactly this switch in every channel, Stable included. Neither has an
+// origin trial, so there is no way for the site to enable them for its visitors.
+//
+// Deliberately NOT listed: #avif-gainmap-hdr-images. It no longer exists in current
+// Chromium's flags table, so telling a user to set it would send them looking for nothing.
+
+const FLAGS_SCHEME = { Chrome: 'chrome', Edge: 'edge', Opera: 'opera', Brave: 'brave' }
+
+/** Chromium desktop browsers have flag pages; anything on iOS is WebKit and has none. */
+export function isChromiumBrowser(env) {
+  return !env.webkitEngine && Object.prototype.hasOwnProperty.call(FLAGS_SCHEME, env.browser)
+}
+
+/**
+ * @returns {Array<{id,label,url,enabled:boolean|null,unlocks:string[],severity:'required'|'recommended'}>}
+ */
+export function browserFlags(env) {
+  if (!isChromiumBrowser(env)) return []
+  const f16 = env.pathway?.float16Canvas
+  const headroom = env.pathway?.screenHeadroom
+  // Either observable effect proves the flag is on. With neither, the float16 probe is the
+  // decisive one — it runs in any context, whereas the headroom check is null wherever
+  // ScreenDetailed is not exposed.
+  const enabled = (f16 === true || headroom === true) ? true : (f16 === false ? false : null)
+  return [{
+    id: 'enable-experimental-web-platform-features',
+    label: 'Experimental Web Platform features',
+    url: `${FLAGS_SCHEME[env.browser]}://flags/#enable-experimental-web-platform-features`,
+    enabled,
+    unlocks: ['float16-canvas', 'screen-hdr-headroom'],
+    // Without WebGPU the float16 canvas is the ONLY HDR route here, so the flag is needed
+    // to render HDR at all. With WebGPU, HDR still renders; the flag adds the canvas route
+    // and real screen headroom. Inspection needs neither — see capabilityFor().
+    severity: env.pathway?.webgpu ? 'recommended' : 'required',
+  }]
+}
+
+/** True when a listed flag is known to be off — what the panel highlights. */
+export function flagsNeedAttention(env) {
+  return browserFlags(env).some((f) => f.enabled === false)
+}

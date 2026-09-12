@@ -12,7 +12,7 @@
 // The cases encode the matrix in hdr-platform-capabilities.md. If that document and this
 // file disagree, one of them is wrong — which is the point of writing the expectations out.
 
-import { capabilityFor, capabilityMatrix, hdrPathway, environmentSummary } from
+import { capabilityFor, capabilityMatrix, hdrPathway, environmentSummary, browserFlags, flagsNeedAttention } from
   '../frontend/src/lib/capabilities.js'
 import { classifyFile, rejectReason, FileKind, ImageFormat } from
   '../frontend/src/lib/fileKind.js'
@@ -140,6 +140,44 @@ for (const [name, bytes, wantKind, wantFormat] of CLASSIFY) {
   const ok = /carries no ICC profile/.test(exr) && /no embedded ICC profile/.test(jpg) && exr !== jpg
   console.log(`${ok ? 'pass' : 'FAIL'}  EXR refusal explains the format rather than blaming the file`)
   console.log(`      EXR: ${exr}`)
+  ok ? pass++ : fail++
+}
+
+// ── browser flags ───────────────────────────────────────────────────────────
+// A page cannot read chrome://flags, so the flag's state is INFERRED from what it unlocks.
+// These cases pin that inference, the per-browser flags URL, and that non-Chromium
+// browsers (including every iOS browser, which is WebKit) get no flag advice at all.
+const FLAG = 'enable-experimental-web-platform-features'
+const FLAG_CASES = [
+  // name, env, expect: null = no flags listed; else { enabled, severity, scheme, attention }
+  ['Chrome, flag off, no WebGPU', env({ browser: 'Chrome', os: 'Windows', pathway: { float16Canvas: false, webgpu: false, screenHeadroom: false } }),
+    { enabled: false, severity: 'required', scheme: 'chrome', attention: true }],
+  ['Chrome, flag off, WebGPU', env({ browser: 'Chrome', os: 'Windows', pathway: { float16Canvas: false, webgpu: true, screenHeadroom: false } }),
+    { enabled: false, severity: 'recommended', scheme: 'chrome', attention: true }],
+  ['Chrome, flag on', env({ browser: 'Chrome', os: 'macOS', pathway: { float16Canvas: true, webgpu: true, screenHeadroom: true } }),
+    { enabled: true, severity: 'recommended', scheme: 'chrome', attention: false }],
+  // Either observable effect proves it: headroom alone is enough.
+  ['Chrome, only headroom seen', env({ browser: 'Chrome', os: 'Windows', pathway: { float16Canvas: false, webgpu: true, screenHeadroom: true } }),
+    { enabled: true, severity: 'recommended', scheme: 'chrome', attention: false }],
+  ['Edge uses edge://', env({ browser: 'Edge', os: 'Windows', pathway: { float16Canvas: false, webgpu: true } }),
+    { enabled: false, severity: 'recommended', scheme: 'edge', attention: true }],
+  ['Brave uses brave://', env({ browser: 'Brave', os: 'Windows', pathway: { float16Canvas: false, webgpu: true } }),
+    { enabled: false, severity: 'recommended', scheme: 'brave', attention: true }],
+  ['Safari: no flags', env({ browser: 'Safari', os: 'macOS', webkitEngine: true }), null],
+  ['Firefox: no flags', env({ browser: 'Firefox', os: 'Windows', pathway: { float16Canvas: false, webgpu: false } }), null],
+  ['Chrome on iOS (WebKit): no flags', env({ browser: 'Chrome', os: 'iOS', webkitEngine: true, pathway: { float16Canvas: false } }), null],
+]
+for (const [name, e, want] of FLAG_CASES) {
+  const flags = browserFlags(e)
+  let ok
+  if (want === null) ok = flags.length === 0 && flagsNeedAttention(e) === false
+  else {
+    const f = flags[0]
+    ok = flags.length === 1 && f.id === FLAG && f.enabled === want.enabled && f.severity === want.severity &&
+         f.url === `${want.scheme}://flags/#${FLAG}` && flagsNeedAttention(e) === want.attention
+  }
+  const shown = flags.length ? `${flags[0].url} enabled=${flags[0].enabled} ${flags[0].severity}` : 'no flags'
+  console.log(`${ok ? 'pass' : 'FAIL'}  flags: ${name.padEnd(34)} ${shown}`)
   ok ? pass++ : fail++
 }
 
