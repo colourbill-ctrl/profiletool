@@ -30,6 +30,7 @@ import { probeImageFromFile, findEmbeddedProfileFromFile } from '../lib/imageCod
 import DataResultModal from './DataResultModal.jsx'
 import { useT } from '../i18n.jsx'
 import styles from './PipelineBuilder.module.css'
+import { classifyHdrProfile } from '../lib/hdrProfile.js'
 
 // Cap on the image we'll transform (matches the WASM applyImage 64 MP guard). Checked
 // from the streaming probe's dimensions — no pixels loaded.
@@ -115,6 +116,11 @@ function intentDescription(id) {
   return baseDesc
 }
 
+// Phase 3: any transform built from an HDR Profile runs through its AToB0Tag — the baked
+// SDR rendering of 8.10.6 — because 8.10.1 leaves it no TRC tags to build a matrix path
+// from. The chain therefore works, and produces the fallback rather than HDR behaviour.
+// Said out loud for the same reason as in Compare: it is not an error, so nothing else
+// would tell the user.
 export default function PipelineBuilder({ getEntry, onBuildLink, onApplyImages, onAddProfile, onAccumulate, pipeline, setPipeline }) {
   const t = useT()
   // The whole pipeline config (chain + per-transform intents + head direction +
@@ -222,6 +228,13 @@ export default function PipelineBuilder({ getEntry, onBuildLink, onApplyImages, 
   const [interp, setInterp] = usePersisted('profiletool.img.interp', 'tetrahedral')     // tetrahedral|linear
 
   const stageEntries = useMemo(() => chain.map((id) => getEntry(id)), [chain, getEntry])
+  // Which stages are HDR Profiles, so the chain can say what it is actually applying.
+  const hdrStages = useMemo(
+    () => stageEntries
+      .map((e) => (e ? { name: e.filename, hdr: classifyHdrProfile(e.parsed, e.currentBytes) } : null))
+      .filter((x) => x?.hdr?.isHdr),
+    [stageEntries],
+  )
   const broken = stageEntries.some((e) => !e)
 
   // Per-stage extended-intent availability (G6). profileApplyCaps reports the tag/version
@@ -661,6 +674,19 @@ export default function PipelineBuilder({ getEntry, onBuildLink, onApplyImages, 
         <h3 className={styles.title}>{t('pl_title') || 'Link Pipeline'}</h3>
         <p className={styles.sub}>{t('pl_sub') || 'Build a chain of profiles, then make a DeviceLink, transform an image, or transform a colour dataset through it.'}</p>
       </header>
+
+      {/* Phase 3: an HDR Profile in the chain contributes its AToB0Tag — the baked SDR
+          rendering — because 8.10.1 leaves it no TRC tags. The chain runs and the result
+          is the fallback, which looks like a normal result. Say so. */}
+      {hdrStages.length > 0 && (
+        <div className={styles.hdrNote} role="note">
+          <strong>{t('pl_hdr_title') || 'HDR Profile in the chain'}</strong>{' '}
+          {t('pl_hdr_body') || 'Transforms through an HDR Profile use its AToB0Tag — the baked SDR rendering required by clause 8.10.6 — because clause 8.10.1 leaves it no TRC tags. The result is that fallback, not HDR behaviour.'}
+          <span className={styles.hdrWhich}>
+            {hdrStages.map((x) => `${x.name} (${x.hdr.transfer})`).join(', ')}
+          </span>
+        </div>
+      )}
 
       {/* ── top row: image slot + data slot (each drop-highlights on its own) ── */}
       <div className={styles.topRow}>

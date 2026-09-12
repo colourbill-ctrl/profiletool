@@ -523,8 +523,26 @@ HDR section; it remains the one we may freely mutate.
   since JXL's ICC is Brotli-deconstructed and cannot be scanned out (`libjxl#4158`;
   `@jsquash/jxl` is prior art). Radiance RGBE (~200 lines, no dependency) is cheap enough to
   fold in opportunistically.
-- **Phase 3** — enable HDR for Compare and Combine. Until then show "HDR profiles not
-  supported".
+- **Phase 3 — DONE 2026-09-12, and it turned out not to be about enabling anything.**
+  Compare and Combine already *worked* with HDR Profiles — that was the problem. An HDR
+  Profile carries no TRC tags (8.10.1 prohibits them), so a CMM building a transform from
+  one must use the `AToB0Tag`, which 8.10.6 defines as the fallback for consumers with no
+  HDR processing: **a baked SDR rendering**. Both views therefore produced a plausible
+  result that described the fallback rather than the profile's HDR behaviour, with nothing
+  to indicate it. The same failure mode as everything else in this tranche — a confident
+  wrong answer nothing downstream can detect — so the fix was to make both views SAY what
+  they are showing, not to refuse the profile.
+  - `lib/hdrProfile.js` re-derives 8.10.1 membership client-side, so Compare and Link get
+    the answer without loading the PAWG module. **Cross-checked against PAWG's H1 over the
+    whole corpus: 45 agree, 0 disagree.** That check immediately caught a real bug — the
+    version test had no upper bound, so the eight v5.10 **iccMAX** `BT2100*` fixtures
+    looked like members. 8.10.1's condition is a *band*, `>= 4.5 and < 5.0`: an iccMAX
+    profile is not an HDR Profile however HDR its content.
+  - Not "HDR profiles not supported": that would have been both unhelpful and false, since
+    the gamut and the transform are real — they simply describe the SDR fallback.
+  - An HDR gamut cannot be drawn instead. ICC's v4 PCS is bounded and a 16-bit PCS
+    encoding tops out near one stop of headroom, so there is no unbounded space to plot
+    in.
 
 - **Phase 4 — DEFERMENTS (new, 2026-09-12).** Everything knowingly postponed, gathered in one
   place so a deferral cannot quietly become an omission. Nothing here is a bug or an oversight;

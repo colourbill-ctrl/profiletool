@@ -143,3 +143,17 @@
 :global(body.dark) .ctl select { background: #26282c; border-color: #3a3b40; }
 :global(body.dark) .volTable th,
 :global(body.dark) .volTable td { border-color: #2e2f34; }
+
+/* Phase 3: says what a gamut mesh actually represents for an HDR Profile — the baked
+   SDR fallback of 8.10.6, not the profile's HDR behaviour. Styled as a note rather than
+   a warning: nothing is wrong, the picture just means something other than it appears to. */
+.hdrNote {
+  margin: 6px 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent, #4a90e2);
+  background: var(--note-bg, rgba(74, 144, 226, 0.07));
+  border-radius: 3px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.hdrWhich { display: block; margin-top: 4px; color: var(--muted, #6b7280); font-size: 0.78rem; }

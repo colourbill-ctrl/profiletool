@@ -259,3 +259,17 @@
 
 .error { margin: 0; font-size: 0.84rem; color: var(--error); }
 .notice { margin: 0; font-size: 0.84rem; color: var(--accent); }
+
+/* Phase 3: an HDR Profile in the chain contributes its baked SDR fallback (8.10.6), not
+   HDR behaviour. A note, not a warning — the chain is valid, it just means something
+   other than it appears to. */
+.hdrNote {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent, #4a90e2);
+  background: var(--note-bg, rgba(74, 144, 226, 0.07));
+  border-radius: 3px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.hdrWhich { display: block; margin-top: 4px; color: var(--muted, #6b7280); font-size: 0.78rem; }

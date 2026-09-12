@@ -9,6 +9,7 @@
 // note); the 2-D slice is SVG Plotly. Neither shows data points — gamut only.
 import { useEffect, useMemo, useState } from 'react'
 import { gamutMesh } from '../lib/vizPlot.js'
+import { classifyHdrProfile } from '../lib/hdrProfile.js'
 import { meshBounds, unionBounds } from '../lib/gamutGeom.js'
 import GamutPlot3D from './viz/GamutPlot3D.jsx'
 import GamutSlice2D from './viz/GamutSlice2D.jsx'
@@ -63,7 +64,12 @@ export default function ComparePanel({ ids, getEntry, t }) {
   const profiles = useMemo(
     () => ids.map((id, i) => {
       const e = getEntry(id)
-      return e ? { id, name: e.filename, bytes: e.currentBytes, color: PALETTE[i % PALETTE.length] } : null
+      if (!e) return null
+      // Classify here so the view can say WHAT it is drawing for an HDR Profile. See the
+      // caveat below: the mesh is real, but for an HDR Profile it describes the baked SDR
+      // fallback rather than the profile's HDR behaviour.
+      const hdr = classifyHdrProfile(e.parsed, e.currentBytes)
+      return { id, name: e.filename, bytes: e.currentBytes, hdr, color: PALETTE[i % PALETTE.length] }
     }).filter(Boolean),
     [ids, getEntry],
   )
@@ -112,6 +118,7 @@ export default function ComparePanel({ ids, getEntry, t }) {
 
   if (!profiles.length) return null
   const intentLabel = (s) => t(s.key) || s.fallback
+  const hdrProfiles = profiles.filter((p) => p.hdr?.isHdr)
 
   return (
     <div className={styles.wrap}>
@@ -125,6 +132,28 @@ export default function ComparePanel({ ids, getEntry, t }) {
         </label>
         {loading && <span className={styles.loading}>{t('gamut_loading') || 'Building gamut…'}</span>}
       </div>
+
+      {/* PHASE 3. An HDR Profile carries no TRC tags — clause 8.10.1 prohibits them — so a
+          CMM building a transform from it must use the AToB0Tag, which 8.10.6 defines as
+          the fallback for consumers that implement NO HDR processing: a baked SDR
+          rendering. The mesh therefore builds without error and looks entirely plausible
+          while describing the fallback, not the profile's HDR behaviour.
+
+          That is the failure mode this tranche keeps meeting — not an error, but a
+          confident wrong answer nothing downstream can detect — so the view says what it
+          is showing rather than letting the picture speak for itself. An HDR gamut cannot
+          simply be drawn instead: ICC's v4 PCS is bounded and a 16-bit PCS encoding tops
+          out near one stop of headroom, so there is no unbounded space to plot in. */}
+      {hdrProfiles.length > 0 && (
+        <div className={styles.hdrNote} role="note">
+          <strong>{t('gamut_hdr_title') || 'Showing the SDR fallback'}</strong>{' '}
+          {t('gamut_hdr_body') ||
+            'These are HDR Profiles, which carry no TRC tags, so the gamut is built from the AToB0Tag — the baked SDR rendering clause 8.10.6 requires for consumers without HDR processing. It is not the profile\u2019s HDR gamut, which cannot be drawn in a bounded PCS.'}
+          <span className={styles.hdrWhich}>
+            {hdrProfiles.map((p) => `${p.name} (${p.hdr.transfer})`).join(', ')}
+          </span>
+        </div>
+      )}
 
       <div className={styles.legend}>
         {items.map((it) => (
