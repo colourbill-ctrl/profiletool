@@ -1,6 +1,28 @@
 # Plan: refresh HDR display info when the window changes monitor
 
-**Status:** IMPLEMENTED 2026-09-12 on branch `beta` — awaiting the manual two-monitor check (§7).
+**Status:** IMPLEMENTED 2026-09-12 on branch `beta`; manual two-monitor check (§7) DONE the same day.
+
+**Real-hardware results (user's Windows laptop: built-in HDR panel, dpr 2, reports an empty
+label + external SDR "H32T13 " monitor, dpr 1; Chrome with the experimental flag):**
+- Trigger (1): every drag flipped `dynamic-range`, `video-dynamic-range`, `color-gamut-p3`
+  and `resolution` together, coalesced into one log entry per move. ✔
+- Trigger (2): after Identify, `currentscreenchange` joined those same entries; headroom
+  followed the window (0 on the SDR monitor, 0.97–1.55 on the HDR panel). ✔
+- The flip happens **partway across** the boundary, not at the edge — consistent with
+  "largest intersecting area" as the current screen. ✔
+- **Brightness keys do NOT update `hdrHeadroom` — a Chromium limitation, not ours.**
+  `ui/display/win/screen_win.cc` re-reads the SDR white level (`GetSDRWhiteLevel`) only on
+  `WM_DISPLAYCHANGE`, `WM_ACTIVATEAPP`, `WM_SETTINGCHANGE/SPI_SETWORKAREA`, colour-profile or
+  DXGI-info changes; a brightness key sends none. Blink updates the value and queues the
+  events in the same step (`screen_details.cc`), so a page-side poll cannot see a newer
+  value either. Two mid-session updates without a move are most likely `WM_ACTIVATEAPP`
+  (Chrome re-activated) — unconfirmed; test: change brightness, Alt-Tab away and back.
+- **Unit settled from source:** `ScreenDetailed::hdrHeadroom()` =
+  `log2(max(HDRMaxLuminanceRelative, 1))` — stops, floored at 0. Observed 0.97 / 1.35 /
+  1.55 ≈ 1.96× / 2.55× / 2.92× SDR white.
+- Proposed follow-ups (awaiting the user): show stops + ≈× SDR white and a Windows refresh
+  caveat in place of "unit not standardised"; trim monitor labels; optional Chromium bug
+  report for stale headroom on brightness change.
 
 **TO VERIFY items, as measured in Chromium 149 (headless):**
 - `navigator.permissions.query({ name: 'window-management' })` works without prompting
