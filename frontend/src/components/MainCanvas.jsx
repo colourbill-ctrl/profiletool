@@ -21,6 +21,8 @@ import styles from './MainCanvas.module.css'
 const TABS = ['Profile', 'Compare', 'Link', 'SpecSep', 'HDR']
 // Tabs that gather IMAGES rather than pooled profiles — no pool accumulator bar.
 const NO_ACCUM = new Set(['SpecSep', 'HDR'])
+// Tabs whose panels own their drop areas, so the canvas adds no panel-wide drop target.
+const OWN_DROP = new Set(['Link', 'HDR'])
 
 export default function MainCanvas({
   activeTab, onActivate, accum, getEntry, onDropOnTab, onDropFiles, onRemoveFromAccum,
@@ -100,7 +102,13 @@ export default function MainCanvas({
   // drop the panel target entirely; the cards handle their own drops (and still
   // accumulate onto the tab via onAccumulate). Profiles can also still be dropped on
   // the tab button and the accumulator strip.
-  const panelDropProps = activeTab === 'Link' ? {} : {
+  //
+  // Same for HDR: the panel owns its own one-image drop area. A panel-wide target there
+  // would also route the image into the POOL (loading its embedded profile) — and when the
+  // HDR panel handled the drop first, this highlight never saw the drop and stayed painted
+  // over the image (an OS file drag fires no `dragend`, so the safety net above cannot clear
+  // it).
+  const panelDropProps = OWN_DROP.has(activeTab) ? {} : {
     onDragOver: (e) => { if (acceptDrag(e)) { e.preventDefault(); setPanelDrag(true) } },
     onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setPanelDrag(false) },
     onDrop: (e) => routeDrop(activeTab, e),

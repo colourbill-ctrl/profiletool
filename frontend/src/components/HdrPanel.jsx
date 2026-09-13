@@ -72,13 +72,15 @@ export default function HdrPanel({ onOpenInProfile }) {
     }
   }, [])
 
+  // No stopPropagation: MainCanvas adds no panel drop target on this tab, and letting the
+  // drop reach `window` is what clears the canvas's tab-button drag highlight.
   const onDrop = (e) => {
-    e.preventDefault(); e.stopPropagation(); setOver(false)
+    e.preventDefault(); setOver(false)
     const f = e.dataTransfer?.files?.[0]
     if (f) load(f)
   }
   const dropProps = {
-    onDragOver: (e) => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); e.stopPropagation(); setOver(true) } },
+    onDragOver: (e) => { if (e.dataTransfer?.types?.includes('Files')) { e.preventDefault(); setOver(true) } },
     onDragLeave: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOver(false) },
     onDrop,
   }
