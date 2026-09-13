@@ -44,7 +44,14 @@ export const REASON = {
   NO_HDR_PATHWAY: 'this browser exposes no HDR canvas path (needs float16 canvas or WebGPU)',
   FIREFOX_NO_HDR: 'Firefox renders no HDR images and reads no gain maps; HDR content is shown as SDR',
   INSPECT_ALWAYS: 'inspection needs a container parse, not a codec',
+  HDR_OK: 'HDR display and an HDR canvas path are both available',
+  UNKNOWN_FORMAT: 'unknown format',
 }
+
+// Every verdict carries `code` — the REASON key — alongside the English `why`. The UI
+// translates by code (i18n key `cap_<code lowercased>`); `why` stays for tests, logs and a
+// missing translation. Adding a REASON means adding its `cap_` key in all 12 locales.
+const verdict = (ok, code) => ({ ok, why: REASON[code], code })
 
 // Does the browser decode this format? Prefers the direct probe; falls back to engine
 // knowledge only where the probe does not exist.
@@ -54,25 +61,21 @@ export const REASON = {
 // Safari users they cannot open HEIC, which is exactly backwards.
 function browserDecodes(format, env) {
   const probed = env.decode?.[format]
-  if (probed === true) return { ok: true, why: REASON.BROWSER_YES }
-  if (probed === false) return { ok: false, why: REASON.BROWSER_NO }
+  if (probed === true) return verdict(true, 'BROWSER_YES')
+  if (probed === false) return verdict(false, 'BROWSER_NO')
 
   // No probe available — decide from the engine.
   switch (format) {
     case 'avif':
       // Every current engine decodes AVIF; treat absence of a probe as support and let
       // an actual decode failure surface normally rather than pre-emptively refusing.
-      return { ok: true, why: REASON.BROWSER_YES }
+      return verdict(true, 'BROWSER_YES')
     case 'heic':
-      return env.webkitEngine
-        ? { ok: true, why: REASON.BROWSER_YES }
-        : { ok: false, why: REASON.HEIC_SAFARI_ONLY }
+      return env.webkitEngine ? verdict(true, 'BROWSER_YES') : verdict(false, 'HEIC_SAFARI_ONLY')
     case 'jxl':
-      return env.webkitEngine
-        ? { ok: true, why: REASON.BROWSER_YES }
-        : { ok: false, why: REASON.JXL_SAFARI_ONLY }
+      return env.webkitEngine ? verdict(true, 'BROWSER_YES') : verdict(false, 'JXL_SAFARI_ONLY')
     default:
-      return { ok: false, why: REASON.BROWSER_NO }
+      return verdict(false, 'BROWSER_NO')
   }
 }
 
@@ -83,27 +86,27 @@ function browserDecodes(format, env) {
 export function capabilityFor(format, env) {
   const spec = FORMATS[format]
   if (!spec) {
-    const no = { ok: false, why: 'unknown format' }
+    const no = verdict(false, 'UNKNOWN_FORMAT')
     return { inspect: no, display: no, hdr: no }
   }
 
   // INSPECT is unconditional. Every format here is parsed by our own WASM — including
   // HEIC and AVIF, whose ICC profile is reached by walking ISOBMFF boxes with no codec.
-  const inspect = { ok: true, why: REASON.INSPECT_ALWAYS }
+  const inspect = verdict(true, 'INSPECT_ALWAYS')
 
   const display = spec.decoder === 'ours'
-    ? { ok: true, why: REASON.OURS }
+    ? verdict(true, 'OURS')
     : browserDecodes(format, env)
 
   // HDR needs all three: the pixels, an HDR display, and a canvas path that carries
   // values above 1.0. Report the FIRST missing one, so the user gets the thing they
   // could actually change rather than a list.
   let hdr
-  if (!display.ok) hdr = { ok: false, why: display.why }
-  else if (env.browser === 'Firefox' && !env.webkitEngine) hdr = { ok: false, why: REASON.FIREFOX_NO_HDR }
-  else if (env.display?.hdr === false) hdr = { ok: false, why: REASON.NO_HDR_DISPLAY }
-  else if (!env.pathway?.float16Canvas && !env.pathway?.webgpu) hdr = { ok: false, why: REASON.NO_HDR_PATHWAY }
-  else hdr = { ok: true, why: 'HDR display and an HDR canvas path are both available' }
+  if (!display.ok) hdr = { ...display }
+  else if (env.browser === 'Firefox' && !env.webkitEngine) hdr = verdict(false, 'FIREFOX_NO_HDR')
+  else if (env.display?.hdr === false) hdr = verdict(false, 'NO_HDR_DISPLAY')
+  else if (!env.pathway?.float16Canvas && !env.pathway?.webgpu) hdr = verdict(false, 'NO_HDR_PATHWAY')
+  else hdr = verdict(true, 'HDR_OK')
 
   return { inspect, display, hdr }
 }
@@ -131,6 +134,10 @@ export function hdrPathway(env) {
  * Deliberately mentions the DISPLAY as well as the browser: "Chrome on Windows" does not
  * tell a user why their HDR image looks flat, and the screen is the half they can change.
  */
+export function environmentSummaryParts(env) {
+  return { browser: env.browser, os: env.os, hdr: env.display?.hdr ?? null }
+}
+
 export function environmentSummary(env) {
   const name = `${env.browser} on ${env.os}`
   if (env.display?.hdr === true) return `${name} · HDR display detected`
@@ -177,7 +184,7 @@ export function browserFlags(env) {
   const enabled = (f16 === true || headroom === true) ? true : (f16 === false ? false : null)
   return [{
     id: 'enable-experimental-web-platform-features',
-    label: 'Experimental Web Platform features',
+    label: 'Experimental Web Platform features',   // shown untranslated: chrome://flags is English-only
     url: `${FLAGS_SCHEME[env.browser]}://flags/#enable-experimental-web-platform-features`,
     enabled,
     unlocks: ['float16-canvas', 'screen-hdr-headroom'],
@@ -191,4 +198,11 @@ export function browserFlags(env) {
 /** True when a listed flag is known to be off — what the panel highlights. */
 export function flagsNeedAttention(env) {
   return browserFlags(env).some((f) => f.enabled === false)
+}
+
+// ── translation helpers (the only UI-facing functions here; `t` is useT()'s function) ──
+/** A verdict's reason in the UI language, falling back to the English `why`. */
+export function reasonText(v, t) {
+  if (!v) return ''
+  return (v.code && t('cap_' + v.code.toLowerCase())) || v.why || ''
 }

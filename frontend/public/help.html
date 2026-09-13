@@ -66,12 +66,16 @@
 <li><strong>Validate</strong> — run the ICC Profile Assessment Working Group checklist (Security / Conformance / Quality), each check with a verdict, filterable by category.</li>
 <li><strong>Round-trip edit</strong> — convert the profile to XML or JSON, edit it in the built-in code editor, convert back to ICC, and re-validate. The save button downloads the edited binary.</li>
 <li><strong>Chain profiles</strong> — in the <strong>Combine</strong> tab, drag pooled profiles into an ordered chain, then bake it into a <strong>DeviceLink</strong>, <strong>transform an image</strong> through it (with full control over output encoding, compression, planar layout and ICC embedding), or <strong>transform a colour dataset</strong>.</li>
+<li><strong>Work with HDR</strong> — check a profile against the ICC.1 HDR Profile rules (clause 8.10), read its cICP code points, and plot its adaptive gain curve at any display headroom. The <strong>HDR</strong> tab shows one HDR image on your display, and <strong>Settings → Environment</strong> reports what this browser and display can do.</li>
 <li><strong>Launch from chardata</strong> — open a profile that's loaded in <a href="https://chardata.colourbill.com/">chardata</a> directly here, with the bytes handed over in-browser via <code>postMessage</code>.</li>
 <li><strong>Launch with a URL</strong> — open a link that points the tool at a profile hosted on the web and, optionally, the tab to land on (e.g. <code>…/profiletool#url=…&tab=VAL</code>).</li>
 </ul>
 <p>Everything runs client-side. Profile bytes never leave the browser tab.</p>
 <div class="note">
-<strong>ICC.2 (iccMAX) support is partial in 2.0.0.</strong> ICC.2 profiles load, inspect, validate and round-trip like ICC.1 ones — the validation checklist includes iccMAX-specific checks, spectral PCS and multi-processing-element tags are decoded, and the transform engines are built against the full iccMAX stack. Not yet covered: multi-part <strong>ICS</strong> (Interchange Color Space) workflows, selecting a V5 <em>sub-profile</em> when applying a transform, and inverse search on some ICC.2 profiles. Expect gaps on the more exotic ICC.2 features; they are being filled release by release.
+<strong>ICC.2 (iccMAX) support is partial.</strong> ICC.2 profiles load, inspect, validate and round-trip like ICC.1 ones — the validation checklist includes iccMAX-specific checks, spectral PCS and multi-processing-element tags are decoded, and the transform engines are built against the full iccMAX stack. Not yet covered: multi-part <strong>ICS</strong> (Interchange Color Space) workflows, selecting a V5 <em>sub-profile</em> when applying a transform, and inverse search on some ICC.2 profiles. Expect gaps on the more exotic ICC.2 features; they are being filled release by release.
+</div>
+<div class="note">
+<strong>HDR Profile support follows a draft.</strong> The HDR checks, the <code>headroomAdaptiveGainCurveTag</code> views and the HDR tab implement the ICC.1 HDR amendment as it currently stands. The amendment is not yet published, so details may change before it is.
 </div>
 
   <nav>
@@ -163,7 +167,7 @@ body.dark .diag {
 </svg><p>profiletool is a <strong>multi-profile workbench</strong>. The window has three parts:</p>
 <ul>
 <li>the <strong>Profiles</strong> pane down the left — the <em>pool</em> of everything you've loaded;</li>
-<li>the <strong>canvas</strong> on the right, with four tabs across the top — <strong>Profile</strong>, <strong>Compare</strong>, <strong>Combine</strong>, <strong>Spectral</strong>;</li>
+<li>the <strong>canvas</strong> on the right, with five tabs across the top — <strong>Profile</strong>, <strong>Compare</strong>, <strong>Combine</strong>, <strong>Spectral</strong>, <strong>HDR</strong>;</li>
 <li>the <strong>Settings</strong> blade on the right edge (see <a href="#2-settings-panel">Settings panel</a>).</li>
 </ul>
 <h3 id="loading-profiles">Loading profiles</h3>
@@ -172,7 +176,7 @@ body.dark .diag {
 <li>Click <strong>Load Profiles</strong> at the top of the Profiles pane and pick one or more files, or</li>
 <li><strong>Drag and drop</strong> files onto the Profiles pane.</li>
 </ul>
-<p>You can load <code>.icc</code> / <code>.icm</code> profiles <em>and</em> images — drop a TIFF, PNG or JPEG and the tool extracts its <strong>embedded ICC profile</strong> (reading only the file's metadata, never the pixels) and adds that to the pool. A <strong>＋ New from .cube</strong> button builds a DeviceLink from a <code>.cube</code> LUT.</p>
+<p>You can load <code>.icc</code> / <code>.icm</code> profiles <em>and</em> images. Drop a <strong>TIFF, PNG, JPEG, HEIC or AVIF</strong> and the tool extracts its <strong>embedded ICC profile</strong> and adds that to the pool. It reads only the file's metadata, never the pixels. For HEIC and AVIF it walks the file's boxes, so this works in every browser, including ones that cannot display those formats. An <strong>OpenEXR</strong> file is refused with the reason: the format has no slot for an ICC profile and states its colour through chromaticities instead. To <em>view</em> an image, use the <a href="#4-7-hdr-tab">HDR tab</a>. A <strong>＋ New from .cube</strong> button builds a DeviceLink from a <code>.cube</code> LUT.</p>
 <p>A profile is accepted if its first 36 bytes contain the <code>acsp</code> signature and it parses through IccProfLib's <code>ValidateIccProfile</code>. Files that fail are listed in a rejection summary with the specific reason; their bytes are not retained.</p>
 <h3 id="the-profiles-pane">The Profiles pane</h3>
 <p>Loaded profiles are grouped into collapsible sections by <strong>profile class</strong> (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). Each row shows the filename and badges for class, colour space, version and size; a profile that could only be partially parsed is flagged. Use the <strong>A–Z</strong> button to cycle the sort (load order → ascending → descending), the <strong>×</strong> on a row to remove it, and the handle on the pane's right edge to resize it — or collapse the pane entirely.</p>
@@ -250,14 +254,43 @@ body.dark .diag {
 <li><strong>?</strong> opens this guide <strong>inside the app</strong>, as a pane that slides in over the window. It has a search box in its header — type to highlight matches, then use <code>Enter</code> / <code>Shift+Enter</code> (or the <code>˄</code> <code>˅</code> buttons) to step through them; <code>Escape</code> clears the search, and a second <code>Escape</code> closes the pane.</li>
 <li><strong>✉</strong> opens the contact form on colourbill.com in a new browser tab.</li>
 </ul>
-<p>The panel exposes the <strong>Display</strong> group:</p>
+<p>The panel has two groups, <strong>Display</strong> and <strong>Environment</strong>. To make the panel wider or narrower, drag its left edge (220–560 px); the width is remembered.</p>
 <h3 id="background">Background</h3>
 <p>Switches the app between <strong>Light</strong>, <strong>Dark</strong>, and <strong>System</strong> (follows the OS preference) themes. The choice persists across sessions. In <strong>System</strong> mode the app subscribes to <code>prefers-color-scheme</code> and flips automatically when the OS theme changes; choosing Light or Dark explicitly detaches that listener.</p>
 <h3 id="number-format">Number format</h3>
 <p>Chooses how numeric values are displayed throughout the profile views — <strong>Hexadecimal</strong> or <strong>Decimal</strong>.</p>
 <h3 id="language">Language</h3>
-<p>Overrides the interface language. <strong>System default (…)</strong> detects the browser locale and uses the closest supported language, with the native name in the parenthetical so you can see which it picked. Translation covers the app chrome (the Profiles pane, tab labels, the Combine and Spectral tools, settings panel and this guide's chrome). Strings produced by IccProfLib — tag descriptions, validation messages, header field names — are emitted by the C++ library in English and are not translated.</p>
+<p>Overrides the interface language. <strong>System default (…)</strong> detects the browser locale and uses the closest supported language, with the native name in the parenthetical so you can see which it picked. Translation covers the app chrome: the Profiles pane, tab labels, the Combine, Spectral and HDR tools, the settings panel including Environment and its reasons, and this guide's chrome. Some text is not translated:</p>
+<ul>
+<li>Strings produced by IccProfLib — tag descriptions, validation messages, header field names — come from the C++ library in English.</li>
+<li>The browser-flag name stays in English so it matches the browser's own flags page.</li>
+<li>The Environment panel's <strong>Display events</strong> log stays in English, so it can be pasted into a bug report as-is.</li>
+</ul>
 <p>Supported languages: English, Français, Deutsch, Italiano, Español, Português (PT), Português (BR), Svenska, 中文（简体）, 中文（繁體）, 日本語, 한국어. The chardata Settings panel offers the same set, so toggling Language in one app gives a consistent reading experience in the other.</p>
+<h3 id="environment">Environment</h3>
+<p>Shows what <strong>this</strong> browser, platform and display can do, so that when a format or HDR feature is unavailable you can see why. From top to bottom:</p>
+<ul>
+<li><strong>Summary</strong> — the browser and operating system, and whether the display reports HDR.</li>
+<li><strong>Browser flags</strong> (Chrome, Edge, Opera, Brave) — whether <em>Experimental Web Platform features</em> is on. That flag enables the HDR canvas and lets the page read a display's HDR headroom.</li>
+<p>
+  - When the flag is known to be off, the box is highlighted. It is marked <strong>required</strong> if this browser has no usable WebGPU, since the HDR canvas is then the only way to render HDR. Otherwise it is <strong>optional</strong>.
+ 
+  - Profile inspection never needs it.
+ 
+  - A web page cannot open or change browser flags. Click <strong>Copy</strong>, paste the address into the address bar, set the flag to <em>Enabled</em>, then relaunch the browser.
+<li><strong>Display facts</strong> — <strong>HDR display</strong>, <strong>Wide gamut</strong> (sRGB, Display P3 or Rec. 2020), <strong>Pixel ratio</strong>, and the <strong>HDR canvas path</strong> in use (<code>float16-canvas</code>, <code>webgpu</code> or none). These refresh on their own when you drag the window onto a screen where they differ. The switch happens once most of the window is on the new screen.</li>
+<li><strong>Identify displays</strong> (Chromium browsers) — asks permission to see which monitor the window is on. Once allowed, the panel refreshes even between monitors that look alike, names the <strong>Current monitor</strong>, and shows <strong>HDR headroom</strong> where the browser exposes it (Chrome with the flag above), for example <em>1.35 stops (≈2.55× SDR white)</em>. On Windows the headroom updates when the window moves to another screen or Chrome becomes the active app again, not while you change brightness. If you refuse the permission, change it in the site's settings.</li>
+<li><strong>Display events</strong> — a collapsible log of the last 20 refreshes and what triggered each one. It is useful when reporting a display problem.</li>
+<li><strong>Format table</strong> — one row per format (ICC profile, TIFF, PNG, JPEG, OpenEXR, AVIF, HEIC/HEIF, JPEG XL), with three questions:</li>
+ 
+  - <strong>Inspect</strong>: can the embedded profile be read?
+ 
+  - <strong>Display</strong>: can the pixels be shown?
+ 
+  - <strong>HDR</strong>: can it render brighter than white?
+</ul>
+</p>
+<p>  Hover a row for the reason behind a ✕; formats that cannot be displayed are listed with their reasons below the table. A dot marks formats profiletool decodes itself, which work the same in every browser. <strong>Inspect</strong> is ✓ for every format.</p>
 <hr>
 <h2 id="3-profile-views">3. Profile views</h2>
 <p>Drag a profile from the pool onto the <strong>Profile</strong> tab to inspect it. The tab shows a bar with the filename and a <strong>Save profile</strong> button (plus a <em>● Modified — unsaved edits</em> pill once you've edited it), and below that the viewer: a title bar (filename · size in bytes · IccProfLib version · validity badge) and its own tab strip.</p>
@@ -288,6 +321,8 @@ body.dark .diag {
 <tr><td>RGB colorants (<code>rXYZ</code>/<code>gXYZ</code>/<code>bXYZ</code>) and white point (<code>wtpt</code>)</td><td>A CIE 1931 chromaticity chart with the relevant primary (or the white point) highlighted; the colorant/white-point data is shown beneath.</td></tr>
 <tr><td>LUT transforms (<code>A2B0–3</code>, <code>B2A0–3</code>, <code>gamt</code>, <code>pre0–2</code>)</td><td>Input-side and output-side tone curves (overlaid, colour-coded per colorant, with a legend to toggle traces); the CLUT lattice as an image; the <strong>gamut image</strong> (for the profile's <code>gamutTag</code>, colour-coded — neutral = in gamut, red = out of gamut); the <strong>evaluator</strong> (below); and the raw data table, collapsed.</td></tr>
 <tr><td>Named / colorant tables (<code>ncl2</code>/<code>nmcl</code>/<code>clrt</code>/<code>clot</code>)</td><td>A scatter of the colours on the CIELAB a*b* (and CIE xy) charts; the tables are collapsed below.</td></tr>
+<tr><td>Coding-independent code points (<code>cicp</code>)</td><td><strong>Code points</strong>: colour primaries, transfer characteristics, matrix coefficients and the full-range flag, each named as ITU-T H.273 defines it. Values H.273 does not assign are flagged, as are non-zero reserved bytes.</td></tr>
+<tr><td>Adaptive gain curve (<code>headroomAdaptiveGainCurveTag</code>)</td><td><strong>Gain curve</strong> and <strong>Gain at a display headroom</strong>. See <em>HDR gain curves (HAGC)</em> below.</td></tr>
 </tbody></table>
 <div class="note">
 <strong>Malformed data is never hidden.</strong> If a curve or other visualizable element fails IccProfLib's validation — for example a tone curve with a degenerate gamma of 0 — the section still renders what it can and shows a ⚠ warning with the exact reason from the library, rather than silently omitting the graph.
@@ -299,9 +334,21 @@ body.dark .diag {
 <li>The output is shown in <strong>both</strong> the internal normalized 0–1 encoding and human units (Lab/XYZ for a PCS result).</li>
 </ul>
 <p>The gamut tag (<code>gamt</code>) has no evaluator — it is a one-channel in/out-of-gamut map rather than an invertible transform; its gamut image is shown instead.</p>
+<h4>HDR gain curves (HAGC)</h4>
+<p>A <code>headroomAdaptiveGainCurveTag</code> says how an HDR Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:</p>
+<ul>
+<li><strong>Gain curve</strong> plots the control points exactly as stored in the file, one line per alternate image. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.</li>
+<li><strong>Gain at a display headroom</strong> shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag <strong>Display headroom</strong> from 0 to 6 stops; it starts at the tag's baseline, and <strong>Baseline</strong> returns there. Two plots follow the slider:</li>
+<p>
+  - <strong>Gain applied at this headroom</strong>: the blended curve, drawn against every curve in the tag;
+ 
+  - <strong>Grey tone curve at this headroom</strong>: what a grey input becomes, drawn against <em>no change</em> and the display peak.
+</ul>
+</p>
+<p>  A note appears when slopes or whole curves are derived rather than stored. Another appears when the headroom is outside the tag's range, in which case the nearest curve is used unchanged. If IccProfLib declines to apply the curve, the view says why.</p>
 <h3 id="3-3-validation">3.3 Validation</h3>
 <p>Runs the <strong>ICC Profile Assessment Working Group</strong> checklist against the loaded profile and shows it as a report. The checks come from the iccDEV <code>iccPawgReport</code> tool, compiled to a separate WebAssembly module that's fetched only when you first open this tab. (The same report drives the validity badge in the title bar, and is reachable from a URL launch as either <code>VAL</code> or the legacy <code>PAWG</code>.)</p>
-<p>Each check is grouped under <strong>Security</strong>, <strong>Conformance</strong>, or <strong>Quality</strong>, and carries one verdict:</p>
+<p>Each check is grouped under <strong>Security</strong>, <strong>Conformance</strong>, or <strong>Quality</strong>, and carries one verdict. Profiles with HDR content get a fourth group, <strong>HDR</strong>. Its first check reports whether the profile is a conforming ICC.1 <strong>HDR Profile</strong> (clause 8.10), and the rest check the HDR metadata that clause relies on:</p>
 <table><thead>
 <tr><th>Verdict</th><th>Meaning</th></tr></thead><tbody>
 <tr><td><strong>Pass</strong></td><td>The check succeeded</td></tr>
@@ -431,7 +478,7 @@ body.dark .diag {
 <rect x="0" y="0" width="780" height="452" rx="0" class="bg"/><rect x="16" y="12" width="150" height="428" rx="8" class="pnl"/><rect x="16" y="12" width="150" height="26" rx="8" class="hd"/><text x="28" y="29" text-anchor="start" class="tB">Profiles</text><rect x="26" y="48" width="130" height="28" rx="5" class="sec"/><text x="36" y="66" text-anchor="start" class="t2 mono">sRGB.icc</text><rect x="26" y="82" width="130" height="28" rx="5" class="sec"/><text x="36" y="100" text-anchor="start" class="t2 mono">Coated.icc</text><text x="26" y="132" text-anchor="start" class="t3">Drag into the chain →</text><rect x="186" y="12" width="578" height="428" rx="8" class="pnl"/><text x="202" y="32" text-anchor="start" class="tT">Combine — Link Pipeline</text><text x="202" y="48" text-anchor="start" class="t3">Chain profiles, then make a DeviceLink or transform an image / dataset.</text><line x1="202" y1="56" x2="748" y2="56" class="div"/><rect x="202" y="64" width="270" height="32" rx="6" class="sec"/><text x="214" y="84" text-anchor="start" class="t2">🖼  Drop an image (TIFF/PNG/JPEG)</text><rect x="482" y="64" width="266" height="32" rx="6" class="sec"/><text x="494" y="84" text-anchor="start" class="t2">🔢  Drop a dataset (CGATS/CSV/CxF)</text><text x="202" y="116" text-anchor="start" class="t3">Rendering intent (all)</text><rect x="336" y="104" width="150" height="18" rx="4" class="btn"/><text x="342" y="116" text-anchor="start" class="t2">Relative Colorimetric</text><rect x="202" y="130" width="546" height="38" rx="6" class="sec"/><text x="216" y="153" text-anchor="start" class="t3">⠿</text><rect x="230" y="141" width="16" height="16" rx="4" class="act"/><text x="238" y="153" text-anchor="middle" class="tW tB">1</text><text x="256" y="153" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="614" y="153" text-anchor="start" class="t3">RGB → Lab</text><rect x="706" y="140" width="42" height="18" rx="4" class="btn"/><text x="727" y="153" text-anchor="middle" class="t2">Rel</text><line x1="238" y1="168" x2="238" y2="180" stroke="var(--ln)" stroke-width="2"/><rect x="451" y="170" width="48" height="14" rx="7" class="lnbd"/><text x="475" y="181" text-anchor="middle" class="t3">Lab</text><rect x="202" y="184" width="546" height="38" rx="6" class="sec"/><text x="216" y="207" text-anchor="start" class="t3">⠿</text><rect x="230" y="195" width="16" height="16" rx="4" class="act"/><text x="238" y="207" text-anchor="middle" class="tW tB">2</text><text x="256" y="207" text-anchor="start" class="t2 mono">Coated.icc</text><text x="614" y="207" text-anchor="start" class="t3">Lab → CMYK</text><rect x="706" y="194" width="42" height="18" rx="4" class="btn"/><text x="727" y="207" text-anchor="middle" class="t2">Perc</text><text x="202" y="244" text-anchor="start" class="t3">Chain:</text><text x="244" y="244" text-anchor="start" class="tA">RGB → CMYK</text><rect x="202" y="256" width="124" height="24" rx="5" class="act"/><text x="264" y="272" text-anchor="middle" class="tW tB">Make DeviceLink</text><rect x="334" y="256" width="124" height="24" rx="5" class="act"/><text x="396" y="272" text-anchor="middle" class="tW tB">Transform Image</text><rect x="466" y="256" width="124" height="24" rx="5" class="act"/><text x="528" y="272" text-anchor="middle" class="tW tB">Transform Data</text><rect x="202" y="296" width="546" height="96" rx="6" class="sec"/><text x="214" y="314" text-anchor="start" class="tB">Image output options</text><text x="214" y="330" text-anchor="start" class="t3">Encoding</text><rect x="214" y="336" width="96" height="16" rx="4" class="btn"/><text x="262" y="348" text-anchor="middle" class="t2">Same as source</text><text x="326" y="330" text-anchor="start" class="t3">Compression</text><rect x="326" y="336" width="96" height="16" rx="4" class="btn"/><text x="374" y="348" text-anchor="middle" class="t2">None</text><text x="438" y="330" text-anchor="start" class="t3">Planar</text><rect x="438" y="336" width="96" height="16" rx="4" class="btn"/><text x="486" y="348" text-anchor="middle" class="t2">Composite</text><text x="214" y="366" text-anchor="start" class="t3">CMM interp.</text><rect x="214" y="372" width="96" height="16" rx="4" class="btn"/><text x="262" y="384" text-anchor="middle" class="t2">Tetrahedral</text><text x="326" y="366" text-anchor="start" class="t3">Embed ICC</text><rect x="326" y="372" width="96" height="16" rx="4" class="btn"/><text x="374" y="384" text-anchor="middle" class="t2">☑ yes</text><line x1="727" y1="138" x2="644" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
 <text x="644" y="115" text-anchor="end" class="t3">Per-stage intent</text><line x1="624" y1="300" x2="594" y2="286" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
 <text x="594" y="283" text-anchor="end" class="t3">iccApplyProfiles output knobs</text>
-</svg><p>profiletool keeps every loaded profile in a <strong>Profile Pool</strong> on the left. Across the top are four tabs — <strong>Profile</strong> (the single-profile viewer above), <strong>Compare</strong>, <strong>Combine</strong>, and <strong>Spectral</strong>. The <strong>Combine</strong> tab is where you chain profiles together and put them to work: build a <strong>DeviceLink</strong>, <strong>transform an image</strong>, or <strong>transform a colour dataset</strong> through the chain.</p>
+</svg><p>profiletool keeps every loaded profile in a <strong>Profile Pool</strong> on the left. Across the top are five tabs — <strong>Profile</strong> (the single-profile viewer above), <strong>Compare</strong>, <strong>Combine</strong>, <strong>Spectral</strong> and <strong>HDR</strong>. The <strong>Combine</strong> tab is where you chain profiles together and put them to work: build a <strong>DeviceLink</strong>, <strong>transform an image</strong>, or <strong>transform a colour dataset</strong> through the chain.</p>
 <h3 id="4-1-building-a-chain">4.1 Building a chain</h3>
 <p>Drag one or more profiles from the pool into the Combine card to add them to the chain, in order. The chain is a <strong>vertical stack</strong>: the source is at the top, the sink at the bottom. Each profile contributes <strong>one transform</strong>, and the tool shows the colour space entering and leaving it (e.g. <code>RGB → Lab</code>), with the <strong>connecting space</strong> labelled on the line between stages. The engine validates the whole chain live and reports the end-to-end flow (e.g. <em>Chain: RGB → CMYK</em>) or explains, per stage, where it fails to connect.</p>
 <ul>
@@ -439,6 +486,9 @@ body.dark .diag {
 <li><strong>Flip direction</strong> — the head transform's ⇅ button reverses the chain's direction, rippling through the following stages.</li>
 <li><strong>Rendering intent</strong> — pick one for the whole chain with <em>Rendering intent (all)</em>, or override any single stage with its own listbox. Hover either control for a description of the selected intent. Beyond the four base intents, a profile that carries the necessary tables also offers the <em>no D2Bx/B2Dx</em> and <em>+ BPC</em> (black-point compensation) variants.</li>
 </ul>
+<div class="note">
+<strong>HDR Profile in the chain.</strong> An ICC.1 HDR Profile has no TRC tags, so a transform through it uses its <code>AToB0Tag</code>. That table is the baked SDR rendering clause 8.10.6 requires for software without HDR processing. The card says so when a chain contains an HDR Profile: the DeviceLink, image or data you produce reflects that SDR fallback, not the profile's HDR behaviour.
+</div>
 <h3 id="4-2-make-devicelink">4.2 Make DeviceLink</h3>
 <p>Bakes the whole chain into a single <strong>DeviceLink</strong> profile (an in-browser port of iccDEV's <code>iccApplyToLink</code>). Name it and click <strong>Make DeviceLink</strong>; the result lands in the pool and the Combine accumulator like any other profile, ready to inspect on the Profile tab or reuse in another chain.</p>
 <h3 id="4-3-transform-image">4.3 Transform Image</h3>
@@ -460,9 +510,9 @@ body.dark .diag {
 <h3 id="4-5-observer-change">4.5 Observer Change</h3>
 <p>The Combine tab holds <strong>two</strong> maker cards. Above the Link Pipeline, the <strong>Observer Change</strong> card builds a v4.3 matrix/TRC display profile from a V5 RGB display profile plus a V5 observer (PCC) profile. Drag both onto the card — they are routed automatically into the <strong>V5 RGB display</strong> and <strong>V5 observer (PCC)</strong> slots by profile class — then click <strong>Make V4 Display Profile</strong>, name it, and click <strong>Create</strong>. The result joins the pool and this tab. A profile that is neither is ignored with a warning.</p>
 <h3 id="4-6-compare-and-spectral-tabs">4.6 Compare and Spectral tabs</h3>
-<p>The <strong>Compare</strong> tab overlays the gamut boundaries of two or more pooled profiles — a 3-D shell plus a 2-D lightness slice — to see where they differ. The <strong>Spectral</strong> tab assembles a set of single-channel spectral images (dropped in channel order) into one multi-channel TIFF (<code>iccSpecSepToTiff</code>).</p>
+<p>The <strong>Compare</strong> tab overlays the gamut boundaries of two or more pooled profiles — a 3-D shell plus a 2-D lightness slice — to see where they differ. When the profiles are HDR Profiles, a <strong>Showing the SDR fallback</strong> note explains that each gamut is built from the <code>AToB0Tag</code> SDR rendering, not from the profile's HDR range, which cannot be drawn in a bounded PCS. The <strong>Spectral</strong> tab assembles a set of single-channel spectral images (dropped in channel order) into one multi-channel TIFF (<code>iccSpecSepToTiff</code>).</p>
 <h3 id="4-7-hdr-tab">4.7 HDR tab</h3>
-<p>Drop <strong>one</strong> image on the <strong>HDR</strong> tab, or click the drop area to choose one. What happens depends on who can decode it:</p>
+<p>Drop <strong>one</strong> image on the <strong>HDR</strong> tab, or click the drop area to choose one. A new image replaces the current one, and nothing is added to the Profiles pool. What happens depends on who can decode the image:</p>
 <table><thead>
 <tr><th>File</th><th>Shown by</th><th>SDR ↔ HDR control</th></tr></thead><tbody>
 <tr><td><strong>AVIF</strong>, <strong>JPEG</strong> (including gain-map JPEG), <strong>PNG</strong> (including cICP-tagged), <strong>HEIC</strong> on Safari</td><td>the browser</td><td><strong>SDR</strong> / <strong>HDR</strong> buttons, plus a <strong>Dynamic range</strong> slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only.</td></tr>
@@ -473,7 +523,7 @@ body.dark .diag {
 <p>
 <strong>Outputs for OpenEXR.</strong> profiletool renders the pixels itself, through the first of these that works:
  
-1. <strong>HDR canvas (float16)</strong>: needs <code>chrome://flags/#enable-experimental-web-platform-features</code> (see <em>Settings → Environment</em>).
+1. <strong>HDR canvas (float16)</strong>: needs <code>chrome://flags/#enable-experimental-web-platform-features</code> (see <a href="#environment">Environment</a>).
  
 2. <strong>WebGPU (extended range)</strong>: needs no flag, but needs a working GPU adapter.
  
@@ -486,17 +536,7 @@ body.dark .diag {
 <div class="note">
 <strong>Refusals name the reason.</strong> For example, HEIC display needs Safari: Chrome and Firefox decode HEIC on no platform. The image's profile can still be opened in the Profile tab.
 </div>
-<p><strong>Gain curves (HAGC).</strong> For a profile with a <code>headroomAdaptiveGainCurveTag</code>, expand that tag in <strong>Profile → Tags</strong>. There are two views:</p>
-<ul>
-<li><strong>Gain curve</strong> plots the control points exactly as stored in the file.</li>
-<li><strong>Gain at a display headroom</strong> shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag <strong>Display headroom</strong>, from 0 to 6 stops. It starts at the tag's baseline. Two plots follow the slider:</li>
-<p>
-  - the gain applied at that headroom, against every curve in the tag;
- 
-  - what a grey input becomes, against <em>no change</em> and the display peak.
-</ul>
-</p>
-<p>  The view notes when slopes or curves are derived rather than stored, and when the headroom is outside the tag's range, in which case the nearest curve is used unchanged.</p>
+<p><strong>Gain curves.</strong> An HDR Profile's adaptive gain curve is not shown here but in <strong>Profile → Tags</strong>. See <em>HDR gain curves (HAGC)</em> under <a href="#3-2-tags">Tags</a>.</p>
 <hr>
 <h2 id="5-round-trip-editing">5. Round-trip editing</h2>
 <p>Both the XML and JSON tabs can write the profile back to ICC binary. The typical workflow:</p>
@@ -586,19 +626,19 @@ https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRG
 <p>All features are available; the layout adapts to the smaller screen.</p>
 <hr>
 <h2 id="9-limits-and-security">9. Limits and security</h2>
-<p>profiletool makes no network requests after the initial page load. The validator, the XML converter, and the JSON converter are all WebAssembly compiled from iccDEV C++ sources and run entirely client-side.</p>
+<p>profiletool makes no network requests after the initial page load. The validator, the XML converter, the JSON converter and the image codecs are all WebAssembly compiled from C++ sources and run entirely client-side. The HDR tab shows a dropped image through a local object URL, so the image never leaves the tab. <strong>Identify displays</strong> asks the browser, not a server, which monitor the window is on.</p>
 <table><thead>
 <tr><th>Limit</th><th>Where</th><th>Notes</th></tr></thead><tbody>
 <tr><td><strong>256 MB</strong></td><td>postMessage / file load</td><td>Refuses to load anything larger; prevents heap exhaustion from a hostile opener</td></tr>
 <tr><td><strong>32 MB</strong></td><td>XML and JSON converters</td><td>Both the JS guard (<code>MAX_XML_BYTES</code> / <code>MAX_JSON_BYTES</code>) and the C++ wrappers (<code>kMaxXmlBytes</code> / <code>kMaxJsonBytes</code>) enforce this; the C++ side is independently authoritative</td></tr>
-<tr><td><strong>XML entity-bomb guard</strong></td><td>XML converter</td><td>Any XML containing <code><!DOCTYPE</code> or <code><!ENTITY</code> is rejected before libxml2 sees it (defence against billion-laughs since IccLibXML enables <code>XML_PARSE_HUGE</code>)</td></tr>
+<tr><td><strong>XML entity-bomb guard</strong></td><td>XML converter</td><td>Any XML containing <code><!DOCTYPE</code> or <code><!ENTITY</code>, or a NUL byte, is rejected before libxml2 sees it. libxml2's own entity-expansion limits are also active, so this is a second layer of defence against billion-laughs input</td></tr>
 <tr><td><strong>Origin allowlist</strong></td><td>postMessage launch</td><td>Only same-origin and chardata's dev-host origins can send <code>profiletool:load</code> bytes</td></tr>
 <tr><td><strong>HTTPS + CORS</strong></td><td><code>#url=</code> launch</td><td>A URL-launch profile must be served over HTTPS from a host that permits cross-origin reads; the fetched bytes feed only the validator and are never re-sent</td></tr>
 </tbody></table>
 <p>The <code>#url=</code> launch (added in 1.1.5) is the one case where the tool makes an off-origin request after page load: it widens the Content-Security-Policy <code>connect-src</code> to <code>https:</code> so the named profile can be fetched. Script loading is <strong>not</strong> widened — only data fetches.</p>
 <p>If you need to inspect a profile that exceeds these limits, build iccDEV from source and use the native CLI tools — those have no JS-side caps.</p>
 <h3 id="icc-2-iccmax-coverage">ICC.2 (iccMAX) coverage</h3>
-<p>Both <strong>ICC.1</strong> and <strong>ICC.2</strong> profiles are supported, but ICC.2 coverage is <strong>incomplete in 2.0.0</strong>. Loading, the header and tag views, validation, the XML/JSON round-trip and the transform engines all understand ICC.2; the known gaps are multi-part <strong>ICS</strong> interchange workflows, choosing a V5 <strong>sub-profile</strong> when applying a transform, and inverse search on some ICC.2 profiles. A profile using an unsupported ICC.2 construct is reported by the Validation tab rather than silently mis-read.</p>
+<p>Both <strong>ICC.1</strong> and <strong>ICC.2</strong> profiles are supported, but ICC.2 coverage is <strong>incomplete</strong>. Loading, the header and tag views, validation, the XML/JSON round-trip and the transform engines all understand ICC.2; the known gaps are multi-part <strong>ICS</strong> interchange workflows, choosing a V5 <strong>sub-profile</strong> when applying a transform, and inverse search on some ICC.2 profiles. A profile using an unsupported ICC.2 construct is reported by the Validation tab rather than silently mis-read.</p>
 
 </div>
 </body>

@@ -4,7 +4,7 @@ import { useT } from '../i18n.jsx'
 import { classifyFile, FileKind, ACCEPTED_KINDS } from '../lib/fileKind.js'
 import { getEnvironment } from '../lib/environment.js'
 import { readDisplay } from '../lib/displayWatcher.js'
-import { capabilityFor, hdrPathway, FORMATS } from '../lib/capabilities.js'
+import { capabilityFor, hdrPathway, FORMATS, reasonText } from '../lib/capabilities.js'
 import { decodeImage, findEmbeddedProfileFromFile, gainMapInfo } from '../lib/imageCodec.js'
 import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS } from '../lib/hdrPixels.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
@@ -131,15 +131,15 @@ function routeFor(kind, format, env) {
   }
   if (format === 'exr') {
     const cap = capabilityFor('exr', env)
-    return { route: 'pixels', hdrWhy: cap.hdr.ok ? null : cap.hdr.why }
+    return { route: 'pixels', hdrWhy: cap.hdr.ok ? null : cap.hdr }
   }
   // TIFF: no browser decodes it (bar Safari), and how HDR is carried in a 16-bit TIFF is
   // an open decision (Phase 4.3). Displaying its integers as-is would claim a meaning.
   if (format === 'tiff') return { route: 'tiff' }
   if (!format || !FORMATS[format]) return { route: 'unknown' }
   const cap = capabilityFor(format, env)
-  if (!cap.display.ok) return { route: 'refused', why: cap.display.why }
-  return { route: 'img', hdrWhy: cap.hdr.ok ? null : cap.hdr.why }
+  if (!cap.display.ok) return { route: 'refused', why: cap.display }
+  return { route: 'img', hdrWhy: cap.hdr.ok ? null : cap.hdr }
 }
 
 function ProfileRow({ t, info, profile, onOpen }) {
@@ -190,7 +190,7 @@ function RouteBody({ t, file, info, profile, gain }) {
   if (info.route === 'refused') {
     return (
       <p className={styles.note}>
-        <strong>{t('hdr_cannot_display') || 'Cannot display this image here:'}</strong> {info.why}.{' '}
+        <strong>{t('hdr_cannot_display') || 'Cannot display this image here:'}</strong> {reasonText(info.why, t)}.{' '}
         {t('hdr_inspect_still') || 'Its embedded profile can still be inspected.'}
       </p>
     )
@@ -239,7 +239,7 @@ function ImgRoute({ t, file, info, env, profile, gain }) {
         [t('hdr_route') || 'Shown by', t('hdr_route_img') || 'the browser'],
         [t('hdr_display') || 'HDR display', tri(env.display.hdr, t)],
       ]} />
-      {info.hdrWhy && <p className={styles.note}>{info.hdrWhy}.</p>}
+      {info.hdrWhy && <p className={styles.note}>{reasonText(info.hdrWhy, t)}.</p>}
       {iccOnly && <p className={styles.note}>{t('hdr_icc_only') || 'Browsers ignore HDR that is signalled only by an embedded ICC profile, so this image may look dim and flat.'}</p>}
       {support.drl
         ? <RangeControl t={t} share={share} setShare={setShare} blend={support.mix} />
@@ -344,11 +344,17 @@ function PixelRoute({ t, file, info, env }) {
           p ? `R ${p.red.join(', ')} · G ${p.green.join(', ')} · B ${p.blue.join(', ')} · W ${p.white.join(', ')}${decoded.matrix ? '' : ' (Rec. 709)'}`
             : (t('hdr_chroma_default') || 'not stated — Rec. 709 assumed')],
       ]} />
-      {info.hdrWhy && <p className={styles.note}>{info.hdrWhy}.</p>}
+      {info.hdrWhy && <p className={styles.note}>{reasonText(info.hdrWhy, t)}.</p>}
       {fallbacks.map((f, i) => (
         <p key={i} className={styles.note}>{(t('hdr_fallback') || '{from} was not available here ({why}); using the next output.').replace('{from}', surfaceLabel[f.from] || f.from).replace('{why}', f.why)}</p>
       ))}
-      {surface?.note && <p className={styles.note}>{surface.note}.</p>}
+      {surface?.noteCode && (
+        <p className={styles.note}>
+          {surface.noteCode === 'webgpu_clamped'
+            ? (t('hdr_note_webgpu_clamped') || 'WebGPU applied tone mapping “{mode}”, so output is clamped to SDR').replace('{mode}', surface.noteMode)
+            : (t('hdr_note_webgpu_unconfirmed') || 'This browser does not report the WebGPU tone mapping it applied, so HDR output is unconfirmed')}.
+        </p>
+      )}
       {surface && !surface.hdr && <p className={styles.note}>{t('hdr_sdr_output') || 'This output cannot carry brighter-than-white values, so the tone-mapped SDR rendering is shown.'}</p>}
 
       <div className={styles.controls}>

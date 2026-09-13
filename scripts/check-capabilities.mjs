@@ -12,7 +12,7 @@
 // The cases encode the matrix in hdr-platform-capabilities.md. If that document and this
 // file disagree, one of them is wrong — which is the point of writing the expectations out.
 
-import { capabilityFor, capabilityMatrix, hdrPathway, environmentSummary, browserFlags, flagsNeedAttention } from
+import { capabilityFor, capabilityMatrix, hdrPathway, environmentSummary, browserFlags, flagsNeedAttention, REASON } from
   '../frontend/src/lib/capabilities.js'
 import { classifyFile, rejectReason, FileKind, ImageFormat } from
   '../frontend/src/lib/fileKind.js'
@@ -86,6 +86,9 @@ for (const [name, e, expectations] of CASES) {
     const c = capabilityFor(fmt, e)
     for (const k of ['inspect', 'display', 'hdr']) {
       if (!c[k].ok && !c[k].why) { ok = false; lines.push(`      ${fmt}.${k} refused with no reason`) }
+      // The UI translates by code (cap_<code>), so a verdict without a known code would show
+      // English in every locale.
+      if (!c[k].code || !(c[k].code in REASON)) { ok = false; lines.push(`      ${fmt}.${k} has no REASON code (${c[k].code})`) }
     }
   }
   console.log(`${ok ? 'pass' : 'FAIL'}  ${name.padEnd(32)} ${environmentSummary(e)} · pathway=${hdrPathway(e) || 'none'}`)

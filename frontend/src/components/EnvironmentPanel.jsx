@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { detectEnvironment } from '../lib/environment.js'
 import { createDisplayMonitor, headroomRatio } from '../lib/displayWatcher.js'
-import { capabilityMatrix, hdrPathway, environmentSummary, FORMATS, browserFlags, flagsNeedAttention } from '../lib/capabilities.js'
+import { capabilityMatrix, hdrPathway, environmentSummaryParts, FORMATS, browserFlags, flagsNeedAttention, reasonText } from '../lib/capabilities.js'
 import { useT } from '../i18n.jsx'
 import styles from './EnvironmentPanel.module.css'
 
@@ -83,7 +83,7 @@ export default function EnvironmentPanel({ compact = false }) {
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.summary}>{environmentSummary(env)}</div>
+      <div className={styles.summary}>{summaryText(env, t)}</div>
 
       {/* Browser flags, near the top because a missing flag explains everything below it
           (an empty HDR column, "none" for the canvas path). Chromium only — Safari and
@@ -169,7 +169,7 @@ export default function EnvironmentPanel({ compact = false }) {
               const c = matrix[key]
               // The row's tooltip carries the REASON for the first refusal, so a user can
               // see why rather than only that. A bare ✕ is what DL-HDRENV1 forbids.
-              const reason = !c.display.ok ? c.display.why : !c.hdr.ok ? c.hdr.why : null
+              const reason = !c.display.ok ? reasonText(c.display, t) : !c.hdr.ok ? reasonText(c.hdr, t) : null
               return (
                 <tr key={key} title={reason || undefined}>
                   <td className={styles.fmt}>
@@ -191,7 +191,7 @@ export default function EnvironmentPanel({ compact = false }) {
           {Object.entries(matrix)
             .filter(([, c]) => !c.display.ok)
             .map(([key, c]) => (
-              <li key={key}><strong>{FORMATS[key].label}</strong> — {c.display.why}</li>
+              <li key={key}><strong>{FORMATS[key].label}</strong> — {reasonText(c.display, t)}</li>
             ))}
         </ul>
       )}
@@ -227,6 +227,15 @@ function headroomText(stops, t) {
   return (t('env_headroom_value') || '{stops} stops (≈{ratio}× SDR white)')
     .replace('{stops}', String(+stops.toFixed(2)))
     .replace('{ratio}', String(+ratio.toFixed(2)))
+}
+
+// "Chrome on Windows · HDR display detected", assembled from translated pieces.
+function summaryText(env, t) {
+  const p = environmentSummaryParts(env)
+  const name = (t('env_summary_on') || '{browser} on {os}').replace('{browser}', p.browser).replace('{os}', p.os)
+  if (p.hdr === true) return (t('env_summary_hdr') || '{name} · HDR display detected').replace('{name}', name)
+  if (p.hdr === false) return (t('env_summary_sdr') || '{name} · SDR display').replace('{name}', name)
+  return name
 }
 
 function monitorText(s, t) {
@@ -269,6 +278,7 @@ function FlagRow({ flag, t }) {
   return (
     <div className={styles.flag}>
       <div className={styles.flagHead}>
+        {/* Not translated: chrome://flags is English-only, and this must match what it shows. */}
         <span className={styles.flagName}>{flag.label}</span>
         <span className={stateCls}>{state}</span>
       </div>

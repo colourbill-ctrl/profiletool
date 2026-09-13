@@ -111,6 +111,8 @@ async function createWebGpu(canvas) {
   // mapping ignores the member and clamps to SDR; saying "HDR" then would be false.
   const applied = ctx.getConfiguration?.()?.toneMapping?.mode
   const extended = applied === 'extended'
+  // `note` is English for logs; `noteCode` (+ `noteMode`) is what the UI translates.
+  const noteCode = extended ? null : applied ? 'webgpu_clamped' : 'webgpu_unconfirmed'
   const note = extended ? null
     : applied ? `WebGPU applied tone mapping '${applied}', so output is clamped to SDR`
     : 'this browser does not report the applied WebGPU tone mapping; HDR output is unconfirmed'
@@ -127,7 +129,7 @@ async function createWebGpu(canvas) {
   })
   let texture = null
   return {
-    kind: 'webgpu', hdr: extended || applied === undefined, note,
+    kind: 'webgpu', hdr: extended || applied === undefined, note, noteCode, noteMode: applied ?? null,
     draw(rgba, w, h) {
       if (canvas.width !== w) canvas.width = w
       if (canvas.height !== h) canvas.height = h
