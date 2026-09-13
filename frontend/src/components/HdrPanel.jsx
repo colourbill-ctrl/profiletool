@@ -1,12 +1,13 @@
 // (c) 2026 William Li
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../i18n.jsx'
 import { classifyFile, FileKind, ACCEPTED_KINDS } from '../lib/fileKind.js'
 import { getEnvironment } from '../lib/environment.js'
 import { readDisplay } from '../lib/displayWatcher.js'
 import { capabilityFor, hdrPathway, FORMATS, reasonText } from '../lib/capabilities.js'
 import { decodeImage, findEmbeddedProfileFromFile, gainMapInfo } from '../lib/imageCodec.js'
-import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS } from '../lib/hdrPixels.js'
+import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay } from '../lib/hdrPixels.js'
+import { useLiveDisplay } from './useLiveDisplay.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
 import styles from './HdrPanel.module.css'
 
@@ -28,6 +29,9 @@ import styles from './HdrPanel.module.css'
  */
 export default function HdrPanel({ onOpenInProfile }) {
   const t = useT()
+  // The monitor the window is on NOW. Capabilities are fixed for the page, but HDR state and
+  // the display's peak change when the window is dragged to another screen.
+  const live = useLiveDisplay()
   const [file, setFile] = useState(null)
   const [info, setInfo] = useState(null)        // { kind, format, route, why, hdrWhy, env }
   const [profile, setProfile] = useState(null)  // null = checking | { size } | { none: true }
@@ -116,7 +120,7 @@ export default function HdrPanel({ onOpenInProfile }) {
         <>
           <ProfileRow t={t} info={info} profile={profile} onOpen={() => onOpenInProfile?.(file)} />
           {gain?.present && <GainRow t={t} gain={gain} />}
-          <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} />
+          <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} live={live} />
         </>
       )}
     </div>
@@ -176,7 +180,7 @@ function GainRow({ t, gain }) {
   )
 }
 
-function RouteBody({ t, file, info, profile, gain }) {
+function RouteBody({ t, file, info, profile, gain, live }) {
   const env = info.env
   if (info.route === 'notImage') {
     return <p className={styles.note}>{t('hdr_not_image') || 'That is not an image. Load profiles through the Profiles pane.'}</p>
@@ -195,8 +199,8 @@ function RouteBody({ t, file, info, profile, gain }) {
       </p>
     )
   }
-  if (info.route === 'img') return <ImgRoute t={t} file={file} info={info} env={env} profile={profile} gain={gain} />
-  return <PixelRoute t={t} file={file} info={info} env={env} />
+  if (info.route === 'img') return <ImgRoute t={t} file={file} info={info} env={env} profile={profile} gain={gain} live={live} />
+  return <PixelRoute t={t} file={file} info={info} env={env} live={live} />
 }
 
 // ── route 'img' ──────────────────────────────────────────────────────────────
@@ -209,7 +213,13 @@ function cssSupport() {
   } catch { return { drl: false, mix: false } }
 }
 
-function ImgRoute({ t, file, info, env, profile, gain }) {
+function ImgRoute({ t, file, info, env, profile, gain, live }) {
+  // Merge the LIVE display into the page's capabilities, so the HDR verdict follows the
+  // window. NO_HDR_DISPLAY is left to the display-specific notes below, which say more.
+  const envLive = useMemo(() => ({ ...env, display: { ...env.display, ...live.display } }), [env, live.display])
+  const hdrCap = capabilityFor(info.format, envLive).hdr
+  const hdrWhy = hdrCap.ok || hdrCap.code === 'NO_HDR_DISPLAY' ? null : hdrCap
+  const dpk = displayPeakInfo({ hdr: envLive.display.hdr, headroomStops: live.screen?.headroom })
   const [url, setUrl] = useState(null)
   const [failed, setFailed] = useState(false)
   const [share, setShare] = useState(1)
@@ -237,9 +247,13 @@ function ImgRoute({ t, file, info, env, profile, gain }) {
     <>
       <Facts t={t} env={env} rows={[
         [t('hdr_route') || 'Shown by', t('hdr_route_img') || 'the browser'],
-        [t('hdr_display') || 'HDR display', tri(env.display.hdr, t)],
+        [t('hdr_display') || 'HDR display', tri(envLive.display.hdr, t)],
+        [t('hdr_display_peak') || 'Display peak', <DisplayPeak t={t} dpk={dpk} live={live} />],
       ]} />
-      {info.hdrWhy && <p className={styles.note}>{reasonText(info.hdrWhy, t)}.</p>}
+      {hdrWhy && <p className={styles.note}>{reasonText(hdrWhy, t)}.</p>}
+      {envLive.display.hdr === false && support.drl && (
+        <p className={styles.note}>{t('hdr_sdr_display_img') || 'This display reports no HDR, so the browser shows this image in SDR at either end.'}</p>
+      )}
       {iccOnly && <p className={styles.note}>{t('hdr_icc_only') || 'Browsers ignore HDR that is signalled only by an embedded ICC profile, so this image may look dim and flat.'}</p>}
       {support.drl
         ? <RangeControl t={t} share={share} setShare={setShare} blend={support.mix} />
@@ -250,13 +264,20 @@ function ImgRoute({ t, file, info, env, profile, gain }) {
                onError={() => setFailed(true)} />
         )}
         {failed && <p className={styles.error}>{t('hdr_img_failed') || 'The browser could not decode this image.'}</p>}
+        <RefWhite t={t} />
       </div>
     </>
   )
 }
 
 // ── route 'pixels' ───────────────────────────────────────────────────────────
-function PixelRoute({ t, file, info, env }) {
+function PixelRoute({ t, file, info, env, live }) {
+  // Merge the LIVE display into the page's capabilities, so the HDR verdict follows the
+  // window. NO_HDR_DISPLAY is left to the display-specific notes below, which say more.
+  const envLive = useMemo(() => ({ ...env, display: { ...env.display, ...live.display } }), [env, live.display])
+  const hdrCap = capabilityFor(info.format, envLive).hdr
+  const hdrWhy = hdrCap.ok || hdrCap.code === 'NO_HDR_DISPLAY' ? null : hdrCap
+  const dpk = displayPeakInfo({ hdr: envLive.display.hdr, headroomStops: live.screen?.headroom })
   const [decoded, setDecoded] = useState(null)
   const [error, setError] = useState(null)
   const [kind, setKind] = useState(null)          // backend being tried / in use
@@ -326,6 +347,15 @@ function PixelRoute({ t, file, info, env }) {
   if (error) return <p className={styles.error}>{t('hdr_decode_failed') || 'Could not decode:'} {error}</p>
   if (!decoded) return <p className={styles.note}>{t('hdr_decoding') || 'Decoding…'}</p>
 
+  // What actually reaches the display: the soft ceiling never exceeds its limit, and an SDR
+  // surface is capped at SDR white. Compared with the display peak when that is known.
+  const ceiling = surface?.hdr ? (share >= 1 ? Infinity : 2 ** (share * MAX_LIMIT_STOPS)) : 1
+  const clipping = !!surface?.hdr && dpk.ratio != null && peak != null && clipsBeyondDisplay(peak, dpk.ratio, ceiling)
+  const fit = dpk.stops != null ? fitShare(dpk.stops) : null
+  const readout = share >= 1
+    ? (t('hdr_limit_none') || 'no limit')
+    : (t('hdr_limit_value') || 'limit {n} stops ({r}×)')
+        .replace('{n}', (share * MAX_LIMIT_STOPS).toFixed(2)).replace('{r}', (2 ** (share * MAX_LIMIT_STOPS)).toFixed(2))
   const surfaceLabel = {
     'float16-canvas': t('hdr_surface_float16') || 'HDR canvas (float16)',
     webgpu: t('hdr_surface_webgpu') || 'WebGPU (extended range)',
@@ -337,14 +367,15 @@ function PixelRoute({ t, file, info, env }) {
       <Facts t={t} env={env} rows={[
         [t('hdr_route') || 'Shown by', t('hdr_route_pixels') || 'profiletool'],
         [t('hdr_surface') || 'Output', surface ? surfaceLabel[surface.kind] : (t('hdr_checking') || 'checking…')],
-        [t('hdr_display') || 'HDR display', tri(env.display.hdr, t)],
+        [t('hdr_display') || 'HDR display', tri(envLive.display.hdr, t)],
+        [t('hdr_display_peak') || 'Display peak', <DisplayPeak t={t} dpk={dpk} live={live} />],
         [t('hdr_size') || 'Size', `${decoded.w}×${decoded.h}${decoded.compression ? ` · ${decoded.compression}` : ''}`],
         [t('hdr_peak') || 'Brightest pixel', peak == null ? '…' : (t('hdr_peak_value') || '{n}× SDR white').replace('{n}', String(+peak.toFixed(2)))],
         [t('hdr_chromaticities') || 'Chromaticities',
           p ? `R ${p.red.join(', ')} · G ${p.green.join(', ')} · B ${p.blue.join(', ')} · W ${p.white.join(', ')}${decoded.matrix ? '' : ' (Rec. 709)'}`
             : (t('hdr_chroma_default') || 'not stated — Rec. 709 assumed')],
       ]} />
-      {info.hdrWhy && <p className={styles.note}>{reasonText(info.hdrWhy, t)}.</p>}
+      {hdrWhy && <p className={styles.note}>{reasonText(hdrWhy, t)}.</p>}
       {fallbacks.map((f, i) => (
         <p key={i} className={styles.note}>{(t('hdr_fallback') || '{from} was not available here ({why}); using the next output.').replace('{from}', surfaceLabel[f.from] || f.from).replace('{why}', f.why)}</p>
       ))}
@@ -355,10 +386,23 @@ function PixelRoute({ t, file, info, env }) {
             : (t('hdr_note_webgpu_unconfirmed') || 'This browser does not report the WebGPU tone mapping it applied, so HDR output is unconfirmed')}.
         </p>
       )}
+      {surface?.hdr && clipping && dpk.source === 'sdr' && (
+        <p className={styles.noteStrong}>{t('hdr_sdr_display_pixels') || 'This display reports no HDR, so everything brighter than SDR white clips. Fit to display shows the tone-mapped rendering instead.'}</p>
+      )}
+      {surface?.hdr && clipping && dpk.source === 'headroom' && (
+        <p className={styles.noteStrong}>
+          {(t('hdr_clip_note') || 'This image asks for {img}× SDR white, but this display shows up to {disp}×, so brighter values clip. Fit to display rolls them off into the display’s peak instead.')
+            .replace('{img}', String(+peak.toFixed(2))).replace('{disp}', String(+dpk.ratio.toFixed(2)))}
+        </p>
+      )}
       {surface && !surface.hdr && <p className={styles.note}>{t('hdr_sdr_output') || 'This output cannot carry brighter-than-white values, so the tone-mapped SDR rendering is shown.'}</p>}
 
       <div className={styles.controls}>
-        {surface?.hdr && <RangeControl t={t} share={share} setShare={setShare} blend />}
+        {surface?.hdr && (
+          <RangeControl t={t} share={share} setShare={setShare} blend readout={readout}
+                        onFit={fit != null ? () => setShare(fit) : null}
+                        fitActive={fit != null && Math.abs(share - fit) < 0.005} />
+        )}
         <label className={styles.slider}>
           <span>{t('hdr_exposure') || 'Exposure'}</span>
           <input type="range" min={-4} max={4} step={0.1} value={exposure}
@@ -369,13 +413,14 @@ function PixelRoute({ t, file, info, env }) {
 
       <div className={styles.viewer}>
         <canvas key={kind} ref={canvasRef} className={styles.image} data-surface={surface?.kind || ''} />
+        <RefWhite t={t} />
       </div>
     </>
   )
 }
 
 // SDR | HDR buttons plus, where a blend exists, a slider between them. `share` 0 = SDR.
-function RangeControl({ t, share, setShare, blend }) {
+function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive }) {
   return (
     <div className={styles.range}>
       <span className={styles.rangeLabel}>{t('hdr_range') || 'Dynamic range'}</span>
@@ -387,6 +432,42 @@ function RangeControl({ t, share, setShare, blend }) {
         ? <input type="range" min={0} max={100} step={1} value={Math.round(share * 100)}
                  onChange={(e) => setShare(Number(e.target.value) / 100)} aria-label={t('hdr_range') || 'Dynamic range'} />
         : <span className={styles.muted}>{t('hdr_no_mix') || 'This browser offers only the two ends, not a blend.'}</span>}
+      {readout && <span className={styles.sliderValue}>{readout}</span>}
+      {onFit && (
+        <button type="button" className={fitActive ? styles.fitOn : styles.btn} aria-pressed={!!fitActive} onClick={onFit}
+                title={t('hdr_fit_help') || 'Caps brightness at the peak this display reports. On Windows that figure can lag behind brightness changes.'}>
+          {t('hdr_fit') || 'Fit to display'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// The display's peak, as known right now. Unknown is said, not guessed; where asking for the
+// window-management permission would reveal it, the button is offered here.
+function DisplayPeak({ t, dpk, live }) {
+  if (dpk.source === 'headroom') {
+    return (t('hdr_display_peak_value') || '{r}× SDR white ({n} stops)')
+      .replace('{r}', String(+dpk.ratio.toFixed(2))).replace('{n}', String(+dpk.stops.toFixed(2)))
+  }
+  if (dpk.source === 'sdr') return t('hdr_display_peak_sdr') || '1× — SDR display'
+  if (live.status === 'active') return t('env_headroom_hidden') || 'not exposed by this browser'
+  const canAsk = live.status === 'not-granted' || live.status === 'error'
+  return (
+    <>
+      {t('hdr_display_peak_unknown') || 'not known'}
+      {canAsk && <button type="button" className={styles.linkBtn} onClick={live.identify}>{t('env_identify') || 'Identify displays'}</button>}
+    </>
+  )
+}
+
+// Plain CSS white: in an HDR-composited page this is SDR white, so HDR highlights on an HDR
+// display should look brighter than it and on an SDR display never can.
+function RefWhite({ t }) {
+  return (
+    <div className={styles.refWhite} data-ref-white="" title={t('hdr_ref_white_help') || 'Plain SDR white, for comparison. On an HDR display, HDR highlights look brighter than this.'}>
+      <div className={styles.refSwatch} />
+      <span>{t('hdr_ref_white') || 'SDR white'}</span>
     </div>
   )
 }

@@ -38,6 +38,12 @@
 
 .viewer {
   margin-top: 6px; padding: 8px; border-radius: 6px; background: #000;
-  display: flex; justify-content: center; overflow: auto; max-height: 75vh;
+  display: flex; justify-content: center; align-items: stretch; gap: 10px; overflow: auto; max-height: 75vh;
 }
-.image { max-width: 100%; height: auto; image-rendering: auto; }
+.image { max-width: calc(100% - 48px); min-width: 0; height: auto; image-rendering: auto; align-self: center; }
+/* Reference SDR white: explicit #fff in every theme — it must be white, not "the page colour". */
+.refWhite { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.68rem; color: #cfd6e0; }
+.refSwatch { width: 28px; flex: 1 1 auto; min-height: 48px; background: #fff; border-radius: 2px; }
+.noteStrong { margin: 0 0 8px; font-size: 0.8rem; line-height: 1.45; padding: 5px 8px; border-radius: 4px; background: #fff7e6; border: 1px solid #f0b429; }
+:global(body.dark) .noteStrong { background: rgba(240, 180, 41, 0.12); border-color: #b7891f; }
+.fitOn { font-size: 0.78rem; padding: 2px 10px; cursor: pointer; background: var(--accent, #4a90e2); color: #fff; border: 1px solid var(--accent, #4a90e2); border-radius: 3px; }

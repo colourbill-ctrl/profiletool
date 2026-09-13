@@ -411,7 +411,13 @@ The panel lists what it knows: which output it is using, whether the display rep
 2. **WebGPU (extended range)**: needs no flag, but needs a working GPU adapter.
 3. **SDR canvas (tone-mapped)**: always available. It cannot show brighter-than-white, so the slider is hidden.
 
-On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops).
+On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops), shown beside the slider.
+
+**Matching the display.** The panel tracks the monitor the window is on: drag it to another screen and the facts and notes update.
+- **Display peak** says how bright this display can go, as a multiple of SDR white. It comes from the headroom the browser reports; see [Environment](#environment), where **Identify displays** grants the permission (the button also appears here). An SDR display reads *1× — SDR display*. When the browser does not report a peak, the panel says so rather than guessing.
+- When an OpenEXR image asks for more than the display shows, a note says so — for example *asks for 4.93×, this display shows up to 2.23×*. Values above the display's peak then **clip** to flat white, which is why the SDR and HDR ends can look alike even on an HDR monitor.
+- **Fit to display** sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.
+- An **SDR white** strip sits beside the image, for comparison by eye. On an HDR display with real HDR output, highlights look brighter than that strip. If they never do, the output is being clamped.
 
 <div class="note">
 <strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.

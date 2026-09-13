@@ -11,6 +11,7 @@
 import {
   MAX_LIMIT_STOPS, REC709, rgbToXyzMatrix, toSrgbLinearMatrix, normalizeChromaticities,
   softCeiling, renderFloatRgba, srgbEncode, encodeSrgb8, drlValue,
+  displayPeakInfo, fitShare, clipsBeyondDisplay,
 } from '../frontend/src/lib/hdrPixels.js'
 
 let passed = 0, failed = 0
@@ -113,6 +114,31 @@ const mulVec = (m, v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] +
   check('drlValue: nearest end when -mix unsupported (Safari)', drlValue(0.25, false) === 'standard' && drlValue(0.75, false) === 'no-limit')
   check('drlValue: garbage clamps', drlValue(NaN, true) === 'standard' && drlValue(7, true) === 'no-limit')
   check('MAX_LIMIT_STOPS is 6', MAX_LIMIT_STOPS === 6)
+}
+
+// ── the display's limit ──────────────────────────────────────────────────────
+{
+  // The user's laptop: hdrHeadroom 1.16 stops → 2.23×.
+  const p = displayPeakInfo({ hdr: true, headroomStops: 1.16 })
+  check('displayPeakInfo: headroom 1.16 stops → 2.23×', p.source === 'headroom' && Math.abs(p.ratio - 2.2346) < 1e-3 && p.stops === 1.16, p)
+  check('displayPeakInfo: SDR display, no headroom → 1×', JSON.stringify(displayPeakInfo({ hdr: false })) === JSON.stringify({ ratio: 1, stops: 0, source: 'sdr' }))
+  check('displayPeakInfo: headroom wins over the media query', displayPeakInfo({ hdr: false, headroomStops: 0.5 }).source === 'headroom')
+  const u = displayPeakInfo({ hdr: true })
+  check('displayPeakInfo: HDR display, no headroom → unknown (nulls, not a guess)', u.ratio === null && u.stops === null && u.source === null, u)
+  check('displayPeakInfo: garbage headroom ignored', displayPeakInfo({ hdr: null, headroomStops: NaN }).source === null && displayPeakInfo({ headroomStops: -1 }).source === null)
+  check('fitShare: 1.16 stops → 0.1933; 0 → 0; 9 → 1; NaN → null',
+    Math.abs(fitShare(1.16) - 1.16 / 6) < 1e-9 && fitShare(0) === 0 && fitShare(9) === 1 && fitShare(NaN) === null)
+  // The fitted share, fed through the real operator, never exceeds the display peak.
+  const fit = renderFloatRgba(new Float32Array([4.926, 4.926, 4.926]), 1, 1, { limitStops: fitShare(1.16) * MAX_LIMIT_STOPS })
+  check('Fit to display: 4.93× rendered below the 2.23× display peak', fit.rgba[0] < 2.2346 && fit.rgba[0] > 2.1, fit.rgba[0])
+  check('clipsBeyondDisplay: 4.93× image, 2.23× display, no limit → clips', clipsBeyondDisplay(4.926, 2.2346))
+  check('clipsBeyondDisplay: ceiling at the display peak → no clip', !clipsBeyondDisplay(4.926, 2.2346, 2.2346))
+  // The slack's reason: a slider-rounded or float-drifted ceiling a hair above the peak must
+  // not flip the UI into "clips" right after Fit to display.
+  check('clipsBeyondDisplay: ceiling 1% above the display peak → still no clip', !clipsBeyondDisplay(4.926, 2.2346, 2.2346 * 1.01))
+  check('clipsBeyondDisplay: image dimmer than the display → no clip', !clipsBeyondDisplay(1.5, 2.2346))
+  check('clipsBeyondDisplay: SDR display, HDR image → clips', clipsBeyondDisplay(4.926, 1))
+  check('clipsBeyondDisplay: unknown display → false (never claimed)', !clipsBeyondDisplay(4.926, null))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -160,6 +160,38 @@ export function renderFloatRgba(rgb, w, h, { exposureStops = 0, limitStops = MAX
   return { rgba: out, peak }
 }
 
+// ── the display's limit ──────────────────────────────────────────────────────
+/**
+ * How bright this display can go, as a multiple of SDR white.
+ * A reported headroom (log2 stops, Chromium's hdrHeadroom) wins, being specific to the
+ * screen. Failing that, a display that reports no HDR has a peak of exactly SDR white.
+ * Otherwise the peak is unknown — returned as nulls, never guessed.
+ * @returns {{ratio:number|null, stops:number|null, source:'headroom'|'sdr'|null}}
+ */
+export function displayPeakInfo({ hdr = null, headroomStops = null } = {}) {
+  if (typeof headroomStops === 'number' && Number.isFinite(headroomStops) && headroomStops >= 0) {
+    return { ratio: 2 ** headroomStops, stops: headroomStops, source: 'headroom' }
+  }
+  if (hdr === false) return { ratio: 1, stops: 0, source: 'sdr' }
+  return { ratio: null, stops: null, source: null }
+}
+
+/** The dynamic-range share (0–1) whose ceiling is `stops` above SDR white. */
+export function fitShare(stops) {
+  if (!(typeof stops === 'number' && Number.isFinite(stops))) return null
+  return Math.min(1, Math.max(0, stops / MAX_LIMIT_STOPS))
+}
+
+/**
+ * Does the rendered image ask for more than the display shows? The soft ceiling never
+ * exceeds its limit, so what reaches the display is min(image peak, ceiling). 2% slack keeps
+ * a ceiling set exactly to the display peak (Fit to display) from reporting a clip.
+ */
+export function clipsBeyondDisplay(imagePeak, displayRatio, ceiling = Infinity) {
+  if (!(imagePeak > 0) || !(displayRatio > 0)) return false
+  return Math.min(imagePeak, ceiling) > displayRatio * 1.02
+}
+
 /** sRGB transfer function (encode) for v in [0, 1]. */
 export function srgbEncode(v) {
   return v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055

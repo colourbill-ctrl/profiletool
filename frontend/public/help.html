@@ -529,7 +529,14 @@ body.dark .diag {
  
 3. <strong>SDR canvas (tone-mapped)</strong>: always available. It cannot show brighter-than-white, so the slider is hidden.
 </p>
-<p>On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops).</p>
+<p>On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops), shown beside the slider.</p>
+<p><strong>Matching the display.</strong> The panel tracks the monitor the window is on: drag it to another screen and the facts and notes update.</p>
+<ul>
+<li><strong>Display peak</strong> says how bright this display can go, as a multiple of SDR white. It comes from the headroom the browser reports; see <a href="#environment">Environment</a>, where <strong>Identify displays</strong> grants the permission (the button also appears here). An SDR display reads <em>1× — SDR display</em>. When the browser does not report a peak, the panel says so rather than guessing.</li>
+<li>When an OpenEXR image asks for more than the display shows, a note says so — for example <em>asks for 4.93×, this display shows up to 2.23×</em>. Values above the display's peak then <strong>clip</strong> to flat white, which is why the SDR and HDR ends can look alike even on an HDR monitor.</li>
+<li><strong>Fit to display</strong> sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.</li>
+<li>An <strong>SDR white</strong> strip sits beside the image, for comparison by eye. On an HDR display with real HDR output, highlights look brighter than that strip. If they never do, the output is being clamped.</li>
+</ul>
 <div class="note">
 <strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
 </div>
