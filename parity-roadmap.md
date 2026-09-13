@@ -296,6 +296,20 @@ date; `OPEN` entries carry the options so input can be dropped in by ID. IDs are
 referenced from the group sections above. Categories: **IA** app-identity/nav ·
 **A/B/C/D-UX** per-group user-experience · **ARCH** build/dependency.*
 
+### DL-HDRDISP1 — HDR image display pathway · 🟡 OPEN (recommendation made 2026-09-12)
+**Recommendation.** Two jobs, two routes. **Showing a browser-decodable HDR file** (AVIF,
+gain-map JPEG; HEIC and JPEG XL on Safari) → native `<img>`, with CSS `dynamic-range-limit`
+`standard`/`no-limit` as the SDR↔HDR A/B, and `dynamic-range-limit-mix()` as the slider where
+supported. That is unflagged in Chrome 136+ and Safari 26; Safari has no `-mix`, so A/B only.
+**Showing pixels profiletool computed** (EXR, profile-transformed images) → one `HdrSurface`
+chosen by `hdrPathway(env)`: a float16 2-D canvas backend first (flag-gated, fully testable
+headless), then a WebGPU `extended` backend (the only unflagged route, validated on real
+hardware), then an 8-bit SDR fallback with our own tone map. Pixel convention: 1.0 = SDR white =
+203 nits, measured. WebGL2 rejected, since the same flag gates its HDR switch.
+
+Measurements, per-target matrix, rejected options and order of work:
+**`hdr-display-pathway-decision.md`**. Probe: `scripts/probe-hdr-canvas.mjs`.
+
 ### DL-HDRENV1 — HEIC via the browser only; Environment cluster; platform-gated capabilities · ✅ RESOLVED 2026-09-12
 **Call.** **Do not implement HEIC decoding ourselves.** Use the browser's own decoder where it
 exists, accept that it does not exist everywhere, and make that visible. Adds an **Environment

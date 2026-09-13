@@ -511,8 +511,12 @@ HDR section; it remains the one we may freely mutate.
      Chromium 149: `window-management` is queryable without prompting (`window-placement`
      throws); `hdrHeadroom` is **0 on an SDR screen** and absent without the flag, so it is
      shown raw, not converted. Tests: `scripts/check-display-watcher.mjs` (57, mutation-tested
-     9/9) plus a headless wiring run (20). **Not yet seen on two real monitors** — that is the
-     manual checklist in the plan.
+     9/9) plus a headless wiring run (20). **Confirmed on the user's two-monitor Windows
+     laptop the same day**: flip partway across; headroom shown in stops (≈× SDR white); brightness
+     keys do not refresh it (a Chromium ScreenWin limitation).
+     **HDR image display pathway: `DL-HDRDISP1`, OPEN with a recommendation** —
+     `hdr-display-pathway-decision.md`. Native `<img>` + `dynamic-range-limit` for
+     browser-decodable files; float16 canvas → WebGPU → SDR fallback for EXR and computed pixels.
   4. **Gain-map awareness** — ISO 21496-1:2025 metadata (and Ultra HDR's MPF variant) shown
      next to the profile's own adaptive gain curve. HEIC being first makes test material
      free: any recent iPhone produces exactly this file.
