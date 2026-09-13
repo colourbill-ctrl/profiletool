@@ -129,13 +129,23 @@ export function readHeadroom(screen) {
   return { value: null, api: null }
 }
 
+// Headroom in stops → linear multiple of SDR white. Chromium defines hdrHeadroom as
+// log2(max(peakLuminance / sdrWhiteLevel, 1)) (Blink screen_detailed.cc), so 0 stops = 1×
+// (no headroom) and each stop doubles it. The W3C proposal (PR #150) is still open; if a
+// browser ever ships `headroom` with a different unit, this is the one place to change.
+export function headroomRatio(stops) {
+  return typeof stops === 'number' && Number.isFinite(stops) ? 2 ** stops : null
+}
+
 /** What trigger (2) knows about the screen the window is on. Plain data, no handles. */
 export function readScreen(details) {
   const s = details?.currentScreen
   if (!s) return null
   const { value, api } = readHeadroom(s)
+  // Windows reports labels with trailing padding ("H32T13 "); an all-space label is no label.
+  const label = typeof s.label === 'string' ? s.label.trim() : ''
   return {
-    label: typeof s.label === 'string' && s.label ? s.label : null,
+    label: label || null,
     isPrimary: typeof s.isPrimary === 'boolean' ? s.isPrimary : null,
     isInternal: typeof s.isInternal === 'boolean' ? s.isInternal : null,
     dpr: typeof s.devicePixelRatio === 'number' ? s.devicePixelRatio : null,

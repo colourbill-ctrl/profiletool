@@ -10,7 +10,7 @@
 // hdr-display-triggers-plan.md §7.
 
 import {
-  readDisplay, watchDisplay, watchScreenDetails, readScreen, readHeadroom,
+  readDisplay, watchDisplay, watchScreenDetails, readScreen, readHeadroom, headroomRatio,
   createScheduler, createDisplayMonitor, windowManagementPermission, SETTLE_MS,
 } from '../frontend/src/lib/displayWatcher.js'
 
@@ -213,6 +213,17 @@ function manualTimers() {
   check('readScreen: headroom via `headroom`', s.headroom === 2.3 && s.headroomApi === 'headroom', s)
   check('readHeadroom: `hdrHeadroom` accepted, 0 is a value not "missing"', readHeadroom(sdr).value === 0 && readHeadroom(sdr).api === 'hdrHeadroom', readHeadroom(sdr))
   check('readHeadroom: absent → null, not 0', readHeadroom(fakeScreen({})).value === null)
+  // Label padding as reported by Windows on the user's external monitor.
+  check('readScreen: trailing-space label trimmed ("H32T13 " → "H32T13")',
+    readScreen(fakeDetails([fakeScreen({ label: 'H32T13 ' })])).label === 'H32T13')
+  check('readScreen: all-space label → null', readScreen(fakeDetails([fakeScreen({ label: '   ' })])).label === null)
+  // Stops → multiple of SDR white; values are the user's measured laptop readings.
+  const near = (a, b) => a !== null && Math.abs(a - b) < 0.01
+  check('headroomRatio: 0 stops = 1×', headroomRatio(0) === 1)
+  check('headroomRatio: 1 stop = 2×', headroomRatio(1) === 2)
+  check('headroomRatio: measured 0.9697 / 1.3501 / 1.5478 → 1.96 / 2.55 / 2.92',
+    near(headroomRatio(0.9697298407554626), 1.96) && near(headroomRatio(1.350074291229248), 2.55) && near(headroomRatio(1.5478384494781494), 2.92))
+  check('headroomRatio: null / NaN → null', headroomRatio(null) === null && headroomRatio(NaN) === null)
   check('readHeadroom: NaN → null', readHeadroom(fakeScreen({ hdrHeadroom: NaN })).value === null)
 
   r.unsubscribe()

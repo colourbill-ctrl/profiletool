@@ -1,7 +1,7 @@
 // (c) 2026 William Li
 import { useEffect, useRef, useState } from 'react'
 import { detectEnvironment } from '../lib/environment.js'
-import { createDisplayMonitor } from '../lib/displayWatcher.js'
+import { createDisplayMonitor, headroomRatio } from '../lib/displayWatcher.js'
 import { capabilityMatrix, hdrPathway, environmentSummary, FORMATS, browserFlags, flagsNeedAttention } from '../lib/capabilities.js'
 import { useT } from '../i18n.jsx'
 import styles from './EnvironmentPanel.module.css'
@@ -110,19 +110,21 @@ export default function EnvironmentPanel({ compact = false }) {
         )}
         {screen && (
           <Fact label={t('env_headroom') || 'HDR headroom'}
-                value={screen.headroom != null ? String(+screen.headroom.toFixed(3))
+                value={screen.headroom != null ? headroomText(screen.headroom, t)
                   : (t('env_headroom_hidden') || 'not exposed by this browser')} />
         )}
       </div>
 
-      {/* Headroom is shown RAW. Chromium's hdrHeadroom has no published unit yet (the W3C
-          proposal is still open), and an SDR screen was observed to report 0 — so it is
-          displayed as reported, never converted into nits or a ratio we cannot vouch for.
+      {/* Headroom unit, from Chromium's source: hdrHeadroom = log2(max(peak / SDR white, 1)),
+          i.e. stops. It is shown in stops AND as a multiple of SDR white, never in nits —
+          the page gets only the ratio, not either luminance. The Windows caveat is measured:
+          ScreenWin re-reads the SDR white level only on display-change / app-activation /
+          work-area / colour-profile / DXGI events, so brightness keys leave it stale.
           Without trigger (2) there is no value at all, and the note says so rather than
           implying a number. */}
       <p className={styles.note}>
         {screen?.headroom != null
-          ? (t('env_headroom_raw') || 'Shown exactly as the browser reports it. The unit is not standardised yet; an SDR screen has been observed to report 0.')
+          ? (t('env_headroom_raw') || 'Chromium reports this in stops: log₂ of the display’s peak brightness ÷ its SDR white level. On Windows it refreshes only when Chrome re-reads the display — the window moves to another screen, or Chrome becomes the active app again — not when brightness changes.')
           : (t('env_headroom_note') || 'This browser has not reported the display’s HDR headroom, only whether an HDR path exists.')}
       </p>
 
@@ -216,6 +218,15 @@ function IdentifyControl({ status, onIdentify, t }) {
       </p>
     </>
   )
+}
+
+// "1.35 stops (≈2.55× SDR white)". Two decimals: the underlying value is a float32 log,
+// and more digits would imply a precision the OS luminance figures do not have.
+function headroomText(stops, t) {
+  const ratio = headroomRatio(stops)
+  return (t('env_headroom_value') || '{stops} stops (≈{ratio}× SDR white)')
+    .replace('{stops}', String(+stops.toFixed(2)))
+    .replace('{ratio}', String(+ratio.toFixed(2)))
 }
 
 function monitorText(s, t) {
