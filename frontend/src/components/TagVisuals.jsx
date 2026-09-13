@@ -8,6 +8,7 @@ import CicpDetail, { readCicp } from './CicpDetail.jsx'
 import { channelColor } from './viz/colors.js'
 import { useAsync } from './viz/useAsync.js'
 import VizWarnings from './viz/VizWarnings.jsx'
+import HagcEvaluated from './viz/HagcEvaluated.jsx'
 import styles from './TagVisuals.module.css'
 
 // IccVizModel Kind enum (kept in sync with IccVizModel.hpp).
@@ -83,6 +84,12 @@ export default function TagVisuals({ tag, bytes, descriptors = [], chromaDesc, d
       <>
         <Collapsible title={t('viz_hagc') || 'Gain curve'} defaultOpen>
           <GraphView bytes={bytes} id={hagc.id} />
+        </Collapsible>
+        {/* The same tag as a CMM applies it, at a chosen display headroom. Separate from the
+            authored-points graph above on purpose: that one shows the file's data, this one
+            IccProfLib's reconstruction of the curve from it. */}
+        <Collapsible title={t('viz_hagc_eval') || 'Gain at a display headroom'} defaultOpen>
+          <HagcEvaluated bytes={bytes} />
         </Collapsible>
         <Collapsible title={t('viz_data')} defaultOpen={false}>{dataNode}</Collapsible>
       </>

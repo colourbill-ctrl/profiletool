@@ -894,7 +894,54 @@ std::string roundTripStats(const std::string& bytes, int intent, bool useMpe) {
 
 } // namespace
 
+// ── HAGC evaluated curves (IccVizModel::EvaluateHagc) ────────────────────────
+// {supported, unsupportedReason, derivedSlopes, derivedRefWhiteToneMap,
+//  clampsToTargetVolume, sharedMixing, baselineHeadroom, referenceWhite,
+//  targetHeadroomRequested, targetHeadroom, x[], curves[{headroom, identity, gain[]}],
+//  blendGain[], neutralOut[]}. NaN samples serialise as null.
+static json floatsToJson(const std::vector<float>& v) {
+  json a = json::array();
+  a.get_ptr<json::array_t*>()->reserve(v.size());
+  for (float f : v) { if (std::isfinite(f)) a.push_back(f); else a.push_back(nullptr); }
+  return a;
+}
+
+std::string hagcEvaluateImpl(const std::string& bytes, double targetHeadroom, int nSamples) {
+  if (bytes.size() > kMaxIccBytes)
+    return json{{"error", "Profile exceeds size limit"}}.dump();
+  CIccProfile* pIcc = parseCached(bytes);
+  if (!pIcc) return json{{"error", "Failed to parse ICC profile"}}.dump();
+  const auto ev = iccviz::EvaluateHagc(pIcc, static_cast<float>(targetHeadroom), nSamples);
+  if (!ev.ok) return json{{"error", ev.error}}.dump();
+  json j;
+  j["supported"] = ev.supported;
+  j["unsupportedReason"] = ev.unsupportedReason;
+  j["derivedSlopes"] = ev.derivedSlopes;
+  j["derivedRefWhiteToneMap"] = ev.derivedRefWhiteToneMap;
+  j["clampsToTargetVolume"] = ev.clampsToTargetVolume;
+  j["sharedMixing"] = ev.sharedMixing;
+  j["baselineHeadroom"] = ev.baselineHeadroom;
+  j["referenceWhite"] = ev.referenceWhite;
+  j["targetHeadroomRequested"] = ev.targetHeadroomRequested;
+  j["targetHeadroom"] = ev.targetHeadroom;
+  j["x"] = floatsToJson(ev.x);
+  json curves = json::array();
+  for (const auto& c : ev.curves)
+    curves.push_back(json{{"headroom", c.headroom}, {"identity", c.identity}, {"gain", floatsToJson(c.gain)}});
+  j["curves"] = std::move(curves);
+  j["blendGain"] = floatsToJson(ev.blendGain);
+  j["neutralOut"] = floatsToJson(ev.neutralOut);
+  return j.dump();
+}
+
+std::string hagcEvaluate(const std::string& bytes, double targetHeadroom, int nSamples) {
+  try { return hagcEvaluateImpl(bytes, targetHeadroom, nSamples); }
+  catch (const std::exception& e) { return json{{"error", std::string("hagcEvaluate threw: ") + e.what()}}.dump(); }
+  catch (...) { return json{{"error", "hagcEvaluate threw an unknown exception"}}.dump(); }
+}
+
 EMSCRIPTEN_BINDINGS(iccplot) {
+  emscripten::function("hagcEvaluate", &hagcEvaluate);
   emscripten::function("enumerate", &enumerateProfile);
   emscripten::function("renderGraph", &renderGraph);
   emscripten::function("renderRaster", &renderRaster);

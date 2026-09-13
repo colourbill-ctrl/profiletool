@@ -1,0 +1,119 @@
+#!/usr/bin/env node
+// (c) 2026 William Li
+//
+// Tests frontend/src/lib/hdrPixels.js — the HDR tab's pixel maths — in Node.
+// The colour matrices are checked against published values (linear Display P3 → sRGB),
+// not against themselves; the range operator against the properties the UI relies on
+// (identity with no limit, SDR output ≤ 1.0, continuity at the knee, hue preserved).
+//
+// Usage: node scripts/check-hdr-pixels.mjs
+
+import {
+  MAX_LIMIT_STOPS, REC709, rgbToXyzMatrix, toSrgbLinearMatrix, normalizeChromaticities,
+  softCeiling, renderFloatRgba, srgbEncode, encodeSrgb8, drlValue,
+} from '../frontend/src/lib/hdrPixels.js'
+
+let passed = 0, failed = 0
+const check = (name, ok, detail) => {
+  if (ok) passed++; else failed++
+  console.log(`${ok ? 'pass' : 'FAIL'}  ${name}${!ok && detail !== undefined ? '  — ' + JSON.stringify(detail) : ''}`)
+}
+const near = (a, b, tol) => Math.abs(a - b) <= tol
+const mulVec = (m, v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]]
+
+// ── matrices ────────────────────────────────────────────────────────────────
+{
+  const m = rgbToXyzMatrix(REC709)
+  // Published sRGB → XYZ (D65), first row 0.4124 0.3576 0.1805; Y row 0.2126 0.7152 0.0722.
+  check('Rec.709 RGB→XYZ matches the published matrix', near(m[0], 0.4124, 1e-3) && near(m[1], 0.3576, 1e-3) && near(m[3], 0.2126, 1e-3) && near(m[4], 0.7152, 1e-3) && near(m[5], 0.0722, 1e-3), m)
+  check('Rec.709/D65 primaries → no conversion (null)', toSrgbLinearMatrix(REC709) === null)
+  check('no primaries → null', toSrgbLinearMatrix(null) === null)
+
+  const P3 = { red: [0.680, 0.320], green: [0.265, 0.690], blue: [0.150, 0.060], white: [0.3127, 0.3290] }
+  const p3 = toSrgbLinearMatrix(P3)
+  const white = mulVec(p3, [1, 1, 1])
+  check('Display P3 → sRGB: white stays white', white.every((v) => near(v, 1, 1e-4)), white)
+  // Published linear P3 → sRGB: pure P3 green = (-0.2249, 1.0421, -0.0786).
+  const green = mulVec(p3, [0, 1, 0])
+  check('Display P3 → sRGB: pure P3 green matches the published column', near(green[0], -0.2249, 2e-3) && near(green[1], 1.0421, 2e-3) && near(green[2], -0.0786, 2e-3), green)
+
+  // ACES AP0 has a non-D65 white (0.32168, 0.33767): Bradford must land it on D65 white.
+  const AP0 = { red: [0.7347, 0.2653], green: [0.0, 1.0], blue: [0.0001, -0.077], white: [0.32168, 0.33767] }
+  check('degenerate/out-of-range primaries rejected by normalizeChromaticities', normalizeChromaticities([0.7347, 0.2653, 0, 1, 0.0001, -0.077, 0.32168, 0.33767]) === null)
+  const ACEScg = { red: [0.713, 0.293], green: [0.165, 0.830], blue: [0.128, 0.044], white: [0.32168, 0.33767] }
+  const cg = toSrgbLinearMatrix(ACEScg)
+  const cgWhite = mulVec(cg, [1, 1, 1])
+  check('ACEScg (white 0.32168,0.33767) → sRGB: Bradford maps its white to (1,1,1)', cgWhite.every((v) => near(v, 1, 2e-3)), cgWhite)
+  void AP0
+}
+{
+  const arr = [0.64, 0.33, 0.30, 0.60, 0.15, 0.06, 0.3127, 0.3290]
+  const a = normalizeChromaticities(arr)
+  check('normalizeChromaticities: array of 8', a && a.green[1] === 0.60 && a.white[0] === 0.3127, a)
+  const o = normalizeChromaticities({ red: { x: 0.64, y: 0.33 }, green: { x: 0.3, y: 0.6 }, blue: { x: 0.15, y: 0.06 }, white: { x: 0.3127, y: 0.329 } })
+  check('normalizeChromaticities: { red:{x,y} }', o && o.blue[0] === 0.15, o)
+  const f = normalizeChromaticities({ redX: 0.64, redY: 0.33, greenX: 0.3, greenY: 0.6, blueX: 0.15, blueY: 0.06, whiteX: 0.3127, whiteY: 0.329 })
+  check('normalizeChromaticities: { redX, … }', f && f.red[0] === 0.64, f)
+  check('normalizeChromaticities: absent / short / NaN → null',
+    normalizeChromaticities(undefined) === null && normalizeChromaticities([0.6, 0.3]) === null && normalizeChromaticities([NaN, 0.3, 0.3, 0.6, 0.15, 0.06, 0.3127, 0.329]) === null)
+}
+
+// ── soft ceiling ─────────────────────────────────────────────────────────────
+{
+  check('softCeiling: identity below the knee', softCeiling(0.5, 1) === 0.5 && softCeiling(0.8, 1) === 0.8)
+  const eps = 1e-6
+  const slope = (softCeiling(0.8 + eps, 1) - softCeiling(0.8, 1)) / eps
+  check('softCeiling: slope 1 at the knee (no band)', near(slope, 1, 1e-3), slope)
+  check('softCeiling: approaches but never exceeds the ceiling', softCeiling(5, 1) < 1 && softCeiling(1000, 1) <= 1 && softCeiling(5, 1) > 0.99)
+  let mono = true
+  for (let y = 0; y < 20; y += 0.01) if (softCeiling(y + 0.01, 4) < softCeiling(y, 4)) mono = false
+  check('softCeiling: monotonic', mono)
+  check('softCeiling: infinite ceiling → identity', softCeiling(37, Infinity) === 37)
+}
+
+// ── renderFloatRgba ──────────────────────────────────────────────────────────
+{
+  // 4 pixels: black, SDR white, 4× white, a saturated bright red.
+  const src = new Float32Array([0, 0, 0, 1, 1, 1, 4, 4, 4, 3, 0.2, 0.1])
+  const none = renderFloatRgba(src, 4, 1)
+  check('no limit: values pass through (4× white stays 4)', none.rgba[8] === 4 && none.rgba[4] === 1 && none.rgba[3] === 1, Array.from(none.rgba))
+  check('peak is the brightest channel', none.peak === 4, none.peak)
+  const exp = renderFloatRgba(src, 4, 1, { exposureStops: 1 })
+  check('exposure +1 stop doubles', exp.rgba[4] === 2 && exp.rgba[8] === 8)
+  const sdr = renderFloatRgba(src, 4, 1, { limitStops: 0 })
+  const lum = (i) => 0.2126 * sdr.rgba[i] + 0.7152 * sdr.rgba[i + 1] + 0.0722 * sdr.rgba[i + 2]
+  check('limit 0 stops (SDR): every luminance ≤ 1', [0, 4, 8, 12].every((i) => lum(i) <= 1 + 1e-6), [0, 4, 8, 12].map(lum))
+  check('limit 0: grey stays grey', sdr.rgba[8] === sdr.rgba[9] && sdr.rgba[9] === sdr.rgba[10])
+  const ratioIn = 0.2 / 3, ratioOut = sdr.rgba[13] / sdr.rgba[12]
+  check('limit 0: saturated red keeps its channel ratios (hue preserved)', near(ratioIn, ratioOut, 1e-6), { ratioIn, ratioOut })
+  const two = renderFloatRgba(src, 4, 1, { limitStops: 2 })
+  check('limit 2 stops: 4× white compressed below 4, SDR white untouched', two.rgba[8] < 4 && two.rgba[8] > 3 && two.rgba[4] === 1, [two.rgba[4], two.rgba[8]])
+  const bad = renderFloatRgba(new Float32Array([-1, NaN, Infinity]), 1, 1)
+  check('negative / NaN / Infinity samples → 0', bad.rgba[0] === 0 && bad.rgba[1] === 0 && bad.rgba[2] === 0, Array.from(bad.rgba))
+  let threw = false
+  try { renderFloatRgba(new Float32Array(5), 2, 1) } catch { threw = true }
+  check('short buffer throws', threw)
+  const m = [0, 0, 1, 0, 1, 0, 1, 0, 0]   // swap R and B
+  const sw = renderFloatRgba(new Float32Array([1, 0, 0]), 1, 1, { matrix: m })
+  check('matrix is applied', sw.rgba[0] === 0 && sw.rgba[2] === 1)
+}
+
+// ── encode ───────────────────────────────────────────────────────────────────
+{
+  check('srgbEncode(0.5) ≈ 0.7354', near(srgbEncode(0.5), 0.7354, 1e-4), srgbEncode(0.5))
+  const e = encodeSrgb8(new Float32Array([0, 0.5, 1, 1, 2, -1, 0.0031308, 0]))
+  check('encodeSrgb8: 0→0, 0.5→188, 1→255, alpha 255', e[0] === 0 && e[1] === 188 && e[2] === 255 && e[3] === 255, Array.from(e))
+  check('encodeSrgb8: >1 clips to 255, <0 to 0', e[4] === 255 && e[5] === 0)
+}
+
+// ── dynamic-range-limit ──────────────────────────────────────────────────────
+{
+  check('drlValue: ends', drlValue(0, true) === 'standard' && drlValue(1, true) === 'no-limit')
+  check('drlValue: mix when supported', drlValue(0.25, true) === 'dynamic-range-limit-mix(standard 75%, no-limit 25%)', drlValue(0.25, true))
+  check('drlValue: nearest end when -mix unsupported (Safari)', drlValue(0.25, false) === 'standard' && drlValue(0.75, false) === 'no-limit')
+  check('drlValue: garbage clamps', drlValue(NaN, true) === 'standard' && drlValue(7, true) === 'no-limit')
+  check('MAX_LIMIT_STOPS is 6', MAX_LIMIT_STOPS === 6)
+}
+
+console.log(`\n${passed} passed, ${failed} failed`)
+process.exit(failed ? 1 : 0)

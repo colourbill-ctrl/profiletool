@@ -13,13 +13,14 @@ import ComparePanel from './ComparePanel.jsx'
 import V4DisplayMaker from './V4DisplayMaker.jsx'
 import PipelineBuilder from './PipelineBuilder.jsx'
 import SpecSepPanel from './SpecSepPanel.jsx'
+import HdrPanel from './HdrPanel.jsx'
 import { POOL_DND_MIME } from './PoolPane.jsx'
 import { useT } from '../i18n.jsx'
 import styles from './MainCanvas.module.css'
 
-const TABS = ['Profile', 'Compare', 'Link', 'SpecSep']
+const TABS = ['Profile', 'Compare', 'Link', 'SpecSep', 'HDR']
 // Tabs that gather IMAGES rather than pooled profiles — no pool accumulator bar.
-const NO_ACCUM = new Set(['SpecSep'])
+const NO_ACCUM = new Set(['SpecSep', 'HDR'])
 
 export default function MainCanvas({
   activeTab, onActivate, accum, getEntry, onDropOnTab, onDropFiles, onRemoveFromAccum,
@@ -32,6 +33,8 @@ export default function MainCanvas({
   pipeline, setPipeline, v4Roles, setV4Roles,
   // SpecSep tab (DL-PIPELINE1):
   onAssembleSpec,
+  // HDR tab (DL-HDRDISP1): open a shown image's embedded profile in the Profile tab.
+  onOpenInProfile,
 }) {
   const t = useT()
   const [dropTab, setDropTab] = useState(null)
@@ -171,6 +174,7 @@ export default function MainCanvas({
                      v4Roles={v4Roles} setV4Roles={setV4Roles} />
         )}
         {activeTab === 'SpecSep' && <SpecSepPanel onAssemble={onAssembleSpec} />}
+        {activeTab === 'HDR' && <HdrPanel onOpenInProfile={onOpenInProfile} />}
       </div>
     </section>
   )

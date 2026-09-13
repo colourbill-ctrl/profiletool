@@ -2,7 +2,13 @@
 
 # Decision note: how HDR images reach the screen — `DL-HDRDISP1`
 
-**Status:** OPEN — recommendation below, awaiting approval. Written 2026-09-12 on `beta`.
+**Status:** RESOLVED — approved 2026-09-12 and implemented on `beta` the same day. What was built:
+- **The HDR tab:** `HdrPanel.jsx`, `lib/hdrSurface.js` and `lib/hdrPixels.js`.
+- **Tests:** unit tests in `scripts/check-hdr-pixels.mjs`; test images in `test-corpus/hdr-images/`, including an OpenEXR ramp and a cICP PNG.
+- **Recommendation 2's backends:** built in the order below. WebGPU is written but awaits the device check in §7.
+- **The HAGC view:** evaluated curves shown alongside the stored control points, checked by `scripts/check-hagc-eval.mjs`.
+
+Written 2026-09-12 on `beta`.
 **Question:** when a user drops an HDR image, by what route do its pixels reach the display in
 HDR, with an SDR fallback and the SDR↔HDR A/B + analogue slider the Phase 2 plan asks for?
 **Inputs:** `~/code/panelapp/HDR.md` (four pathways), `hdr-platform-capabilities.md`,

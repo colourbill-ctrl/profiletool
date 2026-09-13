@@ -26,6 +26,7 @@
 // HDR modules; nothing here may be reached without it.
 #ifdef PROFILETOOL_HAS_HDR
 #include "IccTagHagc.h"
+#include "IccHdrToneMap.h"     // CIccHagcEvaluator — EvaluateHagc samples the library's own evaluator
 #endif
 
 #include <algorithm>
@@ -1461,8 +1462,11 @@ int roundTripSteps(int N) {
 // ── headroomAdaptiveGainCurveTag ─────────────────────────────────────────────
 // One polyline per alternate image, plotted from the decoded control points.
 //
-// Axes. X is the gain curve input in log2 space and Y is the gain in log2 stops,
-// which is why Y is SIGNED and routinely negative: an alternate that tone maps
+// Axes. X is the gain curve input — the MIXED component value, LINEAR light with 1.0 at
+// the HDR reference white (CIccHagcEvaluator::Curve::Gain takes it as-is; its
+// extrapolation is y_last + log2(x_last / x), which only makes sense on a linear x). An
+// earlier label here said "log2", which was wrong. Y is the gain in log2 stops, which is
+// why Y is SIGNED and routinely negative: an alternate that tone maps
 // DOWN from the baseline headroom has negative gain throughout (see the sign
 // rule in the HagcDisplay fixture — it is re-derived from the headroom ordering
 // on read, not carried in the encoding). A 0..1 y-range would clip exactly the
@@ -1480,7 +1484,7 @@ int roundTripSteps(int N) {
 static Graph buildHagcGraph(CIccTagHagc* pHagc, const std::string& title) {
   Graph g;
   g.title = title;
-  g.xAxis = Axis{"Gain curve input (log2)", 0.0f, 1.0f, false};
+  g.xAxis = Axis{"Gain curve input (linear, 1.0 = HDR reference white)", 0.0f, 1.0f, false};
   g.yAxis = Axis{"Gain (log2 stops)", 0.0f, 1.0f, false};
 
   const icHagcMetadata& meta = pHagc->GetMetadata();
@@ -2964,5 +2968,121 @@ bool GetSilent() { return g_silent; }
 // stderr diagnostic line; the CLI sets the profile filename here so its output
 // matches iccProfileVisualize byte-for-byte.
 void SetDiagnosticContext(const std::string& name) { g_diagContext = name; }
+
+// ── EvaluateHagc ─────────────────────────────────────────────────────────────
+// See IccVizModel.hpp. Everything numeric comes from CIccHagcEvaluator; this function
+// only chooses where to sample and packages the result.
+#ifdef PROFILETOOL_HAS_HDR
+HagcEvaluation EvaluateHagc(CIccProfile* pIcc, float targetHeadroom, int nSamples) {
+  HagcEvaluation r;
+  if (!pIcc) { r.error = "no profile"; return r; }
+  auto* pHagc = dynamic_cast<CIccTagHagc*>(pIcc->FindTag(icSigHeadroomAdaptiveGainCurveTag));
+  if (!pHagc) { r.error = "headroomAdaptiveGainCurveTag not found"; return r; }
+  // A NaN target is refused by SetTargetHeadroom(), which would leave the evaluator at the
+  // LAST target and plot a curve for a headroom nobody asked for. Refuse it up front.
+  if (std::isnan(targetHeadroom)) { r.error = "target headroom is not a number"; return r; }
+
+  const icHagcMetadata& meta = pHagc->GetMetadata();
+  r.baselineHeadroom = static_cast<float>(meta.m_baselineHeadroom);
+  r.referenceWhite = static_cast<float>(meta.GetReferenceWhite());
+  r.targetHeadroomRequested = targetHeadroom;
+
+  CIccHagcEvaluator ev;
+  r.supported = ev.Init(meta);
+  if (!r.supported) {
+    const icChar* why = ev.GetUnsupportedReason();
+    r.unsupportedReason = why ? why : "the evaluator does not support this metadata";
+    r.ok = true;       // not a failure of ours: the tag is valid data the CMM declines
+    return r;
+  }
+  r.derivedSlopes = ev.UsesDerivedSlopes();
+  r.derivedRefWhiteToneMap = ev.UsesDerivedReferenceWhiteToneMap();
+  r.clampsToTargetVolume = ev.ClampsToTargetVolume();
+
+  // Sample domain. Authored control points set it where they exist (plus 25% so the
+  // extrapolation past the last point — a hard clip, see Curve::Gain — is visible). A
+  // derived reference-white tone map has no authored points, so fall back to the baseline
+  // peak, 2^baselineHeadroom in reference-white units. Never below 1.0 (reference white).
+  float xmax = 0.0f;
+  for (icUInt8Number n = 0; n < meta.GetNumAlternates(); ++n) {
+    const icHagcAlternateImage* pAlt = meta.GetAlternate(n);
+    if (!pAlt) continue;
+    int nPts = static_cast<int>(pAlt->m_nControlPoints);
+    if (nPts > icHagcMaxControlPoints) nPts = icHagcMaxControlPoints;   // file-sourced count
+    for (int i = 0; i < nPts; ++i) {
+      const float xv = static_cast<float>(pAlt->m_x[i]);
+      if (std::isfinite(xv)) xmax = std::max(xmax, xv);
+    }
+  }
+  const float base = std::isfinite(r.baselineHeadroom) ? std::min(std::max(r.baselineHeadroom, 0.0f), 6.0f) : 0.0f;
+  xmax = std::max({xmax * 1.25f, std::pow(2.0f, base), 1.0f});
+  if (!std::isfinite(xmax)) xmax = 1.0f;
+
+  int n = nSamples <= 0 ? 129 : nSamples;
+  n = std::min(std::max(n, 16), 1024);
+  r.x.resize(static_cast<std::size_t>(n));
+  for (int i = 0; i < n; ++i) r.x[static_cast<std::size_t>(i)] = xmax * static_cast<float>(i) / static_cast<float>(n - 1);
+
+  const float kNaN = std::numeric_limits<float>::quiet_NaN();
+
+  // Each curve on its own: a target exactly at a curve's headroom brackets that curve
+  // alone (weight 1), so EvalGainExponent returns that curve's G(x).
+  const icUInt8Number nCurves = ev.GetNumCurves();
+  for (icUInt8Number c = 0; c < nCurves; ++c) {
+    HagcCurveSamples s;
+    s.headroom = static_cast<float>(ev.GetCurveHeadroom(c));
+    if (!ev.SetTargetHeadroom(s.headroom)) continue;
+    s.gain.reserve(r.x.size());
+    for (float xv : r.x) {
+      bool bValid = false;
+      const float gv = static_cast<float>(ev.EvalGainExponent(xv, &bValid));
+      s.gain.push_back(bValid && std::isfinite(gv) ? gv : kNaN);
+    }
+    // "No gain" is a property of the SAMPLED CURVE, not of the evaluator's bracket.
+    // IsIdentity() looked right but is not: at a target exactly on the baseline headroom the
+    // library may bracket the baseline together with its neighbour at weight 0, so it reports
+    // false although every sample is 0 (measured on HagcDisplay at H = 3).
+    s.identity = !s.gain.empty() &&
+                 std::all_of(s.gain.begin(), s.gain.end(), [](float g) { return g == 0.0f; });
+    r.curves.push_back(std::move(s));
+  }
+
+  // The blend at the requested target. An out-of-range target clamps to the endpoint
+  // curve inside the library — targetHeadroom reports what it recorded.
+  ev.SetTargetHeadroom(targetHeadroom);
+  r.targetHeadroom = static_cast<float>(ev.GetTargetHeadroom());
+  {
+    bool bValid = false;
+    ev.EvalGainExponent(1.0f, &bValid);
+    r.sharedMixing = bValid || ev.IsIdentity() || !nCurves;
+  }
+  if (r.sharedMixing) {
+    r.blendGain.reserve(r.x.size());
+    for (float xv : r.x) {
+      bool bValid = false;
+      const float gv = static_cast<float>(ev.EvalGainExponent(xv, &bValid));
+      r.blendGain.push_back(std::isfinite(gv) ? gv : kNaN);
+    }
+  }
+  // The grey tone curve through the FULL operator (mixing + gain + blend), which is
+  // defined even when the curves do not share a mixing. For R = G = B every mixing form
+  // yields the same mixed value per channel, so the three outputs are equal; report G.
+  r.neutralOut.reserve(r.x.size());
+  for (float xv : r.x) {
+    icFloatNumber src[3] = {xv, xv, xv}, dst[3] = {0, 0, 0};
+    ev.Apply(dst, src);
+    const float o = static_cast<float>(dst[1]);
+    r.neutralOut.push_back(std::isfinite(o) ? o : kNaN);
+  }
+  r.ok = true;
+  return r;
+}
+#else
+HagcEvaluation EvaluateHagc(CIccProfile*, float, int) {
+  HagcEvaluation r;
+  r.error = "this build has no HDR modules (PROFILETOOL_HAS_HDR is off)";
+  return r;
+}
+#endif
 
 } // namespace iccviz

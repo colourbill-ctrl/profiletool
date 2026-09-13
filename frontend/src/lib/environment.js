@@ -169,3 +169,17 @@ export async function detectEnvironment() {
     userAgent: ua,
   }
 }
+
+// One detection per page for callers that only need the CAPABILITY half (codecs, canvas
+// path, WebGPU adapter), which cannot change while the page is open. The WebGPU probe can
+// take up to 1.5 s, so re-running it every time a panel mounts would be felt. The DISPLAY
+// block in the cached object is only as fresh as the first call: callers that care about
+// the current monitor re-read it with displayWatcher.readDisplay(). A failed detection is
+// not cached, so the next caller retries.
+let cachedEnvironment = null
+export function getEnvironment() {
+  if (!cachedEnvironment) {
+    cachedEnvironment = detectEnvironment().catch((e) => { cachedEnvironment = null; throw e })
+  }
+  return cachedEnvironment
+}

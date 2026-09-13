@@ -1,0 +1,10 @@
+/* (c) 2026 William Li */
+.wrap { display: flex; flex-direction: column; gap: 6px; }
+.loading { font-size: 0.84rem; color: var(--muted, #6b7280); }
+.error { font-size: 0.84rem; color: var(--danger, #b42318); }
+.note { margin: 0; font-size: 0.78rem; line-height: 1.45; color: var(--muted, #6b7280); }
+.slider { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.84rem; }
+.slider input[type='range'] { flex: 1 1 160px; min-width: 120px; }
+.value { min-width: 13em; font-variant-numeric: tabular-nums; }
+.btn { font-size: 0.76rem; padding: 2px 8px; cursor: pointer; }
+.caption { margin-top: 6px; font-size: 0.8rem; font-weight: 600; }

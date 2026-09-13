@@ -73,6 +73,23 @@ export async function renderGraph(bytes, id) {
 }
 
 /**
+ * Sample a headroomAdaptiveGainCurveTag through IccProfLib's own CIccHagcEvaluator →
+ * {supported, unsupportedReason, derivedSlopes, derivedRefWhiteToneMap, clampsToTargetVolume,
+ *  sharedMixing, baselineHeadroom, referenceWhite, targetHeadroom, x[], curves[{headroom,
+ *  identity, gain[]}], blendGain[], neutralOut[]}. x is linear (1.0 = HDR reference white),
+ * gains and headrooms are log2 stops; null samples are undefined there.
+ */
+export async function hagcEvaluate(bytes, targetHeadroom, nSamples = 129) {
+  const mod = await loadModule()
+  if (typeof mod.hagcEvaluate !== 'function') throw new Error('This graph module predates the HAGC evaluator.')
+  let out
+  try { out = mod.hagcEvaluate(bytes, targetHeadroom, nSamples) } catch (e) { throw toError(mod, e) }
+  const r = JSON.parse(out)
+  if (r.error) throw new Error(r.error)
+  return r
+}
+
+/**
  * Describe a LUT tag's transform for the evaluator UI →
  * {srcSpace,dstSpace,srcChannels,dstChannels,srcIsPcs,dstIsPcs,
  *  srcLabels[],dstLabels[],gridPoints[]}. `tagSig` is the 4-char tag id.

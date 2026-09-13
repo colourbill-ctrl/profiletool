@@ -1,0 +1,43 @@
+/* (c) 2026 William Li */
+.wrap { padding: 12px 4px; font-size: 0.9rem; border-radius: 8px; }
+.over { outline: 2px dashed var(--accent, #4a90e2); outline-offset: -2px; }
+.intro { margin: 0 0 10px; color: var(--muted, #6b7280); line-height: 1.45; }
+
+.drop {
+  border: 2px dashed var(--border, #cfd6e0); border-radius: 8px; padding: 36px 16px;
+  text-align: center; cursor: pointer; background: var(--surface-alt, #f8fafc);
+}
+.drop:hover, .drop:focus-visible { border-color: var(--accent, #4a90e2); outline: none; }
+.dropTitle { font-weight: 600; margin-bottom: 4px; }
+.dropFormats { font-size: 0.8rem; color: var(--muted, #6b7280); }
+
+.fileBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.fileName { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.badge { font-size: 0.72rem; padding: 1px 6px; border-radius: 10px; background: var(--surface-alt, #eef2f7); }
+.btn, .linkBtn { font-size: 0.78rem; padding: 2px 10px; cursor: pointer; }
+.linkBtn { margin-left: 8px; }
+
+.facts { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; }
+.fact { display: flex; justify-content: space-between; gap: 12px; font-size: 0.84rem; }
+.factLabel { color: var(--muted, #6b7280); flex: 0 0 auto; }
+.factValue { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted, #6b7280); font-size: 0.78rem; }
+
+.note { margin: 0 0 8px; font-size: 0.8rem; line-height: 1.45; color: var(--muted, #6b7280); }
+.error { margin: 0 0 8px; font-size: 0.84rem; color: var(--danger, #b42318); }
+
+.controls { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.range, .slider { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.84rem; }
+.rangeLabel { min-width: 7em; }
+.slider > span:first-child { min-width: 7em; }
+.range input[type='range'], .slider input[type='range'] { flex: 1 1 160px; min-width: 120px; }
+.sliderValue { min-width: 5.5em; font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; border: 1px solid var(--border, #cfd6e0); border-radius: 6px; overflow: hidden; }
+.segBtn, .segOn { font-size: 0.78rem; padding: 2px 12px; border: 0; cursor: pointer; background: transparent; color: inherit; }
+.segOn { background: var(--accent, #4a90e2); color: #fff; }
+
+.viewer {
+  margin-top: 6px; padding: 8px; border-radius: 6px; background: #000;
+  display: flex; justify-content: center; overflow: auto; max-height: 75vh;
+}
+.image { max-width: 100%; height: auto; image-rendering: auto; }

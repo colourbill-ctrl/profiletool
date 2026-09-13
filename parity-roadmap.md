@@ -296,8 +296,12 @@ date; `OPEN` entries carry the options so input can be dropped in by ID. IDs are
 referenced from the group sections above. Categories: **IA** app-identity/nav ·
 **A/B/C/D-UX** per-group user-experience · **ARCH** build/dependency.*
 
-### DL-HDRDISP1 — HDR image display pathway · 🟡 OPEN (recommendation made 2026-09-12)
-**Recommendation.** Two jobs, two routes. **Showing a browser-decodable HDR file** (AVIF,
+### DL-HDRDISP1 — HDR image display pathway · ✅ RESOLVED 2026-09-12
+**Status.** Approved and implemented on `beta` the same day: the **HDR** tab (`HdrPanel.jsx`,
+`lib/hdrSurface.js`, `lib/hdrPixels.js`), plus the evaluated HAGC view in Tags. The WebGPU
+backend is written but **unverified on real hardware**: headless has no adapter.
+
+**Call.** Two jobs, two routes. **Showing a browser-decodable HDR file** (AVIF,
 gain-map JPEG; HEIC and JPEG XL on Safari) → native `<img>`, with CSS `dynamic-range-limit`
 `standard`/`no-limit` as the SDR↔HDR A/B, and `dynamic-range-limit-mix()` as the slider where
 supported. That is unflagged in Chrome 136+ and Safari 26; Safari has no `-mix`, so A/B only.

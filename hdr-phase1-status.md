@@ -514,9 +514,17 @@ HDR section; it remains the one we may freely mutate.
      9/9) plus a headless wiring run (20). **Confirmed on the user's two-monitor Windows
      laptop the same day**: flip partway across; headroom shown in stops (≈× SDR white); brightness
      keys do not refresh it (a Chromium ScreenWin limitation).
-     **HDR image display pathway: `DL-HDRDISP1`, OPEN with a recommendation** —
-     `hdr-display-pathway-decision.md`. Native `<img>` + `dynamic-range-limit` for
-     browser-decodable files; float16 canvas → WebGPU → SDR fallback for EXR and computed pixels.
+     **HDR image display: `DL-HDRDISP1`, RESOLVED and BUILT 2026-09-12**, recorded in
+     `hdr-display-pathway-decision.md`. What exists:
+     - **An HDR tab.** Browser-decodable files are shown by the browser, using
+       `dynamic-range-limit` for the SDR/HDR switch and a blend slider. OpenEXR is decoded by
+       our WASM and drawn through `HdrSurface`: float16 canvas, then WebGPU, then SDR fallback,
+       with one soft-ceiling range operator plus exposure.
+     - **A HAGC view in Tags.** It samples IccProfLib's `CIccHagcEvaluator` through the new
+       `IccVizModel::EvaluateHagc`, with a display-headroom slider, gain and grey tone plots.
+     - **A label fix.** The authored-points graph's x axis said "log2" but the value is linear.
+     - **Still to do:** confirm the WebGPU backend on real hardware, and decide how to display
+       TIFF (Phase 4.3).
   4. **Gain-map awareness** — ISO 21496-1:2025 metadata (and Ultra HDR's MPF variant) shown
      next to the profile's own adaptive gain curve. HEIC being first makes test material
      free: any recent iPhone produces exactly this file.

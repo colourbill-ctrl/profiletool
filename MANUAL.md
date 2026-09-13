@@ -40,6 +40,7 @@ Everything runs client-side. Profile bytes never leave the browser tab.
    - [Transform Data](#4-4-transform-data)
    - [Observer Change](#4-5-observer-change)
    - [Compare and Spectral tabs](#4-6-compare-and-spectral-tabs)
+   - [HDR tab](#4-7-hdr-tab)
 5. [Round-trip editing](#5-round-trip-editing)
 6. [Launching from chardata](#6-launching-from-chardata)
 7. [Launching with a URL](#7-launching-with-a-url)
@@ -77,7 +78,7 @@ Click to select a row; Ctrl/Cmd-click to toggle and Shift-click to select a rang
 <strong>The pool is session-only.</strong> Nothing is uploaded and nothing is persisted — your filesystem stays the durable store. Reloading the page empties the pool.
 </div>
 
-### The four tabs
+### The tabs
 
 | Tab | What it does |
 |---|---|
@@ -85,8 +86,9 @@ Click to select a row; Ctrl/Cmd-click to toggle and Shift-click to select a rang
 | **Compare** | Overlays the gamuts of **two or more** profiles. |
 | **Combine** | Chains profiles into a DeviceLink, or transforms an image / dataset through them. |
 | **Spectral** | Assembles single-channel spectral images into one multi-channel TIFF. |
+| **HDR** | Shows **one** HDR image on your display, with an SDR ↔ HDR control. See [HDR tab](#4-7-hdr-tab). |
 
-Each tab keeps its own set of profiles, shown as removable chips beneath the tab strip, with a count badge on the tab itself. The first profile you load opens automatically in the **Profile** tab; after that, drag from the pool onto whichever tab you want. Dropping files straight onto a tab loads them into the pool *and* places them on that tab in one action.
+Spectral and HDR take image files directly rather than pooled profiles. Each of the other tabs keeps its own set of profiles, shown as removable chips beneath the tab strip, with a count badge on the tab itself. The first profile you load opens automatically in the **Profile** tab; after that, drag from the pool onto whichever tab you want. Dropping files straight onto a tab loads them into the pool *and* places them on that tab in one action.
 
 <div class="note">
 <strong>Size limit:</strong> the loader rejects anything larger than 256 MB. Real profiles are normally well under 10 MB; the cap exists only to prevent a hostile drop or postMessage from exhausting the tab's WASM heap.
@@ -347,6 +349,41 @@ The Combine tab holds **two** maker cards. Above the Link Pipeline, the **Observ
 ### 4.6 Compare and Spectral tabs
 
 The **Compare** tab overlays the gamut boundaries of two or more pooled profiles — a 3-D shell plus a 2-D lightness slice — to see where they differ. The **Spectral** tab assembles a set of single-channel spectral images (dropped in channel order) into one multi-channel TIFF (`iccSpecSepToTiff`).
+
+### 4.7 HDR tab
+
+Drop **one** image on the **HDR** tab, or click the drop area to choose one. What happens depends on who can decode it:
+
+| File | Shown by | SDR ↔ HDR control |
+|---|---|---|
+| **AVIF**, **JPEG** (including gain-map JPEG), **PNG** (including cICP-tagged), **HEIC** on Safari | the browser | **SDR** / **HDR** buttons, plus a **Dynamic range** slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only. |
+| **OpenEXR** | profiletool | the same buttons and slider, plus **Exposure** |
+| **TIFF** | not shown yet | — |
+
+The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the **brightest pixel** as a multiple of SDR white (OpenEXR), its chromaticities, any **gain map**, and any **embedded ICC profile**. **Open in Profile tab** loads that profile for inspection.
+
+**Outputs for OpenEXR.** profiletool renders the pixels itself, through the first of these that works:
+1. **HDR canvas (float16)**: needs `chrome://flags/#enable-experimental-web-platform-features` (see *Settings → Environment*).
+2. **WebGPU (extended range)**: needs no flag, but needs a working GPU adapter.
+3. **SDR canvas (tone-mapped)**: always available. It cannot show brighter-than-white, so the slider is hidden.
+
+On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops).
+
+<div class="note">
+<strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
+</div>
+
+<div class="note">
+<strong>Refusals name the reason.</strong> For example, HEIC display needs Safari: Chrome and Firefox decode HEIC on no platform. The image's profile can still be opened in the Profile tab.
+</div>
+
+**Gain curves (HAGC).** For a profile with a `headroomAdaptiveGainCurveTag`, expand that tag in **Profile → Tags**. There are two views:
+- **Gain curve** plots the control points exactly as stored in the file.
+- **Gain at a display headroom** shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag **Display headroom**, from 0 to 6 stops. It starts at the tag's baseline. Two plots follow the slider:
+  - the gain applied at that headroom, against every curve in the tag;
+  - what a grey input becomes, against *no change* and the display peak.
+
+  The view notes when slopes or curves are derived rather than stored, and when the headroom is outside the tag's range, in which case the nearest curve is used unchanged.
 
 ---
 

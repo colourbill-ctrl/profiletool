@@ -28,6 +28,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
+import { deflateSync as zlibDeflate } from 'node:zlib'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..', '..')
@@ -105,6 +106,131 @@ for (const [file, format, bits, lossless] of TARGETS) {
     check(`${file}: ramp samples round-trip${lossless ? ' exactly' : ' within ±4'}`, diffs.every((v) => v <= tol),
       `probes ${JSON.stringify(probes.map((x) => back[idx(x)]))} expected ${JSON.stringify(probes.map((x) => s.typed[idx(x)]))}`)
   }
+}
+
+// ── Images WITHOUT an ICC profile, for the HDR tab's display paths ──────────────────────
+//
+// hdr-ramp-linear.exr   OpenEXR, uncompressed, FLOAT R/G/B, Rec.709/D65 chromaticities
+//                       attribute. Scene-linear: top half a grey ramp 0 → 4.926 (i.e. 1000/203,
+//                       the same luminances as the PQ ramps, with 1.0 = SDR white); bottom half
+//                       three bands, pure R, G and B ramps over the same range. Displayed by
+//                       profiletool's own renderer (HdrSurface).
+// pq-ramp-cicp-16bit.png  PNG, 16-bit, grey PQ ramp tagged with a cICP chunk (BT.2020 / PQ /
+//                       RGB / full range) and NO iCCP. The browser's own HDR route: Chromium
+//                       honours cICP, which is how headless measurement confirmed 1.0 = 203 nits
+//                       (scripts/probe-hdr-canvas.mjs uses the same construction).
+// Neither container is written by encodeImage (no EXR encoder; no cICP support), so both are
+// assembled here byte by byte, then DECODED BACK with the iccimage WASM before passing.
+
+const crcTable = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0 })
+const crc32 = (buf) => { let c = 0xffffffff; for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0 }
+
+function exrRamp() {
+  const EW = 256, EH = 96
+  const band = EH / 2 / 3
+  const value = (x) => nitsAt(Math.round(x * (W - 1) / (EW - 1))) / 203
+  const px = (x, y) => {
+    const v = value(x)
+    if (y < EH / 2) return [v, v, v]
+    const k = Math.min(2, Math.floor((y - EH / 2) / band))
+    return [k === 0 ? v : 0, k === 1 ? v : 0, k === 2 ? v : 0]
+  }
+  const parts = []
+  const str = (s) => Buffer.from(s + '\0', 'latin1')
+  const i32 = (n) => { const b = Buffer.alloc(4); b.writeInt32LE(n); return b }
+  const f32 = (n) => { const b = Buffer.alloc(4); b.writeFloatLE(n); return b }
+  const attr = (name, type, value) => Buffer.concat([str(name), str(type), i32(value.length), value])
+  // Channel list, sorted by name as the format requires: B, G, R. pixel_type 2 = FLOAT.
+  const chan = (n) => Buffer.concat([str(n), i32(2), Buffer.from([0, 0, 0, 0]), i32(1), i32(1)])
+  const chlist = Buffer.concat([chan('B'), chan('G'), chan('R'), Buffer.from([0])])
+  const box = Buffer.concat([i32(0), i32(0), i32(EW - 1), i32(EH - 1)])
+  const header = Buffer.concat([
+    Buffer.from([0x76, 0x2f, 0x31, 0x01]), i32(2),
+    attr('channels', 'chlist', chlist),
+    attr('chromaticities', 'chromaticities', Buffer.concat([0.64, 0.33, 0.30, 0.60, 0.15, 0.06, 0.3127, 0.3290].map(f32))),
+    attr('compression', 'compression', Buffer.from([0])),
+    attr('dataWindow', 'box2i', box),
+    attr('displayWindow', 'box2i', box),
+    attr('lineOrder', 'lineOrder', Buffer.from([0])),
+    attr('pixelAspectRatio', 'float', f32(1)),
+    attr('screenWindowCenter', 'v2f', Buffer.concat([f32(0), f32(0)])),
+    attr('screenWindowWidth', 'float', f32(1)),
+    Buffer.from([0]),
+  ])
+  // NO_COMPRESSION: one scanline per block. Offset table = one uint64 per line.
+  const lineBytes = EW * 4 * 3
+  const tableStart = header.length
+  const firstLine = tableStart + EH * 8
+  const table = Buffer.alloc(EH * 8)
+  const lines = []
+  for (let y = 0; y < EH; y++) {
+    table.writeBigUInt64LE(BigInt(firstLine + y * (8 + lineBytes)), y * 8)
+    const data = Buffer.alloc(lineBytes)
+    for (let x = 0; x < EW; x++) {
+      const [r, g, b] = px(x, y)
+      data.writeFloatLE(b, x * 4)                    // B block
+      data.writeFloatLE(g, EW * 4 + x * 4)           // G block
+      data.writeFloatLE(r, 2 * EW * 4 + x * 4)       // R block
+    }
+    lines.push(i32(y), i32(lineBytes), data)
+  }
+  parts.push(header, table, ...lines)
+  return { bytes: new Uint8Array(Buffer.concat(parts)), EW, EH, px }
+}
+
+function cicpPng() {
+  const raw = Buffer.alloc(H * (1 + W * 6))
+  for (let y = 0; y < H; y++) {
+    const o = y * (1 + W * 6)
+    for (let x = 0; x < W; x++) {
+      const v = Math.round(pq(nitsAt(x)) * 65535)
+      for (let ch = 0; ch < 3; ch++) raw.writeUInt16BE(v, o + 1 + x * 6 + ch * 2)
+    }
+  }
+  const chunk = (type, data) => {
+    const t = Buffer.from(type, 'latin1'), len = Buffer.alloc(4), crc = Buffer.alloc(4)
+    len.writeUInt32BE(data.length); crc.writeUInt32BE(crc32(Buffer.concat([t, data])))
+    return Buffer.concat([len, t, data, crc])
+  }
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4); ihdr.set([16, 2, 0, 0, 0], 8)
+  return new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr), chunk('cICP', Buffer.from([9, 16, 0, 1])),
+    chunk('IDAT', zlibDeflate(raw)), chunk('IEND', Buffer.alloc(0))]))
+}
+
+{
+  const { bytes, EW, EH, px } = exrRamp()
+  writeFileSync(join(HERE, 'hdr-ramp-linear.exr'), bytes)
+  const d = mod.decodeImage(bytes)
+  check('hdr-ramp-linear.exr: decodes as float RGB', d && d.ok && d.sampleFormat === 'float' && d.width === EW && d.height === EH && d.channels === 3,
+    d && (d.ok ? `${d.width}×${d.height} ${d.sampleFormat} ${d.channels} ch` : d.error))
+  if (d && d.ok) {
+    const raw = new Uint8Array(d.samples)
+    const f = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength))
+    const at = (x, y) => [f[(y * EW + x) * 3], f[(y * EW + x) * 3 + 1], f[(y * EW + x) * 3 + 2]]
+    const probes = [[0, 10], [128, 10], [EW - 1, 10], [EW - 1, EH / 2 + 2], [EW - 1, EH / 2 + 18], [EW - 1, EH - 2]]
+    const ok = probes.every(([x, y]) => at(x, y).every((v, c) => Math.abs(v - px(x, y)[c]) < 1e-6))
+    check('hdr-ramp-linear.exr: grey ramp + R/G/B bands decode exactly, top = 4.926× SDR white', ok,
+      JSON.stringify(probes.map(([x, y]) => at(x, y).map((v) => +v.toFixed(4)))))
+    check('hdr-ramp-linear.exr: chromaticities attribute read back as Rec.709/D65',
+      Array.isArray(d.chromaticities) && Math.abs(d.chromaticities[6] - 0.3127) < 1e-6, JSON.stringify(d.chromaticities))
+  }
+  check('hdr-ramp-linear.exr: carries no ICC profile (the format has no slot)', !mod.findProfile(bytes))
+}
+{
+  const bytes = cicpPng()
+  writeFileSync(join(HERE, 'pq-ramp-cicp-16bit.png'), bytes)
+  const d = mod.decodeImage(bytes)
+  const ok = d && d.ok && d.width === W && d.bitDepth === 16
+  check('pq-ramp-cicp-16bit.png: decodes (16-bit)', ok, d && (d.ok ? `${d.width}×${d.height} ${d.bitDepth}-bit` : d.error))
+  if (ok) {
+    const raw = new Uint8Array(d.samples)
+    const u = new Uint16Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength))
+    const want = [0, W / 2, W - 1].map((x) => Math.round(pq(nitsAt(x)) * 65535))
+    const got = [0, W / 2, W - 1].map((x) => u[((H >> 1) * W + x) * 3])
+    check('pq-ramp-cicp-16bit.png: PQ code values exact (203 nits at centre)', got.every((v, i) => v === want[i]), `got ${got} want ${want}`)
+  }
+  check('pq-ramp-cicp-16bit.png: no ICC profile (HDR is signalled by cICP alone)', !mod.findProfile(bytes))
 }
 
 console.log(failed ? `\n${failed} failed` : `\nall passed — images written to ${HERE}`)

@@ -557,6 +557,43 @@ struct PrimaryInkResult {
 // across the two legs (corner→pivot, pivot→corner).
 PrimaryInkResult PrimaryInkingPaths(CIccProfile* pIcc, icTagSignature b2aTag, int pathSamples = 0);
 
+// ── Headroom adaptive gain curve, EVALUATED ──────────────────────────────────
+// The HagcGainCurve graph (RenderGraph) plots the tag's AUTHORED control points and
+// nothing else. This is the other half: the curves as a CMM applies them, sampled from
+// IccProfLib's own CIccHagcEvaluator (IccHdrToneMap.h) rather than re-derived here — the
+// PCHIP slopes, derived reference-white tone maps and headroom blending all come from the
+// library, so the plot cannot drift from the transform.
+//
+// x is the evaluator's MIXED INPUT: linear light, 1.0 = the tag's HDR reference white.
+// Gains are log2 exponents (the pixel is multiplied by 2^G). Headrooms are log2 stops.
+// Values the library cannot define at a sample are NaN (JSON null).
+struct HagcCurveSamples {
+  float headroom = 0.0f;       // log2 stops, as the evaluator orders them
+  bool  identity = false;      // gain identically 0 at this headroom (e.g. the baseline)
+  std::vector<float> gain;     // G(x) at each HagcEvaluation::x, NaN where undefined
+};
+struct HagcEvaluation {
+  bool ok = false;
+  std::string error;                  // fatal: no tag, no profile, NaN target
+  bool supported = false;             // CIccHagcEvaluator::Init() accepted the metadata
+  std::string unsupportedReason;      // the library's reason when !supported
+  bool derivedSlopes = false;         // PCHIP slopes reconstructed, not read from the tag
+  bool derivedRefWhiteToneMap = false;// alternates built by the reference-white construction
+  bool clampsToTargetVolume = false;  // no alternates: "do not tone map, clamp"
+  bool sharedMixing = true;           // a single blended G(x) exists at the target
+  float baselineHeadroom = 0.0f;
+  float referenceWhite = 0.0f;        // cd/m²
+  float targetHeadroomRequested = 0.0f;
+  float targetHeadroom = 0.0f;        // as the evaluator recorded it
+  std::vector<float> x;               // sample positions, shared by every series
+  std::vector<HagcCurveSamples> curves;   // headroom-ordered list, baseline included
+  std::vector<float> blendGain;       // G(x) at targetHeadroom; empty when !sharedMixing
+  std::vector<float> neutralOut;      // Apply() of (x, x, x) at targetHeadroom — the grey tone curve
+};
+// nSamples 0 → 129; clamped to [16, 1024]. Requires a build with PROFILETOOL_HAS_HDR;
+// otherwise returns ok=false with an error saying so.
+HagcEvaluation EvaluateHagc(CIccProfile* pIcc, float targetHeadroom, int nSamples = 0);
+
 } // namespace iccviz
 
 #endif // ICC_VIZ_MODEL_HPP

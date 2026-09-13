@@ -13,6 +13,13 @@ alternate images.
 | `hagc-pq-ramp-16bit.png` | PNG, `iCCP` | 16-bit RGB | libpng |
 | `hagc-pq-ramp-8bit.jpg` | JPEG, APP2 `ICC_PROFILE` | 8-bit RGB | libjpeg |
 
+Two more images carry **no** ICC profile. They exercise the **HDR tab**'s two display routes:
+
+| File | What | Route in the HDR tab |
+|---|---|---|
+| `hdr-ramp-linear.exr` | OpenEXR, uncompressed FLOAT R/G/B, Rec.709/D65 `chromaticities`. 256×96. The top half is a grey ramp 0 → **4.926** (1000/203, the same luminances, with 1.0 = SDR white); the bottom half is pure R, G and B ramps | **profiletool** renders it: float16 canvas, WebGPU, or SDR fallback |
+| `pq-ramp-cicp-16bit.png` | 16-bit PNG, the PQ ramp, tagged **`cICP`** (BT.2020 / PQ / RGB / full) and nothing else | **the browser** shows it; Chromium honours cICP |
+
 **Pixels:** a 512×128 grey ramp of PQ code values — 0 cd/m² at the left, **203 cd/m² (SDR
 reference white) at the centre**, 1000 cd/m² at the right.
 

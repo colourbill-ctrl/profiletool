@@ -514,6 +514,17 @@ export default function App() {
   const getEntry = useCallback((id) => pool.get(id) || null, [pool])
   const onDropFiles = useCallback((files, tab) => loadFiles(files, { tab }), [loadFiles])
 
+  // HDR tab → "Open in Profile tab": ingest the image's embedded profile (same streaming
+  // path as any image drop) and show it, switching tabs — the user asked for THAT profile,
+  // so unlike a batch load it is always opened. Rejections use the normal dialog.
+  const onOpenInProfile = useCallback(async (file) => {
+    setLoading(true); setError(null)
+    const r = await ingestFile(file)
+    setLoading(false)
+    if (r.id) { setAccum((a) => ({ ...a, Profile: r.id })); setActiveTab('Profile') }
+    else setRejected([r.reject])
+  }, [ingestFile])
+
   return (
     <>
       <div className={styles.app}>
@@ -551,6 +562,7 @@ export default function App() {
             getEntry={getEntry}
             onDropOnTab={dropOnTab}
             onDropFiles={onDropFiles}
+            onOpenInProfile={onOpenInProfile}
             onRemoveFromAccum={removeFromAccum}
             profileEntry={profileEntry}
             initialTab={initialTab}

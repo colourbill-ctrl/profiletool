@@ -163,6 +163,17 @@ export async function decodeImage(bytes) {
   return r
 }
 
+/**
+ * Detect an HDR gain map (Ultra HDR `hdrgm` XMP — parsed; ISO 21496-1 — detected only).
+ * Metadata-only: the entropy-coded image is never decoded.
+ * @param {Uint8Array} bytes whole file
+ * @returns {Promise<{present:boolean, kind?:'ultrahdr'|'iso21496', parsed?:boolean, fields?:object, note?:string, error?:string}>}
+ */
+export async function gainMapInfo(bytes) {
+  const mod = await loadModule()
+  try { return mod.gainMapInfo(bytes) } catch (e) { throw toError(mod, e) }
+}
+
 // TIFF-only encode knobs (ignored for PNG/JPEG). `sampleFormat`: 'uint' (8/16-bit
 // integer) or 'float' (32-bit IEEE, bitDepth must be 32). `compression`: 'none' |
 // 'lzw' | 'zip'. `planar`: 'contig' | 'separate'. Defaults preserve the historical
