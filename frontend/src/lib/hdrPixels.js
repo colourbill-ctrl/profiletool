@@ -130,6 +130,19 @@ export function applyMatrix3(buf, m) {
  * passed through unchanged — an OpenEXR buffer is linear light, not a code value, and the
  * caller must only send it through a profile whose transfer is Linear.
  */
+/**
+ * Every sample multiplied by `factor`, into a new buffer — the HDR tab's "file 1.0 = HDR
+ * reference white" choice for float images under a Linear-transfer profile, whose EOTF reads
+ * an encoded 1.0 as 1 cd/m² (ICC.1 clause 8.10.2 a). A non-positive or non-finite factor
+ * leaves the values unscaled rather than zeroing or poisoning a whole image.
+ */
+export function scaleSamples(src, factor) {
+  const out = new Float32Array(src.length)
+  if (!(factor > 0) || !Number.isFinite(factor)) { out.set(src); return out }
+  for (let i = 0; i < src.length; i++) out[i] = src[i] * factor
+  return out
+}
+
 export function samplesToUnitFloat(img) {
   const raw = img.samples
   if (img.sampleFormat === 'float') {

@@ -8,7 +8,7 @@ import { capabilityFor, hdrPathway, FORMATS, reasonText } from '../lib/capabilit
 import { decodeImage, findEmbeddedProfileFromFile, gainMapInfo } from '../lib/imageCodec.js'
 import { decodeRadiance } from '../lib/radianceHdr.js'
 import HdrViewport from './HdrViewport.jsx'
-import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay, samplesToUnitFloat } from '../lib/hdrPixels.js'
+import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay, samplesToUnitFloat, scaleSamples } from '../lib/hdrPixels.js'
 import { useLiveDisplay } from './useLiveDisplay.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
 import { hdrTransformPixels, HDR_POLICY } from '../lib/hdrProfileTransform.js'
@@ -38,6 +38,8 @@ const ASSIGNABLE = new Set(['tiff', 'png', 'jpeg', 'exr', 'hdr'])
 const LINEAR_LIGHT = new Set(['exr', 'hdr'])
 // Whether the Image details section (embedded profile … HDR reference white) is unfolded.
 const DETAILS_KEY = 'profiletool.hdrDetailsOpen'
+// 'refwhite' | 'nits' — what file 1.0 means for a float image under a Linear-transfer profile.
+const LINEAR_SCALE_KEY = 'profiletool.hdrLinearScale'
 
 export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   const t = useT()
@@ -370,6 +372,11 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
   const [policy, setPolicy] = useState(HDR_POLICY.auto)
   const [cmmInfo, setCmmInfo] = useState(null)
   const [applying, setApplying] = useState(false)
+  // Float images under a Linear-transfer profile: what a file value of 1.0 means. 'refwhite'
+  // (default) = the profile's HDR reference white, the OpenEXR / Radiance convention that 1.0
+  // is SDR white; 'nits' = 1 cd/m², as ICC.1 clause 8.10.2 a) reads a Linear value.
+  const [linearScale, setLinearScaleState] = useState(() => (store.get(LINEAR_SCALE_KEY) === 'nits' ? 'nits' : 'refwhite'))
+  const setLinearScale = (v) => { setLinearScaleState(v); store.set(LINEAR_SCALE_KEY, v) }
 
   // Decode once per file. EXR (WASM) and Radiance HDR (JS) decode synchronously; a very
   // large file blocks the tab for the duration, which is acceptable for a one-image viewer.
@@ -415,19 +422,31 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
     const id = setTimeout(async () => {
       setApplying(true)
       try {
-        const { rgb, info: ci } = await hdrTransformPixels({
-          profileBytes: assign.bytes, rgb: srcRef, nPixels: decoded.w * decoded.h,
-          targetHeadroom: 2 ** targetStops, policy,
-        })
-        if (dead) return
-        // Float samples (OpenEXR, Radiance HDR) are linear light; a PQ/HLG profile would
-        // decode them as code values.
-        if (decoded.isFloat && ci.transfer !== 8) {
-          setError((t('hdr_assign_exr_linear') || '{format} holds linear light, so it needs a profile whose transfer is Linear (8).')
-            .replace('{format}', FORMATS[info.format]?.label || 'OpenEXR'))
-          return
+        const opts = { profileBytes: assign.bytes, targetHeadroom: 2 ** targetStops, policy }
+        let input = srcRef
+        let inputScale = null
+        if (decoded.isFloat) {
+          // One pixel first: the transfer and reference white come from the CMM itself, and a
+          // refusal should not cost a whole-image pass.
+          const probe = await hdrTransformPixels({ ...opts, rgb: new Float32Array(3), nPixels: 1 })
+          if (dead) return
+          // Float samples (OpenEXR, Radiance HDR) are linear light; a PQ/HLG profile would
+          // decode them as code values.
+          if (probe.info.transfer !== 8) {
+            setError((t('hdr_assign_exr_linear') || '{format} holds linear light, so it needs a profile whose transfer is Linear (8).')
+              .replace('{format}', FORMATS[info.format]?.label || 'OpenEXR'))
+            return
+          }
+          // The profile's Linear EOTF takes 1.0 as 1 cd/m² and divides by the reference white,
+          // so an unscaled OpenEXR (1.0 = SDR white) lands near black. Scaling by that white
+          // first puts file 1.0 on it — unless the user chose the clause's own reading.
+          const w = probe.info.referenceWhite
+          inputScale = linearScale === 'refwhite' && w > 0 ? w : 1
+          if (inputScale !== 1) input = scaleSamples(srcRef, inputScale)
         }
-        setCmmInfo(ci)
+        const { rgb, info: ci } = await hdrTransformPixels({ ...opts, rgb: input, nPixels: decoded.w * decoded.h })
+        if (dead) return
+        setCmmInfo({ ...ci, inputScale })
         setDecoded((d) => (d && d.src === srcRef ? { ...d, rgb } : d))
       } catch (e) {
         if (!dead) setError(e.message || String(e))
@@ -437,7 +456,7 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
     }, 120)
     return () => { dead = true; clearTimeout(id) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assign, srcRef, targetStops, policy])
+  }, [assign, srcRef, targetStops, policy, linearScale])
 
   // Create the surface for `kind`; on failure, record why and step down the chain. The
   // WebGPU step is skipped when the environment already knows it has no adapter.
@@ -501,7 +520,9 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
         [t('hdr_display') || 'HDR display', tri(envLive.display.hdr, t)],
         [t('hdr_display_peak') || 'Display peak', <DisplayPeak t={t} dpk={dpk} live={live} />],
         [t('hdr_size') || 'Size', `${decoded.w}×${decoded.h}${decoded.compression ? ` · ${decoded.compression}` : ''}`],
-        [t('hdr_peak') || 'Brightest pixel', peak == null ? '…' : (t('hdr_peak_value') || '{n}× SDR white').replace('{n}', String(+peak.toFixed(2)))],
+        // Three significant figures below 10×: a "file 1.0 = 1 cd/m²" reading can put the peak at
+        // a few hundredths, where two decimals would round it to a meaningless 0.02.
+        [t('hdr_peak') || 'Brightest pixel', peak == null ? '…' : (t('hdr_peak_value') || '{n}× SDR white').replace('{n}', String(peak >= 10 ? +peak.toFixed(1) : +peak.toPrecision(3)))],
         ...(assign ? assignFacts(t, assign, cmmInfo) : [[t('hdr_chromaticities') || 'Chromaticities',
           p ? `R ${p.red.join(', ')} · G ${p.green.join(', ')} · B ${p.blue.join(', ')} · W ${p.white.join(', ')}${decoded.matrix ? '' : ' (Rec. 709)'}`
             : (t('hdr_chroma_default') || 'not stated — Rec. 709 assumed')]]),
@@ -532,6 +553,19 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
         {assign && (
           <TargetControl t={t} stops={targetStops} setStops={setTargetStops} policy={policy} setPolicy={setPolicy}
                          displayStops={dpk.stops} applying={applying} />
+        )}
+        {assign && decoded.isFloat && (
+          <>
+            <label className={styles.slider}>
+              <span>{t('hdr_linear_scale') || 'Linear values'}</span>
+              <select className={styles.select} value={linearScale} onChange={(e) => setLinearScale(e.target.value)}
+                      aria-label={t('hdr_linear_scale') || 'Linear values'}>
+                <option value="refwhite">{t('hdr_linear_refwhite') || 'File 1.0 = HDR reference white'}</option>
+                <option value="nits">{t('hdr_linear_nits') || 'File 1.0 = 1 cd/m² (ICC.1 clause 8.10.2 a)'}</option>
+              </select>
+            </label>
+            <p className={styles.note}>{t('hdr_linear_help') || 'OpenEXR and Radiance HDR files conventionally put SDR white at 1.0, while an ICC Linear transfer reads 1.0 as 1 cd/m². The default scales the file so its 1.0 lands on the profile’s HDR reference white.'}</p>
+          </>
         )}
         {surface?.hdr && (
           <RangeControl t={t} share={share} setShare={setShare} blend readout={readout}
@@ -655,6 +689,11 @@ function assignFacts(t, assign, ci) {
     [t('hdr_cmm_path') || 'Colour engine path', path],
     [t('hdr_transfer') || 'Transfer', ci ? (TRANSFER_NAMES[ci.transfer] || '—') : '…'],
     [t('hdr_ref_white_cd') || 'HDR reference white', ci && ci.referenceWhite > 0 ? `${+ci.referenceWhite.toFixed(1)} cd/m²` : '…'],
+    // Float images only: the factor applied before the CMM (null for integer images).
+    ...(ci && ci.inputScale != null ? [[t('hdr_linear_fact') || 'Input scale',
+      ci.inputScale !== 1
+        ? (t('hdr_linear_fact_ref') || '×{w} — file 1.0 = reference white').replace('{w}', String(+ci.inputScale.toFixed(1)))
+        : (t('hdr_linear_fact_nits') || 'none — file 1.0 = 1 cd/m²')]] : []),
   ]
 }
 

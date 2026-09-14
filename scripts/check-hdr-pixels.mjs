@@ -12,7 +12,7 @@ import {
   MAX_LIMIT_STOPS, REC709, rgbToXyzMatrix, toSrgbLinearMatrix, normalizeChromaticities,
   softCeiling, renderFloatRgba, srgbEncode, encodeSrgb8, drlValue,
   displayPeakInfo, fitShare, clipsBeyondDisplay,
-  xyzD50ToSrgbLinearMatrix, applyMatrix3, samplesToUnitFloat,
+  xyzD50ToSrgbLinearMatrix, applyMatrix3, samplesToUnitFloat, scaleSamples,
 } from '../frontend/src/lib/hdrPixels.js'
 
 let passed = 0, failed = 0
@@ -166,6 +166,16 @@ const mulVec = (m, v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] +
   let threw = false
   try { samplesToUnitFloat({ bitDepth: 12, samples: new Uint8Array(4) }) } catch { threw = true }
   check('samplesToUnitFloat: unsupported depth throws', threw)
+}
+
+// ── scaleSamples: "file 1.0 = HDR reference white" for Linear-transfer profiles ──
+{
+  const src = new Float32Array([1, 0.5, 4.926, -0.1])
+  const s = scaleSamples(src, 300)
+  check('scaleSamples ×300: 1.0 → 300, above 1 and below 0 scaled too', near(s[0], 300, 1e-4) && near(s[1], 150, 1e-4) && near(s[2], 1477.8, 1e-2) && near(s[3], -30, 1e-4), Array.from(s))
+  check('scaleSamples returns a new buffer (source untouched)', s !== src && src[0] === 1)
+  const bad = [0, -2, NaN, Infinity].map((f) => Array.from(scaleSamples(src, f)))
+  check('scaleSamples: non-positive / non-finite factor leaves values unscaled', bad.every((a) => a.every((v, i) => v === src[i])), bad)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

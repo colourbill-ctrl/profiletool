@@ -458,6 +458,11 @@ With a profile assigned, profiletool decodes the image itself and runs it throug
 - **Tone mapping** chooses the method: **Auto** (the clause 8.10.3 ranking), **Gain curve** only, the profile's **Baked SDR fallback** (`AToB0Tag`), or **Off**, which behaves like a colour engine that predates the amendment.
 - The panel reports what the colour engine actually did: which **path** (HDR with the gain curve applied, HDR without a curve, or the baked table), the **transfer**, and the **HDR reference white**. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the **Dynamic range** limit is what keeps its highlights within the display.
 - Pooled HDR Profiles appear in two groups, **Linear transfer** and **PQ / HLG transfer**, matching the Profiles pane. OpenEXR and Radiance HDR store linear light, so for those images only the **Linear transfer** group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.
+- **Linear values** (OpenEXR, Radiance HDR and floating-point TIFF only) says what a file value of 1.0 means. The two conventions disagree. These files usually put SDR white at 1.0, but an ICC Linear transfer reads 1.0 as 1 cd/m² (ICC.1 clause 8.10.2 a) and then divides by the HDR reference white, so an unscaled image comes out a few hundred times too dark.
+  - **File 1.0 = HDR reference white** (the default) multiplies the pixels by the profile's HDR reference white first, so file 1.0 lands on it. The **Input scale** fact shows the factor, for example *×300*.
+  - **File 1.0 = 1 cd/m²** passes the values unscaled, as the clause reads them. Use it for files whose values really are in cd/m².
+
+  The choice is remembered.
 
 <div class="note">
 <strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
