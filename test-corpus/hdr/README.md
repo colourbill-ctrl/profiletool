@@ -1,7 +1,7 @@
 # HDR test corpus
 
 **43 fixtures mirrored from iccDEV `Testing/HDR/` @ `ac264764` (branch `hdr-profiles`),
-plus 3 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
+plus 4 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
 from the previous refresh: their XML carries no creation date, so regenerating them changes
 only the header timestamp and profile ID.
 
@@ -279,6 +279,21 @@ Authored here through the same `xmlToIcc` path. Their expectations live in
 `hdr-corpus-manifest.tsv` stays a verbatim copy that can be re-copied on the next refresh
 without a merge. Both check scripts read the two files together.
 
+**`ProfiletoolHagcFamily`** (added 2026-09-14) exists to exercise what a
+`headroomAdaptiveGainCurveTag` is *for*: a family of tone curves that a CMM blends between as the
+display headroom changes. Every other HAGC fixture pins the tag's layout with one to three curves,
+and only `HagcDisplay` has an alternate above its baseline. This one carries **four alternates,
+the most IccLibXML accepts** (a fifth is refused: "more alternate images than the maximum of 4"),
+two on each side of a 3-stop baseline: 0 and 1.5 stops compress, 4.5 and 6 expand. It uses one
+mixing type (2) with PCHIP slopes throughout, so the pictures read cleanly. Each compressing curve
+ends exactly at its own display peak (1× and 2.828×), and grey output never decreases at any
+headroom. `scripts/check-hagc-family.mjs` pins all of that through IccProfLib's evaluator: every
+control point, the hold above the last point, blends lying between their neighbours, and gain
+signs either side of the baseline. It also checks that iccconstruct's HDR CMM applies the same
+grey outputs. It is the fixture the Tags view's preview strip, heatmap and curve family are built
+around. Otherwise it is the `ProfiletoolHdrDisplay` shell: conforming, PQ, HDR reference white
+203 = CRWL, and DERH 3.0 = the baseline.
+
 `ProfiletoolHdrRefWhiteConflict` is described above. `ProfiletoolHdrDisplay` is the happy path: It is a conforming HDR Profile (RGB Display, version 4.50,
 cicp PQ, no TRC tags, A2B0/B2A0 pair) with `CRWL` set to agree with the HAGC tag's
 `HDRReferenceWhite` so H7 reports a genuine agreement. It scores **H1..H8 all OK**.
@@ -347,4 +362,5 @@ c93706a78c25c822bca2d66ee9c0952d875b380c8069afb73f9a4b3bb23e1dff  HdrVersion46.i
 0578eb94d5f15cb26d3be8c4a6f1541bcd81b948832bd8a49008ff043acc7ac6  ProfiletoolHdrCrossAxisWhite.icc
 b9933202e0ff4a95299d4a6f342e97851270e9506ccf72325e670d1c9f4dca7f  ProfiletoolHdrDisplay.icc
 53997216ad1db9415dbba5f4a65930526d0b6257fcaee28a56c4cbe45e3eaa81  ProfiletoolHdrRefWhiteConflict.icc
+a65a8eae39156279e53bb57b49a138a2aba016187181b29f4b30e940292b90e9  ProfiletoolHagcFamily.icc
 ```

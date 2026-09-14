@@ -34,7 +34,20 @@ const CHUNK_PIXELS = 1_000_000
  *   rgb: linear sRGB, 1.0 = the profile's HDR reference white (HdrSurface convention).
  *   info: what the CMM engaged — xformType, hdrPath, toneMapping, transfer, referenceWhite, …
  */
-export async function hdrTransformPixels(o) {
+// ONE HDR CMM session exists in iccconstruct (a single global), and a large image yields to
+// the event loop between chunks. Without serialising, a second caller — the Tags view's HAGC
+// preview while the HDR tab is applying a profile — would call hdrApplyBegin mid-run and
+// replace the first caller's transform under it. Calls queue instead; a failure does not
+// block the queue.
+let queue = Promise.resolve()
+
+export function hdrTransformPixels(o) {
+  const run = queue.then(() => transformNow(o))
+  queue = run.catch(() => {})
+  return run
+}
+
+async function transformNow(o) {
   const mod = await loadConstruct()
   if (typeof mod.hdrApplyBegin !== 'function') {
     throw new Error('This build of the image engine has no HDR profile support.')

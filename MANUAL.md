@@ -215,6 +215,11 @@ A `headroomAdaptiveGainCurveTag` says how an HDR Profile's image should be tone-
   - **Gain applied at this headroom**: the blended curve, drawn against every curve in the tag;
   - **Grey tone curve at this headroom**: what a grey input becomes, drawn against *no change* and the display peak.
 
+  Three more views make the adaptation visible:
+  - **Preview through the colour engine** runs one test strip through IccProfLib's HDR transform twice: a grey ramp, then pure R, G, B, Y, C and M bands, all rising left to right in the profile's own signal (PQ, HLG, or Linear on a log scale). The top strip is **as authored**, at the baseline headroom where the tag applies no gain. The bottom strip is **tone-mapped** for the slider's headroom. Both are capped at that headroom's peak, the way a display with that much headroom would show them. Where the top strip clips to flat, the gain curve rolls the highlights off. Ticks mark where the ramp reaches **reference white** and the **display peak**. The strips use the same HDR output as the [HDR tab](#4-7-hdr-tab): on an HDR display, values above SDR white look brighter than it.
+  - **Gain across every headroom** is a heatmap of the gain on a grey input. The horizontal axis is input brightness, in stops relative to HDR reference white; the vertical axis is display headroom from 0 to 6 stops. Blue compresses, red expands, white leaves the input unchanged. Dotted lines mark the curves stored in the tag, the solid line the baseline, the amber line the slider, and the dashed diagonal where the input reaches the display peak. **Click** the heatmap to move the slider to that headroom.
+  - **Grey tone curves by headroom** overlays the tone curve at each headroom the tag stores, shaded from blue (low) to red (high), with the slider's curve in amber. Both axes are in stops, so the diagonal means no change.
+
   A note appears when slopes or whole curves are derived rather than stored. Another appears when the headroom is outside the tag's range, in which case the nearest curve is used unchanged. If IccProfLib declines to apply the curve, the view says why.
 
 ### 3.3 Validation

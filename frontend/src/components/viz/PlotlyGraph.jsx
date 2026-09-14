@@ -21,7 +21,9 @@ import styles from './PlotlyGraph.module.css'
 
 const TONE_KEY = 'profiletool.curveToneMode'
 
-function theme(isDark) {
+// Exported for the plots that need a trace type this renderer does not model (the HAGC
+// heatmap), so every Plotly surface in the app shares one light/dark palette.
+export function theme(isDark) {
   return isDark
     ? { grid: '#2e2f34', plotBg: '#1e1f22', paperBg: '#1a1b1e', font: '#bbb', frame: '#3a3b40' }
     : { grid: '#eef1f6', plotBg: '#ffffff', paperBg: '#ffffff', font: '#445', frame: '#d6dbe6' }

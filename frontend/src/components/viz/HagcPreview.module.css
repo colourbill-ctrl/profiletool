@@ -1,0 +1,16 @@
+/* (c) 2026 William Li */
+.wrap { display: flex; flex-direction: column; gap: 6px; }
+.note { margin: 0; font-size: 0.78rem; line-height: 1.45; color: var(--muted, #6b7280); }
+.strip { margin: 0; }
+.label { font-size: 0.78rem; margin-bottom: 2px; }
+.busy { color: var(--muted, #6b7280); }
+/* Black surround in every theme, as in the HDR tab: a light page colour next to the strip
+   changes how bright its whites read. Room below the strip for the tick labels. */
+.frame { position: relative; max-width: 512px; background: #000; padding-bottom: 16px; }
+.canvas { display: block; width: 100%; height: auto; image-rendering: auto; }
+.tick { position: absolute; bottom: 0; height: 22px; border-left: 1px solid #cfd6e0; pointer-events: none; }
+.tickPeak { border-left-color: #f0b429; }
+.tickLabel {
+  position: absolute; bottom: 0; left: 3px; font-size: 0.62rem; line-height: 16px; white-space: nowrap; color: #cfd6e0;
+}
+.tickPeak .tickLabel { color: #f0b429; }

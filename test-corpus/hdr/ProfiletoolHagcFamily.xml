@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  profiletool's HAGC FAMILY fixture — a conforming ICC.1 clause 8.10 HDR Profile whose
+  headroomAdaptiveGainCurveTag carries FOUR alternate images — the most the encoding allows
+  (IccLibXML refuses a fifth) — spread across the whole 0 … 6 stop headroom range, two on
+  EACH side of the baseline.
+
+  Why this exists. Every other HAGC fixture in the corpus exercises the tag's LAYOUT
+  (common parameters, mixing types, hex authoring, slope forms) with one to three
+  curves, and only HagcDisplay has an alternate above its baseline. None of them shows
+  what the tag is FOR: a family of tone curves that a CMM blends between as the display
+  headroom changes. This one is authored to be looked at — the HAGC evaluated view's
+  heatmap, curve family and preview strip — and to pin the blending numerically.
+
+  Layout (baseline 3.0 stops = content mastered for a display 8× the HDR reference white):
+
+      headroom   role                         last control point → output
+      0.0        compress to SDR               x 4.0, G −2.00  → 1.000 (= 2^0)
+      1.5        compress                      x 8.0, G −1.50  → 2.828 (= 2^1.5)
+      3.0        BASELINE — no curve stored, the identity
+      4.5        expand                        x 8.0, G +1.00  → 16.0
+      6.0        expand                        x 8.0, G +2.00  → 32.0
+
+  Every curve's grey output x·2^G increases strictly through its control points, and each
+  compressing curve ends exactly at its own display peak, so above the last point the
+  evaluator's clip (G = y_last + log2(x_last/x)) holds the output AT that peak. Signs follow
+  the headroom ordering (proposal 0.1.3.6): Y ≤ 0 below the baseline, Y ≥ 0 above it.
+
+  Deliberately uniform so the pictures read cleanly: one mixing type (2) on every
+  alternate, so a single gain curve exists at every headroom; PCHIP-derived slopes
+  throughout; no custom chromaticities. Layout variety is covered by the upstream
+  fixtures.
+
+  Otherwise the same conforming shell as ProfiletoolHdrDisplay: RGB Display v4.50, BT.2020
+  primaries adapted to D50, PQ via cicpTag, no TRC tags, identity AToB0/BToA0 pair.
+  HDRReferenceWhite 203 agrees with CRWL; DERH 3.0 matches the baseline headroom.
+
+  Generated through the iccxml WASM path (xmlToIcc), not by hand.
+-->
+<IccProfile>
+  <Header>
+    <PreferredCMMType>ICCD</PreferredCMMType>
+    <ProfileVersion>4.50</ProfileVersion>
+    <ProfileDeviceClass>mntr</ProfileDeviceClass>
+    <DataColourSpace>RGB </DataColourSpace>
+    <PCS>XYZ </PCS>
+    <CreationDateTime>2026-09-14T00:00:00</CreationDateTime>
+    <ProfileFlags EmbeddedInFile="true" UseWithEmbeddedDataOnly="true"/>
+    <DeviceAttributes ReflectiveOrTransparency="reflective" GlossyOrMatte="glossy" MediaPolarity="positive" MediaColour="colour"/>
+    <RenderingIntent>Relative Colorimetric</RenderingIntent>
+    <PCSIlluminant>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </PCSIlluminant>
+    <ProfileCreator>ICCD</ProfileCreator>
+  </Header>
+  <Tags>
+    <!-- BT.2020 primaries, chromatically adapted to D50. -->
+    <redColorantTag> <XYZArrayType>
+      <XYZNumber X="0.636962890625" Y="0.262695312500" Z="0.000000000000"/>
+    </XYZArrayType> </redColorantTag>
+
+    <greenColorantTag> <XYZArrayType>
+      <XYZNumber X="0.144622802734" Y="0.677978515625" Z="0.028076171875"/>
+    </XYZArrayType> </greenColorantTag>
+
+    <blueColorantTag> <XYZArrayType>
+      <XYZNumber X="0.168869018555" Y="0.059326171875" Z="1.060989379883"/>
+    </XYZArrayType> </blueColorantTag>
+
+    <mediaWhitePointTag> <XYZArrayType>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </XYZArrayType> </mediaWhitePointTag>
+
+    <cicpTag> <cicpType>
+      <cicpFields ColorPrimaries="9" TransferCharacteristics="16" MatrixCoefficients="0" VideoFullRangeFlag="1"/>
+    </cicpType> </cicpTag>
+
+    <AToB0Tag> <lutAtoBType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutAtoBType> </AToB0Tag>
+
+    <BToA0Tag> <lutBtoAType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutBtoAType> </BToA0Tag>
+
+    <headroomAdaptiveGainCurveTag> <headroomAdaptiveGainCurveType>
+      <HagcMetadata ApplicationVersion="1" MinApplicationVersion="1"
+                    HDRReferenceWhite="203.0000"
+                    BaselineHeadroom="3.0000" HeadroomAdaptiveToneMap="true"
+                    ChromaticitiesMode="1" CommonComponentMixing="false" CommonCurveParameters="false">
+       <!-- 0 stops: an SDR display. Outputs 0.241 0.451 0.732 0.841 1.000. -->
+       <AlternateImage Headroom="0.0000" ComponentMixingType="2" PchipSlope="true">
+        <ControlPoints>
+         <ControlPoint X="0.2500" Y="-0.05000"/>
+         <ControlPoint X="0.5000" Y="-0.15000"/>
+         <ControlPoint X="1.0000" Y="-0.45000"/>
+         <ControlPoint X="2.0000" Y="-1.25000"/>
+         <ControlPoint X="4.0000" Y="-2.00000"/>
+        </ControlPoints>
+       </AlternateImage>
+       <!-- 1.5 stops. Outputs 0.483 0.901 1.464 2.144 2.828. -->
+       <AlternateImage Headroom="1.5000" ComponentMixingType="2" PchipSlope="true">
+        <ControlPoints>
+         <ControlPoint X="0.5000" Y="-0.05000"/>
+         <ControlPoint X="1.0000" Y="-0.15000"/>
+         <ControlPoint X="2.0000" Y="-0.45000"/>
+         <ControlPoint X="4.0000" Y="-0.90000"/>
+         <ControlPoint X="8.0000" Y="-1.50000"/>
+        </ControlPoints>
+       </AlternateImage>
+       <!-- 4.5 stops: expand highlights. Outputs 1.035 2.378 6.063 16.000. -->
+       <AlternateImage Headroom="4.5000" ComponentMixingType="2" PchipSlope="true">
+        <ControlPoints>
+         <ControlPoint X="1.0000" Y="0.05000"/>
+         <ControlPoint X="2.0000" Y="0.25000"/>
+         <ControlPoint X="4.0000" Y="0.60000"/>
+         <ControlPoint X="8.0000" Y="1.00000"/>
+        </ControlPoints>
+       </AlternateImage>
+       <!-- 6 stops: the encoding's top. Outputs 1.072 2.828 8.574 32.000. -->
+       <AlternateImage Headroom="6.0000" ComponentMixingType="2" PchipSlope="true">
+        <ControlPoints>
+         <ControlPoint X="1.0000" Y="0.10000"/>
+         <ControlPoint X="2.0000" Y="0.50000"/>
+         <ControlPoint X="4.0000" Y="1.10000"/>
+         <ControlPoint X="8.0000" Y="2.00000"/>
+        </ControlPoints>
+       </AlternateImage>
+      </HagcMetadata>
+    </headroomAdaptiveGainCurveType> </headroomAdaptiveGainCurveTag>
+
+    <metaDataTag> <dictType>
+      <DictEntry Name="CRWL" Value="203.0"/>
+      <DictEntry Name="DERH" Value="3.0"/>
+      <DictEntry Name="DRWL" Value="203.0"/>
+      <DictEntry Name="DCV" Value="1624.0 0.005 1"/>
+    </dictType> </metaDataTag>
+
+    <profileDescriptionTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[profiletool HAGC family: four alternates across 0-6 stops (BT.2020 PQ)]]></LocalizedText>
+    </multiLocalizedUnicodeType> </profileDescriptionTag>
+
+    <copyrightTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[Copyright (C) 2026 William Li. Generated fixture, no measured data.]]></LocalizedText>
+    </multiLocalizedUnicodeType> </copyrightTag>
+  </Tags>
+</IccProfile>
