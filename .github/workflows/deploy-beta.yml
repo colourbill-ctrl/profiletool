@@ -39,6 +39,9 @@ permissions:
 # Without both, this job succeeds and the URL 404s.
 jobs:
   deploy:
+    # Only the beta branch deploys here. A dispatch may name any branch or tag, and would
+    # otherwise rsync whatever that ref holds over the beta site with the deploy key.
+    if: github.ref == 'refs/heads/beta'
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -81,17 +84,25 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      # Secrets reach the shell as environment variables, never spliced into the script text:
+      # an expression expanded inside `run:` becomes shell source, so a value containing a quote
+      # or $(…) would execute.
       - name: Trust Lightsail host
+        env:
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
           mkdir -p ~/.ssh
-          if [ -n "${{ secrets.SSH_KNOWN_HOSTS }}" ]; then
-            printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
           else
             echo "::warning::SSH_KNOWN_HOSTS secret not set — falling back to ssh-keyscan (TOFU). Set it to pin the host key."
-            ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+            ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
           fi
 
       - name: Rsync dist to Lightsail (/var/www/profiletool-beta/)
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
-          rsync -avz --delete frontend/dist/ \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/profiletool-beta/"
+          rsync -avz --delete frontend/dist/ "$SSH_USER@$SSH_HOST:/var/www/profiletool-beta/"
