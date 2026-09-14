@@ -37,6 +37,8 @@ export default function MainCanvas({
   onAssembleSpec,
   // HDR tab (DL-HDRDISP1): open a shown image's embedded profile in the Profile tab.
   onOpenInProfile,
+  // HDR tab: pooled profiles that classify as ICC.1 clause 8.10 HDR Profiles, for assignment.
+  hdrProfiles,
 }) {
   const t = useT()
   const [dropTab, setDropTab] = useState(null)
@@ -182,7 +184,7 @@ export default function MainCanvas({
                      v4Roles={v4Roles} setV4Roles={setV4Roles} />
         )}
         {activeTab === 'SpecSep' && <SpecSepPanel onAssemble={onAssembleSpec} />}
-        {activeTab === 'HDR' && <HdrPanel onOpenInProfile={onOpenInProfile} />}
+        {activeTab === 'HDR' && <HdrPanel onOpenInProfile={onOpenInProfile} hdrProfiles={hdrProfiles} />}
       </div>
     </section>
   )

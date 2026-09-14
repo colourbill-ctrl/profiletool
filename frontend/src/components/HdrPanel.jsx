@@ -6,9 +6,10 @@ import { getEnvironment } from '../lib/environment.js'
 import { readDisplay } from '../lib/displayWatcher.js'
 import { capabilityFor, hdrPathway, FORMATS, reasonText } from '../lib/capabilities.js'
 import { decodeImage, findEmbeddedProfileFromFile, gainMapInfo } from '../lib/imageCodec.js'
-import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay } from '../lib/hdrPixels.js'
+import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay, samplesToUnitFloat } from '../lib/hdrPixels.js'
 import { useLiveDisplay } from './useLiveDisplay.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
+import { hdrTransformPixels, HDR_POLICY } from '../lib/hdrProfileTransform.js'
 import styles from './HdrPanel.module.css'
 
 /**
@@ -27,14 +28,19 @@ import styles from './HdrPanel.module.css'
  * image's embedded profile stays one click from the Profile tab either way — inspection
  * works where display does not (DL-HDRENV1).
  */
-export default function HdrPanel({ onOpenInProfile }) {
+// Formats that can be decoded by profiletool and so can have a profile assigned to their pixels.
+const ASSIGNABLE = new Set(['tiff', 'png', 'jpeg', 'exr'])
+
+export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   const t = useT()
   // The monitor the window is on NOW. Capabilities are fixed for the page, but HDR state and
   // the display's peak change when the window is dragged to another screen.
   const live = useLiveDisplay()
   const [file, setFile] = useState(null)
   const [info, setInfo] = useState(null)        // { kind, format, route, why, hdrWhy, env }
-  const [profile, setProfile] = useState(null)  // null = checking | { size } | { none: true }
+  const [profile, setProfile] = useState(null)  // null = checking | { size, bytes } | { none: true }
+  // 'none' | 'embedded' | a pool entry id. Reset per image.
+  const [assignSel, setAssignSel] = useState('none')
   const [gain, setGain] = useState(null)
   const [error, setError] = useState(null)
   const [over, setOver] = useState(false)
@@ -43,14 +49,14 @@ export default function HdrPanel({ onOpenInProfile }) {
 
   const clear = useCallback(() => {
     loadToken.current++
-    setFile(null); setInfo(null); setProfile(null); setGain(null); setError(null)
+    setFile(null); setInfo(null); setProfile(null); setGain(null); setError(null); setAssignSel('none')
   }, [])
 
   const load = useCallback(async (f) => {
     if (!f) return
     const token = ++loadToken.current
     const live = () => token === loadToken.current
-    setFile(f); setInfo(null); setProfile(null); setGain(null); setError(null)
+    setFile(f); setInfo(null); setProfile(null); setGain(null); setError(null); setAssignSel('none')
     try {
       const head = new Uint8Array(await f.slice(0, 64).arrayBuffer())
       const { kind, format } = classifyFile(head, f.name)
@@ -63,7 +69,13 @@ export default function HdrPanel({ onOpenInProfile }) {
 
       if (kind === FileKind.IMAGE && format !== 'exr') {
         findEmbeddedProfileFromFile(f)
-          .then((p) => { if (live()) setProfile(p ? { size: p.length } : { none: true }) })
+          .then((p) => {
+            if (!live()) return
+            setProfile(p ? { size: p.length, bytes: p } : { none: true })
+            // A TIFF shows nothing unless a profile says what its values mean, so its own
+            // embedded profile is the natural starting point.
+            if (p && format === 'tiff') setAssignSel('embedded')
+          })
           .catch(() => { if (live()) setProfile({ none: true }) })
       }
       if (format === 'jpeg') {
@@ -75,6 +87,14 @@ export default function HdrPanel({ onOpenInProfile }) {
       if (live()) setError(e.message || String(e))
     }
   }, [])
+
+  const assign = useMemo(() => {
+    if (assignSel === 'embedded' && profile?.bytes) {
+      return { key: 'embedded', label: t('hdr_assigned_embedded') || 'embedded profile', bytes: profile.bytes }
+    }
+    const e = hdrProfiles.find((p) => p.id === assignSel)
+    return e ? { key: e.id, label: e.filename, bytes: e.bytes } : null
+  }, [assignSel, profile, hdrProfiles, t])
 
   // No stopPropagation: MainCanvas adds no panel drop target on this tab, and letting the
   // drop reach `window` is what clears the canvas's tab-button drag highlight.
@@ -119,8 +139,11 @@ export default function HdrPanel({ onOpenInProfile }) {
       {file && info && (
         <>
           <ProfileRow t={t} info={info} profile={profile} onOpen={() => onOpenInProfile?.(file)} />
+          {info.kind === FileKind.IMAGE && ASSIGNABLE.has(info.format) && (
+            <AssignRow t={t} value={assign ? assignSel : 'none'} onChange={setAssignSel} profile={profile} hdrProfiles={hdrProfiles} />
+          )}
           {gain?.present && <GainRow t={t} gain={gain} />}
-          <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} live={live} />
+          <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} live={live} assign={assign} />
         </>
       )}
     </div>
@@ -180,8 +203,13 @@ function GainRow({ t, gain }) {
   )
 }
 
-function RouteBody({ t, file, info, profile, gain, live }) {
+function RouteBody({ t, file, info, profile, gain, live, assign }) {
   const env = info.env
+  // An assigned profile takes over interpretation of the pixels, so the file goes through
+  // profiletool's own decode and the CMM whatever the browser could have done with it.
+  if (assign && info.kind === FileKind.IMAGE && ASSIGNABLE.has(info.format)) {
+    return <PixelRoute key={`assign:${assign.key}`} t={t} file={file} info={info} env={env} live={live} assign={assign} />
+  }
   if (info.route === 'notImage') {
     return <p className={styles.note}>{t('hdr_not_image') || 'That is not an image. Load profiles through the Profiles pane.'}</p>
   }
@@ -189,7 +217,12 @@ function RouteBody({ t, file, info, profile, gain, live }) {
     return <p className={styles.note}>{t('hdr_unknown') || 'Not an image format profiletool recognises.'}</p>
   }
   if (info.route === 'tiff') {
-    return <p className={styles.note}>{t('hdr_tiff') || 'TIFF pixels are not shown here yet: browsers do not decode TIFF, and how HDR is encoded in a 16-bit TIFF is still undecided (Phase 4.3). Its embedded profile can be inspected.'}</p>
+    return (
+      <p className={styles.note}>
+        {t('hdr_tiff') || 'TIFF pixels are not shown here yet: browsers do not decode TIFF, and how HDR is encoded in a 16-bit TIFF is still undecided (Phase 4.3). Its embedded profile can be inspected.'}{' '}
+        {t('hdr_tiff_assign') || 'To interpret its values, assign a profile above.'}
+      </p>
+    )
   }
   if (info.route === 'refused') {
     return (
@@ -274,7 +307,7 @@ function ImgRoute({ t, file, info, env, profile, gain, live }) {
 }
 
 // ── route 'pixels' ───────────────────────────────────────────────────────────
-function PixelRoute({ t, file, info, env, live }) {
+function PixelRoute({ t, file, info, env, live, assign }) {
   // Merge the LIVE display into the page's capabilities, so the HDR verdict follows the
   // window. NO_HDR_DISPLAY is left to the display-specific notes below, which say more.
   const envLive = useMemo(() => ({ ...env, display: { ...env.display, ...live.display } }), [env, live.display])
@@ -292,6 +325,12 @@ function PixelRoute({ t, file, info, env, live }) {
   const [share, setShare] = useState(1)
   const [peak, setPeak] = useState(null)
   const canvasRef = useRef(null)
+  // Assigned-profile state: target headroom in stops (the CMM hint takes 2^stops), the
+  // tone-mapping policy, and what the CMM reported it engaged.
+  const [targetStops, setTargetStops] = useState(() => (dpk.stops != null ? dpk.stops : 0))
+  const [policy, setPolicy] = useState(HDR_POLICY.auto)
+  const [cmmInfo, setCmmInfo] = useState(null)
+  const [applying, setApplying] = useState(false)
 
   // Decode once per file. EXR decode is synchronous in WASM; a very large file blocks the
   // tab for the duration, which is acceptable for a one-image viewer.
@@ -301,6 +340,16 @@ function PixelRoute({ t, file, info, env, live }) {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer())
         const d = await decodeImage(bytes)
+        if (assign) {
+          // The profile interprets the raw values: decode to [0,1] device RGB and let the
+          // transform effect below produce display-linear pixels.
+          if (d.channels !== 3) throw new Error(t('hdr_assign_channels') || 'Assigning a profile needs a 3-channel RGB image.')
+          const src = samplesToUnitFloat(d)
+          if (dead) return
+          setDecoded({ w: d.width, h: d.height, src, rgb: null, primaries: null, matrix: null, compression: d.compression, isFloat: d.sampleFormat === 'float' })
+          setKind(hdrPathway(env) || 'sdr')
+          return
+        }
         if (d.sampleFormat !== 'float' || d.channels !== 3) throw new Error('expected 3-channel float samples')
         // Copy out to an aligned buffer: the WASM view's byteOffset need not be a multiple of 4.
         const raw = d.samples
@@ -314,7 +363,38 @@ function PixelRoute({ t, file, info, env, live }) {
       }
     })()
     return () => { dead = true }
-  }, [file, env])
+  }, [file, env, assign, t])
+
+  // Assigned profile: run the pixels through the CMM whenever the target or policy changes.
+  // Debounced, and stale results are dropped, so dragging the slider does not queue passes.
+  const srcRef = decoded?.src
+  useEffect(() => {
+    if (!assign || !srcRef) return
+    let dead = false
+    const id = setTimeout(async () => {
+      setApplying(true)
+      try {
+        const { rgb, info: ci } = await hdrTransformPixels({
+          profileBytes: assign.bytes, rgb: srcRef, nPixels: decoded.w * decoded.h,
+          targetHeadroom: 2 ** targetStops, policy,
+        })
+        if (dead) return
+        // OpenEXR samples are linear light; a PQ/HLG profile would decode them as code values.
+        if (decoded.isFloat && ci.transfer !== 8) {
+          setError(t('hdr_assign_exr_linear') || 'OpenEXR holds linear light, so it needs a profile whose transfer is Linear (8).')
+          return
+        }
+        setCmmInfo(ci)
+        setDecoded((d) => (d && d.src === srcRef ? { ...d, rgb } : d))
+      } catch (e) {
+        if (!dead) setError(e.message || String(e))
+      } finally {
+        if (!dead) setApplying(false)
+      }
+    }, 120)
+    return () => { dead = true; clearTimeout(id) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assign, srcRef, targetStops, policy])
 
   // Create the surface for `kind`; on failure, record why and step down the chain. The
   // WebGPU step is skipped when the environment already knows it has no adapter.
@@ -338,7 +418,7 @@ function PixelRoute({ t, file, info, env, live }) {
   // Draw, throttled to one frame: slider drags would otherwise queue full-image passes.
   const limitStops = surface?.hdr ? share * MAX_LIMIT_STOPS : 0
   useEffect(() => {
-    if (!surface || !decoded) return
+    if (!surface || !decoded?.rgb) return
     const id = requestAnimationFrame(() => {
       try {
         const { rgba, peak: p } = renderFloatRgba(decoded.rgb, decoded.w, decoded.h, { exposureStops: exposure, limitStops, matrix: decoded.matrix })
@@ -351,6 +431,9 @@ function PixelRoute({ t, file, info, env, live }) {
 
   if (error) return <p className={styles.error}>{t('hdr_decode_failed') || 'Could not decode:'} {error}</p>
   if (!decoded) return <p className={styles.note}>{t('hdr_decoding') || 'Decoding…'}</p>
+  // No early return while an assigned profile is still being applied: the <canvas> must be
+  // mounted when `kind` is set, or the surface is never created (the effect does not re-run
+  // when the element appears later). TargetControl shows the "Applying" state meanwhile.
 
   // What actually reaches the display: the soft ceiling never exceeds its limit, and an SDR
   // surface is capped at SDR white. Compared with the display peak when that is known.
@@ -376,9 +459,9 @@ function PixelRoute({ t, file, info, env, live }) {
         [t('hdr_display_peak') || 'Display peak', <DisplayPeak t={t} dpk={dpk} live={live} />],
         [t('hdr_size') || 'Size', `${decoded.w}×${decoded.h}${decoded.compression ? ` · ${decoded.compression}` : ''}`],
         [t('hdr_peak') || 'Brightest pixel', peak == null ? '…' : (t('hdr_peak_value') || '{n}× SDR white').replace('{n}', String(+peak.toFixed(2)))],
-        [t('hdr_chromaticities') || 'Chromaticities',
+        ...(assign ? assignFacts(t, assign, cmmInfo) : [[t('hdr_chromaticities') || 'Chromaticities',
           p ? `R ${p.red.join(', ')} · G ${p.green.join(', ')} · B ${p.blue.join(', ')} · W ${p.white.join(', ')}${decoded.matrix ? '' : ' (Rec. 709)'}`
-            : (t('hdr_chroma_default') || 'not stated — Rec. 709 assumed')],
+            : (t('hdr_chroma_default') || 'not stated — Rec. 709 assumed')]]),
       ]} />
       {hdrWhy && <p className={styles.note}>{reasonText(hdrWhy, t)}.</p>}
       {fallbacks.map((f, i) => (
@@ -403,6 +486,10 @@ function PixelRoute({ t, file, info, env, live }) {
       {surface && !surface.hdr && <p className={styles.note}>{t('hdr_sdr_output') || 'This output cannot carry brighter-than-white values, so the tone-mapped SDR rendering is shown.'}</p>}
 
       <div className={styles.controls}>
+        {assign && (
+          <TargetControl t={t} stops={targetStops} setStops={setTargetStops} policy={policy} setPolicy={setPolicy}
+                         displayStops={dpk.stops} applying={applying} />
+        )}
         {surface?.hdr && (
           <RangeControl t={t} share={share} setShare={setShare} blend readout={readout}
                         onFit={fit != null ? () => setShare(fit) : null}
@@ -446,6 +533,76 @@ function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive }) 
         </button>
       )}
     </div>
+  )
+}
+
+// ── assigned profile ─────────────────────────────────────────────────────────
+function AssignRow({ t, value, onChange, profile, hdrProfiles }) {
+  return (
+    <div className={styles.fact}>
+      <span className={styles.factLabel}>{t('hdr_assign') || 'Assign profile'}</span>
+      <select className={styles.select} value={value} onChange={(e) => onChange(e.target.value)}
+              aria-label={t('hdr_assign') || 'Assign profile'}>
+        <option value="none">{t('hdr_assign_none') || 'None — use what the file signals'}</option>
+        {profile?.size > 0 && (
+          <option value="embedded">{(t('hdr_assign_embedded') || 'Embedded profile ({n} B)').replace('{n}', profile.size.toLocaleString())}</option>
+        )}
+        {hdrProfiles.length > 0 && (
+          <optgroup label={t('hdr_assign_pool') || 'HDR Profiles in the pool'}>
+            {hdrProfiles.map((p) => <option key={p.id} value={p.id}>{p.filename}</option>)}
+          </optgroup>
+        )}
+      </select>
+    </div>
+  )
+}
+
+const TRANSFER_NAMES = { 8: 'Linear', 16: 'PQ', 18: 'HLG' }
+
+// What the CMM reported: which path it built and whether the gain curve changed anything —
+// two separate claims, stated separately.
+function assignFacts(t, assign, ci) {
+  const path = !ci ? '…'
+    : ci.hdrPath ? (ci.toneMapping ? (t('hdr_cmm_hdr_tm') || 'HDR path, gain curve applied') : (t('hdr_cmm_hdr') || 'HDR path, no gain curve'))
+    : (t('hdr_cmm_baked') || 'Baked AToB0 — not the HDR path')
+  return [
+    [t('hdr_assigned') || 'Profile', assign.label],
+    [t('hdr_cmm_path') || 'Colour engine path', path],
+    [t('hdr_transfer') || 'Transfer', ci ? (TRANSFER_NAMES[ci.transfer] || '—') : '…'],
+    [t('hdr_ref_white_cd') || 'HDR reference white', ci && ci.referenceWhite > 0 ? `${+ci.referenceWhite.toFixed(1)} cd/m²` : '…'],
+  ]
+}
+
+function TargetControl({ t, stops, setStops, policy, setPolicy, displayStops, applying }) {
+  const fitActive = displayStops != null && Math.abs(stops - displayStops) < 0.005
+  return (
+    <>
+      <div className={styles.range}>
+        <span className={styles.rangeLabel}>{t('hdr_target') || 'Target headroom'}</span>
+        <input type="range" min={0} max={MAX_LIMIT_STOPS} step={0.05} value={stops}
+               onChange={(e) => setStops(Number(e.target.value))} aria-label={t('hdr_target') || 'Target headroom'} />
+        <span className={styles.sliderValue}>
+          {(t('hdr_target_value') || '{r}× reference white ({n} stops)').replace('{r}', (2 ** stops).toFixed(2)).replace('{n}', stops.toFixed(2))}
+        </span>
+        {displayStops != null && (
+          <button type="button" className={fitActive ? styles.fitOn : styles.btn} aria-pressed={fitActive}
+                  onClick={() => setStops(displayStops)} title={t('hdr_fit_help') || ''}>
+            {t('hdr_fit') || 'Fit to display'}
+          </button>
+        )}
+        {applying && <span className={styles.muted}>{t('hdr_applying') || 'Applying the profile…'}</span>}
+      </div>
+      <label className={styles.slider}>
+        <span>{t('hdr_policy') || 'Tone mapping'}</span>
+        <select className={styles.select} value={policy} onChange={(e) => setPolicy(Number(e.target.value))}
+                aria-label={t('hdr_policy') || 'Tone mapping'}>
+          <option value={HDR_POLICY.auto}>{t('hdr_policy_auto') || 'Auto (clause 8.10.3 ranking)'}</option>
+          <option value={HDR_POLICY.hagc}>{t('hdr_policy_hagc') || 'Gain curve (HAGC)'}</option>
+          <option value={HDR_POLICY.lut}>{t('hdr_policy_lut') || 'Baked SDR fallback (AToB0)'}</option>
+          <option value={HDR_POLICY.off}>{t('hdr_policy_off') || 'Off — as a pre-amendment CMM'}</option>
+        </select>
+      </label>
+    </>
   )
 }
 

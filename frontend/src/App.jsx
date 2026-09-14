@@ -18,6 +18,7 @@ import { validateBytes, preloadValidator } from './lib/validator.js'
 import { bestEffortParse } from './lib/bestEffortParse.js'
 import { computeChangedTagIds } from './lib/tagDiff.js'
 import { resolveTabAlias } from './lib/tabs.js'
+import { classifyHdrProfile } from './lib/hdrProfile.js'
 import { entryId, deriveMeta } from './lib/pool.js'
 import { classifyFile, ACCEPTED_KINDS, FileKind, rejectReason } from './lib/fileKind.js'
 import { findEmbeddedProfile, findEmbeddedProfileFromFile } from './lib/imageCodec.js'
@@ -512,6 +513,12 @@ export default function App() {
 
   const entries = useMemo(() => [...pool.values()], [pool])
   const getEntry = useCallback((id) => pool.get(id) || null, [pool])
+
+  // HDR tab: the pooled profiles an image can be assigned — those that classify as ICC.1
+  // clause 8.10 HDR Profiles, with the bytes the CMM needs.
+  const hdrProfiles = useMemo(() => [...pool.values()]
+    .filter((e) => e.parsed && classifyHdrProfile(e.parsed, e.currentBytes).isHdr)
+    .map((e) => ({ id: e.id, filename: e.filename, bytes: e.currentBytes })), [pool])
   const onDropFiles = useCallback((files, tab) => loadFiles(files, { tab }), [loadFiles])
 
   // HDR tab → "Open in Profile tab": ingest the image's embedded profile (same streaming
@@ -563,6 +570,7 @@ export default function App() {
             onDropOnTab={dropOnTab}
             onDropFiles={onDropFiles}
             onOpenInProfile={onOpenInProfile}
+            hdrProfiles={hdrProfiles}
             onRemoveFromAccum={removeFromAccum}
             profileEntry={profileEntry}
             initialTab={initialTab}

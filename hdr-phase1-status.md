@@ -552,8 +552,24 @@ HDR section; it remains the one we may freely mutate.
        HDR panel and about equal to it on the SDR monitor; at the SDR end it sits slightly below
        it (the 0.8·C soft-ceiling knee, as designed). So HDR output reaches the panel. Which
        backend (float16 canvas or WebGPU) was not recorded.
-     - **Still to do:** confirm the WebGPU backend specifically, and decide how to display
-       TIFF (Phase 4.3).
+     - **HDR profile assignment BUILT (2026-09-13).** The HDR tab's **Assign profile** chooses
+       the image's embedded profile or any pooled HDR Profile.
+       - **Pixel path:** TIFF/PNG/JPEG (and OpenEXR, with a Linear-transfer profile only) are
+         decoded by our WASM, then run through iccconstruct's `hdrApplyBegin/Chunk/End`:
+         IccProfLib's own `CIccXformMatrixTrcHdr` with `CIccCreateHdrXformHint` (target
+         headroom and icHdrToneMapPolicy). The result is PCS XYZ, then linear sRGB with 1.0 at
+         the profile's HDR reference white, drawn through HdrSurface.
+       - **Controls and facts:** target headroom has Fit to display; a policy select; the
+         panel reports the engine path, transfer and reference white.
+       - **Tests:** `scripts/check-hdr-apply.mjs` matches the native `iccApplyNamedCmm`
+         (17/17); headless run 15/15.
+       - **This settles TIFF display in practice:** a TIFF with an embedded HDR Profile now
+         auto-assigns it. The Phase 4.3 question remains only for a TIFF with no profile.
+       - **Known test-data limit:** the corpus fixtures' AToB0 tables are identity curves, so
+         the *baked fallback* policy produces PQ code values, not a real SDR rendering. A
+         fixture with a fallback baked by `iccHdrFallback` is still to add.
+     - **Still to do:** confirm the WebGPU backend specifically; zoom/resize for the HDR image
+       (below); an `iccHdrFallback`-baked test fixture.
      - **TODO (user request, 2026-09-13): resize and zoom the displayed HDR image.** Both routes
        (the `<img>` and the HdrSurface canvas) should get zoom in/out, pan, reset-to-fit and a
        resizable viewport. `components/viz/RasterCanvas.jsx` already does this for CLUT images

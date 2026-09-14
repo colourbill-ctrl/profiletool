@@ -419,6 +419,19 @@ On the slider, 0% is the SDR rendering and 100% is no limit. Values in between c
 - **Fit to display** sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.
 - An **SDR white patch** — plain white — sits against the image's right edge, for comparison by eye. **Drag** it anywhere over the viewer (or focus it and use the arrow keys; Shift for bigger steps), and **double-click** it to put it back beside the image. The **SDR white patch** button above the image turns it on and off. Its position and on/off state are remembered. On an HDR display with real HDR output, highlights look brighter than the patch; at the SDR end the brightest pixels sit just below it, because the SDR rendering eases highlights in under white. If highlights never look brighter, the output is being clamped.
 
+**Assigning an HDR profile.** For TIFF, PNG, JPEG and OpenEXR, **Assign profile** chooses a profile to interpret the image's pixel values:
+- the image's **embedded profile**;
+- any **HDR Profile in the pool** (load one in the Profiles pane first);
+- **None**, to go back to what the file itself signals.
+
+A TIFF starts with its embedded profile selected, since without one its values mean nothing.
+
+With a profile assigned, profiletool decodes the image itself and runs it through IccProfLib's HDR colour-management path, as the ICC.1 HDR amendment (clause 8.10) describes. The profile's transfer function (PQ, HLG or Linear) converts the code values to light, its gain curve tone-maps them, and its colorants set the colour. 1.0 lands on the profile's **HDR reference white**, which is shown at the display's SDR white.
+- **Target headroom** (0 to 6 stops) is the display the image is being prepared for. The profile's gain curve is evaluated there, the same curve **Gain at a display headroom** plots in the Tags tab. **Fit to display** sets it to this display's peak.
+- **Tone mapping** chooses the method: **Auto** (the clause 8.10.3 ranking), **Gain curve** only, the profile's **Baked SDR fallback** (`AToB0Tag`), or **Off**, which behaves like a colour engine that predates the amendment.
+- The panel reports what the colour engine actually did: which **path** (HDR with the gain curve applied, HDR without a curve, or the baked table), the **transfer**, and the **HDR reference white**. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the **Dynamic range** limit is what keeps its highlights within the display.
+- OpenEXR stores linear light, so it accepts only a profile whose transfer is Linear. Assigning needs a 3-channel RGB image.
+
 <div class="note">
 <strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
 </div>
