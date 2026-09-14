@@ -53,6 +53,11 @@ export default function SettingsBlade({ onOpenHelp }) {
   const [collapsed, setCollapsed] = useState(() =>
     isMobile() || localStorage.getItem('profiletool.bladeCollapsed') === '1'
   )
+  // The Environment panel probes on mount (WebGPU adapter, image decoders, permissions,
+  // screen details). A collapsed blade only hides its content with CSS, so the panel mounts on
+  // first open instead — and then stays mounted, keeping its display event log.
+  const [envMounted, setEnvMounted] = useState(!collapsed)
+  useEffect(() => { if (!collapsed) setEnvMounted(true) }, [collapsed])
   const [width, setWidth] = useState(() => {
     const w = parseInt(localStorage.getItem(WIDTH_KEY) || '', 10)
     return Number.isFinite(w) ? Math.min(MAX_W, Math.max(MIN_W, w)) : DEFAULT_W
@@ -232,7 +237,7 @@ export default function SettingsBlade({ onOpenHelp }) {
               explanation and the behaviour cannot drift apart (DL-HDRENV1). */}
           <div className={styles.sectionLabel}>{t('env_title')}</div>
           <div className={styles.section}>
-            <EnvironmentPanel />
+            {envMounted && <EnvironmentPanel />}
           </div>
         </div>
       </aside>

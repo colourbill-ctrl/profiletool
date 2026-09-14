@@ -21,19 +21,26 @@
 // 1.0 = SDR reference white. Each backend owns its canvas element — a canvas that has
 // handed out one context type can never give another — so callers render a fresh
 // <canvas> per surface kind.
+//
+// FAILURE. draw() throws when it can tell synchronously that it cannot draw (an image larger
+// than the GPU's texture limit). WebGPU reports most failures LATER, through error scopes and
+// device loss, never by throwing — so those arrive through `onError`, and the caller steps
+// down the fallback chain exactly as it would for a throw. Without that a WebGPU surface that
+// failed would leave a black canvas still labelled "HDR".
 
 import { encodeSrgb8 } from './hdrPixels.js'
 
 /**
  * @param {HTMLCanvasElement} canvas  a canvas no context has been taken from
  * @param {'float16-canvas'|'webgpu'|'sdr'} kind
+ * @param {{onError?: (message:string)=>void}} [opts]  asynchronous failures after creation
  * @returns {Promise<{kind:string, hdr:boolean, note:string|null, draw:(rgba:Float32Array,w:number,h:number)=>void, dispose:()=>void}>}
  *   `hdr` is whether this surface can carry values above 1.0 to the compositor at all.
  *   Throws when the backend cannot be created here; the caller falls back.
  */
-export async function createHdrSurface(canvas, kind) {
+export async function createHdrSurface(canvas, kind, opts = {}) {
   if (kind === 'float16-canvas') return createFloat16Canvas(canvas)
-  if (kind === 'webgpu') return createWebGpu(canvas)
+  if (kind === 'webgpu') return createWebGpu(canvas, opts)
   return createSdr(canvas)
 }
 
@@ -52,29 +59,33 @@ function createFloat16Canvas(canvas) {
   if (!ctx || attrs?.colorType !== 'float16' || attrs?.colorSpace !== 'rec2100-pq') {
     throw new Error('float16 rec2100-pq canvas context not granted')
   }
+  let f16 = null   // reused across frames of the same size
   return {
     kind: 'float16-canvas', hdr: true, note: null,
     draw(rgba, w, h) {
       if (canvas.width !== w) canvas.width = w
       if (canvas.height !== h) canvas.height = h
-      const f16 = new Float16Array(rgba)   // copies; values above 1.0 are preserved
+      if (!f16 || f16.length !== rgba.length) f16 = new Float16Array(rgba.length)
+      f16.set(rgba)   // values above 1.0 are preserved
       ctx.putImageData(new ImageData(f16, w, h, { pixelFormat: 'rgba-float16', colorSpace: 'srgb-linear' }), 0, 0)
     },
-    dispose() {},
+    dispose() { f16 = null },
   }
 }
 
 function createSdr(canvas) {
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('2-D canvas unavailable')
+  let u8 = null    // reused across frames of the same size
   return {
     kind: 'sdr', hdr: false, note: null,
     draw(rgba, w, h) {
       if (canvas.width !== w) canvas.width = w
       if (canvas.height !== h) canvas.height = h
-      ctx.putImageData(new ImageData(encodeSrgb8(rgba), w, h), 0, 0)
+      u8 = encodeSrgb8(rgba, u8)
+      ctx.putImageData(new ImageData(u8, w, h), 0, 0)
     },
-    dispose() {},
+    dispose() { u8 = null },
   }
 }
 
@@ -99,40 +110,68 @@ fn enc(v: f32) -> f32 {
   return vec4f(enc(c.r), enc(c.g), enc(c.b), 1.0);
 }`
 
-async function createWebGpu(canvas) {
+async function createWebGpu(canvas, { onError } = {}) {
   if (!navigator.gpu) throw new Error('WebGPU is not available')
   const adapter = await navigator.gpu.requestAdapter()
   if (!adapter) throw new Error('no WebGPU adapter')
   const device = await adapter.requestDevice()
-  const ctx = canvas.getContext('webgpu')
-  if (!ctx) throw new Error('webgpu canvas context not granted')
-  ctx.configure({ device, format: 'rgba16float', colorSpace: 'srgb', toneMapping: { mode: 'extended' }, alphaMode: 'opaque' })
-  // Report the mode the browser actually applied. A browser without extended tone
-  // mapping ignores the member and clamps to SDR; saying "HDR" then would be false.
-  const applied = ctx.getConfiguration?.()?.toneMapping?.mode
-  const extended = applied === 'extended'
-  // `note` is English for logs; `noteCode` (+ `noteMode`) is what the UI translates.
-  const noteCode = extended ? null : applied ? 'webgpu_clamped' : 'webgpu_unconfirmed'
-  const note = extended ? null
-    : applied ? `WebGPU applied tone mapping '${applied}', so output is clamped to SDR`
-    : 'this browser does not report the applied WebGPU tone mapping; HDR output is unconfirmed'
+  let disposed = false
+  // Reported once: after the first failure the caller replaces this surface.
+  let reported = false
+  const report = (message) => {
+    if (disposed || reported) return
+    reported = true
+    onError?.(message)
+  }
+  // Loss is asynchronous and also resolves on our own destroy(); `disposed` filters that out.
+  device.lost?.then((info) => report(`the GPU device was lost${info?.message ? ` (${info.message})` : ''}`))
 
-  const module = device.createShaderModule({ code: WGSL })
-  const layout = device.createBindGroupLayout({
-    entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } }],
-  })
-  const pipeline = device.createRenderPipeline({
-    layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
-    vertex: { module, entryPoint: 'vs' },
-    fragment: { module, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
-    primitive: { topology: 'triangle-list' },
-  })
+  // Everything after requestDevice can throw; the device must not outlive a failed setup.
+  let ctx, noteCode, note, applied, extended, layout, pipeline
+  try {
+    ctx = canvas.getContext('webgpu')
+    if (!ctx) throw new Error('webgpu canvas context not granted')
+    ctx.configure({ device, format: 'rgba16float', colorSpace: 'srgb', toneMapping: { mode: 'extended' }, alphaMode: 'opaque' })
+    // Report the mode the browser actually applied. A browser without extended tone
+    // mapping ignores the member and clamps to SDR; saying "HDR" then would be false.
+    applied = ctx.getConfiguration?.()?.toneMapping?.mode
+    extended = applied === 'extended'
+    // `note` is English for logs; `noteCode` (+ `noteMode`) is what the UI translates.
+    noteCode = extended ? null : applied ? 'webgpu_clamped' : 'webgpu_unconfirmed'
+    note = extended ? null
+      : applied ? `WebGPU applied tone mapping '${applied}', so output is clamped to SDR`
+      : 'this browser does not report the applied WebGPU tone mapping; HDR output is unconfirmed'
+
+    const module = device.createShaderModule({ code: WGSL })
+    layout = device.createBindGroupLayout({
+      entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } }],
+    })
+    pipeline = device.createRenderPipeline({
+      layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+      vertex: { module, entryPoint: 'vs' },
+      fragment: { module, entryPoint: 'fs', targets: [{ format: 'rgba16float' }] },
+      primitive: { topology: 'triangle-list' },
+    })
+  } catch (e) {
+    disposed = true
+    try { device.destroy() } catch { /* already gone */ }
+    throw e
+  }
+
+  // The device's real limit (8192 unless the adapter granted more at request time).
+  const maxDim = device.limits?.maxTextureDimension2D || 8192
   let texture = null
   return {
     kind: 'webgpu', hdr: extended || applied === undefined, note, noteCode, noteMode: applied ?? null,
     draw(rgba, w, h) {
+      if (w > maxDim || h > maxDim) {
+        throw new Error(`the image (${w}×${h}) is larger than this GPU's ${maxDim}-pixel texture limit`)
+      }
       if (canvas.width !== w) canvas.width = w
       if (canvas.height !== h) canvas.height = h
+      // Validation and allocation errors surface here, asynchronously, not as throws.
+      device.pushErrorScope('out-of-memory')
+      device.pushErrorScope('validation')
       if (!texture || texture.width !== w || texture.height !== h) {
         texture?.destroy()
         texture = device.createTexture({ size: [w, h], format: 'rgba32float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST })
@@ -145,7 +184,14 @@ async function createWebGpu(canvas) {
       })
       pass.setPipeline(pipeline); pass.setBindGroup(0, bind); pass.draw(3); pass.end()
       device.queue.submit([enc.finish()])
+      const check = (err) => { if (err) report(`WebGPU could not draw the image: ${err.message}`) }
+      device.popErrorScope().then(check, () => {})
+      device.popErrorScope().then(check, () => {})
     },
-    dispose() { texture?.destroy(); device.destroy() },
+    dispose() {
+      disposed = true
+      texture?.destroy(); texture = null
+      try { device.destroy() } catch { /* already gone */ }
+    },
   }
 }

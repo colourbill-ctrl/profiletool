@@ -34,7 +34,7 @@ const CASES = [
     ['icc', true, true, true], ['exr', true, true, true], ['avif', true, true, true],
     ['hdr', true, true, true],      // Radiance HDR: decoded by profiletool, like OpenEXR
     ['heic', true, false, false],   // the headline cost of DL-HDRENV1
-    ['jxl', true, false, false], ['jpeg', true, true, true],
+    ['jxl', false, false, false], ['jpeg', true, true, true],   // JXL: profile is inside the codestream
   ]],
   ['Chrome / macOS (HDR)', env({ browser: 'Chrome', os: 'macOS', decode: { heic: false, avif: true, jxl: false } }), [
     ['heic', true, false, false],   // macOS does NOT change this: Chrome uses no system decoder
@@ -43,11 +43,11 @@ const CASES = [
   ['Safari / iOS (HDR)', env({ browser: 'Safari', os: 'iOS', webkitEngine: true,
     decode: { heic: null, avif: null, jxl: null }, pathway: { float16Canvas: false, webgpu: true } }), [
     ['heic', true, true, true],     // no ImageDecoder probe exists; engine knowledge must carry it
-    ['jxl', true, true, true], ['avif', true, true, true], ['exr', true, true, true],
+    ['jxl', false, true, true], ['avif', true, true, true], ['exr', true, true, true],
   ]],
   ['Safari / macOS XDR', env({ browser: 'Safari', os: 'macOS', webkitEngine: true,
     pathway: { float16Canvas: false, webgpu: true } }), [
-    ['heic', true, true, true], ['jxl', true, true, true], ['jpeg', true, true, true],
+    ['heic', true, true, true], ['jxl', false, true, true], ['jpeg', true, true, true],
   ]],
   ['Firefox / Windows (HDR screen)', env({ browser: 'Firefox', os: 'Windows',
     decode: { heic: false, avif: true, jxl: false } }), [
@@ -97,16 +97,19 @@ for (const [name, e, expectations] of CASES) {
   ok ? pass++ : fail++
 }
 
-// Inspection must be true for every format in every environment — the property the whole
-// "a browser that cannot decode HEIC still inspects it" argument rests on.
+// Inspection must be true for every container format in every environment — the property the
+// whole "a browser that cannot decode HEIC still inspects it" argument rests on. JPEG XL is the
+// one exception, and it must be false EVERYWHERE: its profile is compressed in the codestream,
+// which no environment changes.
 let inspectOk = true
 for (const [, e] of CASES) {
   const m = capabilityMatrix(e)
   for (const [fmt, c] of Object.entries(m)) {
-    if (!c.inspect.ok) { inspectOk = false; console.log(`FAIL  inspect false for ${fmt} in ${environmentSummary(e)}`) }
+    const want = fmt !== 'jxl'
+    if (c.inspect.ok !== want) { inspectOk = false; console.log(`FAIL  inspect ${c.inspect.ok} for ${fmt} in ${environmentSummary(e)}`) }
   }
 }
-console.log(`${inspectOk ? 'pass' : 'FAIL'}  inspect is unconditional across every format and environment`)
+console.log(`${inspectOk ? 'pass' : 'FAIL'}  inspect is environment-independent: every format but JPEG XL, everywhere`)
 inspectOk ? pass++ : fail++
 
 // ── file classification ─────────────────────────────────────────────────────
@@ -129,6 +132,14 @@ const CLASSIFY = [
   ['HEIC (mif1)',   ftyp('mif1'),                                     FileKind.IMAGE, ImageFormat.HEIC],
   ['AVIF (avif)',   ftyp('avif'),                                     FileKind.IMAGE, ImageFormat.AVIF],
   ['AVIF sequence', ftyp('avis'),                                     FileKind.IMAGE, ImageFormat.AVIF],
+  // Not every ftyp is an image: video and raw files share the box and must not be routed as HEIC.
+  ['MP4 (isom)',    ftyp('isom'),                                     FileKind.UNKNOWN, undefined],
+  ['QuickTime',     ftyp('qt  '),                                     FileKind.UNKNOWN, undefined],
+  ['Canon CR3',     ftyp('crx '),                                     FileKind.UNKNOWN, undefined],
+  ['isom + avif compatible', (() => { const b = new Uint8Array(24); b.set([0,0,0,24], 0); b.set([0x66,0x74,0x79,0x70], 4)
+    b.set([...'isom'].map(c => c.charCodeAt(0)), 8); b.set([...'avif'].map(c => c.charCodeAt(0)), 20); return b })(), FileKind.IMAGE, ImageFormat.AVIF],
+  ['JPEG XL codestream', new Uint8Array([0xff,0x0a,0x00,0x00]),       FileKind.IMAGE, ImageFormat.JXL],
+  ['JPEG XL container',  new Uint8Array([0,0,0,0x0c,0x4a,0x58,0x4c,0x20,0x0d,0x0a,0x87,0x0a]), FileKind.IMAGE, ImageFormat.JXL],
   ['not an image',  new Uint8Array([1,2,3,4,5,6,7,8]),                FileKind.UNKNOWN, undefined],
 ]
 for (const [name, bytes, wantKind, wantFormat] of CLASSIFY) {

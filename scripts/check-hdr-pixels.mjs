@@ -13,6 +13,7 @@ import {
   softCeiling, renderFloatRgba, srgbEncode, encodeSrgb8, drlValue,
   displayPeakInfo, fitShare, clipsBeyondDisplay,
   xyzD50ToSrgbLinearMatrix, applyMatrix3, samplesToUnitFloat, scaleSamples,
+  isRec709Primaries, floatSamples,
 } from '../frontend/src/lib/hdrPixels.js'
 
 let passed = 0, failed = 0
@@ -176,6 +177,38 @@ const mulVec = (m, v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] +
   check('scaleSamples returns a new buffer (source untouched)', s !== src && src[0] === 1)
   const bad = [0, -2, NaN, Infinity].map((f) => Array.from(scaleSamples(src, f)))
   check('scaleSamples: non-positive / non-finite factor leaves values unscaled', bad.every((a) => a.every((v, i) => v === src[i])), bad)
+}
+
+// ── hostile chromaticities, buffer reuse, zero-copy floats (review fixes) ───────
+{
+  // x + y > 1 is not a chromaticity (z < 0); a white at (0.9, 0.9) used to yield a finite,
+  // meaningless matrix that was rendered through.
+  check('normalizeChromaticities: x + y > 1 refused', normalizeChromaticities([0.64, 0.33, 0.3, 0.6, 0.15, 0.06, 0.9, 0.9]) === null)
+  check('normalizeChromaticities: y ≈ 0 refused', normalizeChromaticities([0.64, 0.33, 0.3, 0.6, 0.15, 0.06, 0.3127, 1e-9]) === null)
+  // Collinear primaries (R = G) pass the range checks but form no colour space: no matrix, and
+  // isRec709Primaries is false, which is how the panel tells this apart from "already 709".
+  const collinear = normalizeChromaticities([0.64, 0.33, 0.64, 0.33, 0.15, 0.06, 0.3127, 0.329])
+  check('collinear primaries → no matrix, and not reported as Rec. 709', collinear && toSrgbLinearMatrix(collinear) === null && !isRec709Primaries(collinear), collinear)
+  const r709 = normalizeChromaticities([0.64, 0.33, 0.3, 0.6, 0.15, 0.06, 0.3127, 0.329])
+  check('isRec709Primaries: Rec. 709 / D65 → true', isRec709Primaries(r709) && toSrgbLinearMatrix(r709) === null)
+
+  const rgb = new Float32Array([0.5, 1, 2, 4, 0.25, 0.125])
+  const a = renderFloatRgba(rgb, 2, 1, { limitStops: MAX_LIMIT_STOPS })
+  const b = renderFloatRgba(rgb, 2, 1, { limitStops: MAX_LIMIT_STOPS, exposureStops: 1, out: a.rgba })
+  check('renderFloatRgba reuses a right-sized `out` and overwrites every value', b.rgba === a.rgba && b.rgba[0] === 1 && b.rgba[4] === 8 && b.rgba[3] === 1, Array.from(b.rgba))
+  const c = renderFloatRgba(rgb, 1, 2, { out: new Float32Array(4) })
+  check('renderFloatRgba allocates when `out` is the wrong size', c.rgba.length === 8)
+  const u8a = encodeSrgb8(a.rgba)
+  check('encodeSrgb8 reuses a right-sized buffer', encodeSrgb8(a.rgba, u8a) === u8a && encodeSrgb8(a.rgba, new Uint8ClampedArray(4)) !== u8a)
+
+  const f = new Float32Array([1, 2, 3])
+  check('floatSamples: the decoder\'s own rgb array is returned as is', floatSamples({ rgb: f, samples: new Uint8Array(f.buffer) }) === f)
+  const bytes = new Uint8Array(f.buffer)
+  const view = floatSamples({ samples: bytes })
+  check('floatSamples: aligned bytes → a view over the same buffer, no copy', view.buffer === f.buffer && view[2] === 3)
+  const shifted = new Uint8Array(13); shifted.set(bytes, 1)
+  const copy = floatSamples({ samples: shifted.subarray(1) })
+  check('floatSamples: misaligned bytes → an aligned copy with the same values', copy.buffer !== shifted.buffer && copy[0] === 1 && copy[2] === 3)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

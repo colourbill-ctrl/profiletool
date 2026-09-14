@@ -26,7 +26,11 @@ const SWEEP_SAMPLES = 257
 export default function HagcEvaluated({ bytes }) {
   const t = useT()
   const [target, setTarget] = useState(null)       // slider value, stops
-  const [asked, setAsked] = useState(null)         // debounced value sent to WASM
+  // Debounced value sent to WASM, tagged with the profile it was chosen for: on a profile
+  // change the effects below run once with the OLD headroom before the reset lands, and an
+  // untagged value would evaluate the new profile at it.
+  const [askedFor, setAskedFor] = useState(null)   // { bytes, h }
+  const asked = askedFor && askedFor.bytes === bytes ? askedFor.h : null
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const seq = useRef(0)
@@ -35,12 +39,12 @@ export default function HagcEvaluated({ bytes }) {
   // at the baseline headroom the tag says "show the image as authored".
   useEffect(() => {
     let dead = false
-    setData(null); setError(null); setTarget(null); setAsked(null)
+    setData(null); setError(null); setTarget(null); setAskedFor(null)
     hagcEvaluate(bytes, 0)
       .then((r) => {
         if (dead) return
         const b = Number.isFinite(r.baselineHeadroom) ? Math.min(MAX_HEADROOM, Math.max(0, r.baselineHeadroom)) : 0
-        setTarget(b); setAsked(b)
+        setTarget(b); setAskedFor({ bytes, h: b })
       })
       .catch((e) => { if (!dead) setError(e.message || String(e)) })
     return () => { dead = true }
@@ -49,9 +53,9 @@ export default function HagcEvaluated({ bytes }) {
   // Debounce slider drags; the evaluation is cheap but re-plotting twice a frame is not.
   useEffect(() => {
     if (target == null) return
-    const id = setTimeout(() => setAsked(target), 60)
+    const id = setTimeout(() => setAskedFor({ bytes, h: target }), 60)
     return () => clearTimeout(id)
-  }, [target])
+  }, [target, bytes])
 
   useEffect(() => {
     if (asked == null) return
@@ -94,7 +98,7 @@ export default function HagcEvaluated({ bytes }) {
   const family = useMemo(() => (sweep && data?.supported ? buildFamily(sweep, data, t) : null), [sweep, data, t])
 
   if (error) return <div className={styles.error}>{error}</div>
-  if (!data || target == null) return <div className={styles.loading}>{t('viz_loading') || 'Loading…'}</div>
+  if (!data || target == null || asked == null) return <div className={styles.loading}>{t('viz_loading') || 'Loading…'}</div>
 
   if (!data.supported) {
     return (

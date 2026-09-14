@@ -69,7 +69,7 @@ Load files in either of two ways:
 - Click **Load Profiles** at the top of the Profiles pane and pick one or more files, or
 - **Drag and drop** files onto the Profiles pane.
 
-You can load `.icc` / `.icm` profiles *and* images. Drop a **TIFF, PNG, JPEG, HEIC or AVIF** and the tool extracts its **embedded ICC profile** and adds that to the pool. It reads only the file's metadata, never the pixels. For HEIC and AVIF it walks the file's boxes, so this works in every browser, including ones that cannot display those formats. An **OpenEXR** or **Radiance HDR** (`.hdr`) file is refused with the reason: neither format has a slot for an ICC profile. OpenEXR states its colour through chromaticities, Radiance HDR through an optional `PRIMARIES` header line. To *view* an image, use the [HDR tab](#4-7-hdr-tab). A **＋ New from .cube** button builds a DeviceLink from a `.cube` LUT.
+You can load `.icc` / `.icm` profiles *and* images. Drop a **TIFF, PNG, JPEG, HEIC or AVIF** and the tool extracts its **embedded ICC profile** and adds that to the pool. It reads only the file's metadata, never the pixels. For HEIC and AVIF it walks the file's boxes, so this works in every browser, including ones that cannot display those formats. A **JPEG XL** file is refused too: its profile is compressed inside the codestream, which profiletool does not decompress yet. Videos and camera raw files that share HEIC's container (MP4, QuickTime, Canon CR3) are not treated as images. An **OpenEXR** or **Radiance HDR** (`.hdr`) file is refused with the reason: neither format has a slot for an ICC profile. OpenEXR states its colour through chromaticities, Radiance HDR through an optional `PRIMARIES` header line. To *view* an image, use the [HDR tab](#4-7-hdr-tab). A **＋ New from .cube** button builds a DeviceLink from a `.cube` LUT.
 
 A profile is accepted if its first 36 bytes contain the `acsp` signature and it parses through IccProfLib's `ValidateIccProfile`. Files that fail are listed in a rejection summary with the specific reason; their bytes are not retained.
 
@@ -148,7 +148,7 @@ Shows what **this** browser, platform and display can do, so that when a format 
   - **Display**: can the pixels be shown?
   - **HDR**: can it render brighter than white?
 
-  Hover a row for the reason behind a ✕; formats that cannot be displayed are listed with their reasons below the table. A dot marks formats profiletool decodes itself, which work the same in every browser. **Inspect** is ✓ for every format.
+  Hover a row for the reason behind a ✕; formats that cannot be displayed are listed with their reasons below the table. A dot marks formats profiletool decodes itself, which work the same in every browser. **Inspect** is ✓ for every format except JPEG XL, whose profile is compressed inside the codestream.
 
 ---
 
@@ -418,7 +418,7 @@ Drop **one** image on the **HDR** tab, or click the drop area to choose one. A n
 
 The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the **brightest pixel** as a multiple of SDR white (whenever profiletool renders the pixels), its chromaticities, any **gain map**, and any **embedded ICC profile**. **Open in Profile tab** loads that profile for inspection.
 
-**Radiance HDR.** profiletool reads run-length-encoded and flat RGBE files in any orientation. A `PRIMARIES` header line sets the chromaticities; without one (or with Photoshop's all-zero line) Rec. 709 is assumed, as for OpenEXR. The stored values are shown as they are: an `EXPOSURE` line is not undone. XYZE files are refused, and so is any image over 40 megapixels.
+**Radiance HDR.** profiletool reads run-length-encoded and flat RGBE files in any orientation. A `PRIMARIES` header line sets the chromaticities; without one (or with Photoshop's all-zero line) Rec. 709 is assumed, as for OpenEXR. The stored values are shown as they are: an `EXPOSURE` line is not undone. XYZE files are refused, and so is any image over 40 megapixels. So is a file whose pixel data is too small for its size: at most 64 pixels per byte, four times what run-length encoding reaches on a flat scanline. Old-style repeat markers could otherwise describe a 40-megapixel image in about 75 KB.
 
 **Outputs for OpenEXR and Radiance HDR.** profiletool renders the pixels itself, through the first of these that works:
 1. **HDR canvas (float16)**: needs `chrome://flags/#enable-experimental-web-platform-features` (see [Environment](#environment)).
@@ -586,7 +586,10 @@ profiletool makes no network requests after the initial page load. The validator
 | **256 MB** | postMessage / file load | Refuses to load anything larger; prevents heap exhaustion from a hostile opener |
 | **32 MB** | XML and JSON converters | Both the JS guard (`MAX_XML_BYTES` / `MAX_JSON_BYTES`) and the C++ wrappers (`kMaxXmlBytes` / `kMaxJsonBytes`) enforce this; the C++ side is independently authoritative |
 | **XML entity-bomb guard** | XML converter | Any XML containing `<!DOCTYPE` or `<!ENTITY`, or a NUL byte, is rejected before libxml2 sees it. libxml2's own entity-expansion limits are also active, so this is a second layer of defence against billion-laughs input |
-| **40 megapixels** | Radiance HDR decode (HDR tab) | Checked from the header before any pixel memory is allocated |
+| **512 MB** | HDR tab file | Checked against the file's size before any of it is read; mirrors the image codecs' own 512 MB input cap |
+| **40 megapixels**, **64 pixels per byte** | Radiance HDR decode (HDR tab) | Both checked from the header and the file size before any pixel memory is allocated; the second refuses repeat-marker decompression bombs |
+| **EXR decode budget** | OpenEXR decode | Width × height × channels × 4 bytes must fit in 512 MB, checked from the header before the decoder allocates anything |
+| **HEIC/AVIF box walk** | Profile extraction | Box sizes are checked without overflow, nesting is capped at 8, a profile at 64 MB (per file, in total) and item associations at 65 536 |
 | **Origin allowlist** | postMessage launch | Only same-origin and chardata's dev-host origins can send `profiletool:load` bytes |
 | **HTTPS + CORS** | `#url=` launch | A URL-launch profile must be served over HTTPS from a host that permits cross-origin reads; the fetched bytes feed only the validator and are never re-sent |
 

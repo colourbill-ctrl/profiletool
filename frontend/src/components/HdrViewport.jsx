@@ -61,7 +61,9 @@ export default function HdrViewport({ t, contentW, contentH, children, overlay }
   const fitScale = useCallback(() => {
     const vp = vpRef.current
     if (!vp || !has) return 1
-    return Math.min(vp.clientWidth / contentW, vp.clientHeight / contentH) || 1
+    // Clamped like every other zoom: an image thousands of times larger than the box would
+    // otherwise fit below MIN_ZOOM, and "Zoom out" from there would jump UP to the minimum.
+    return clamp(Math.min(vp.clientWidth / contentW, vp.clientHeight / contentH) || 1, MIN_ZOOM, MAX_ZOOM)
   }, [has, contentW, contentH])
 
   // An axis smaller than the box is centred; a larger one may not pull its edge inside.
@@ -87,12 +89,14 @@ export default function HdrViewport({ t, contentW, contentH, children, overlay }
     return () => ro.disconnect()
   }, [has, openView, fitView, clampView])
 
-  // Zoom to `z`, keeping the box point (cx, cy) — default the centre — still.
+  // Zoom to `z`, keeping the box point (cx, cy) — default the centre — still. `z` may be a
+  // function of the current zoom, evaluated inside the state update: several wheel events in
+  // one frame then compound, where reading the last RENDERED zoom would drop all but one.
   const zoomTo = useCallback((z, cx, cy) => {
     setView((v) => {
       const vp = vpRef.current
       if (!vp) return v
-      const nz = clamp(z, MIN_ZOOM, MAX_ZOOM)
+      const nz = clamp(typeof z === 'function' ? z(v.zoom) : z, MIN_ZOOM, MAX_ZOOM)
       const px = cx ?? vp.clientWidth / 2
       const py = cy ?? vp.clientHeight / 2
       const r = nz / v.zoom
@@ -109,7 +113,8 @@ export default function HdrViewport({ t, contentW, contentH, children, overlay }
       if (!(e.ctrlKey || e.metaKey)) return
       e.preventDefault()
       const r = vp.getBoundingClientRect()
-      zoomTo(viewRef.current.zoom * Math.exp(-e.deltaY * WHEEL_RATE), e.clientX - r.left, e.clientY - r.top)
+      const f = Math.exp(-e.deltaY * WHEEL_RATE)
+      zoomTo((zoom) => zoom * f, e.clientX - r.left, e.clientY - r.top)
     }
     vp.addEventListener('wheel', onWheel, { passive: false })
     return () => vp.removeEventListener('wheel', onWheel)
@@ -140,7 +145,7 @@ export default function HdrViewport({ t, contentW, contentH, children, overlay }
     const v = viewRef.current
     const pan = (dx, dy) => setView(clampView({ ...v, x: v.x + dx, y: v.y + dy }))
     const act = {
-      '+': () => zoomTo(v.zoom * STEP), '=': () => zoomTo(v.zoom * STEP), '-': () => zoomTo(v.zoom / STEP),
+      '+': () => zoomTo((z) => z * STEP), '=': () => zoomTo((z) => z * STEP), '-': () => zoomTo((z) => z / STEP),
       '0': () => setView(openView()), '1': () => zoomTo(1),
       ArrowLeft: () => pan(PAN_STEP, 0), ArrowRight: () => pan(-PAN_STEP, 0),
       ArrowUp: () => pan(0, PAN_STEP), ArrowDown: () => pan(0, -PAN_STEP),
@@ -189,10 +194,10 @@ export default function HdrViewport({ t, contentW, contentH, children, overlay }
   return (
     <div className={styles.wrap}>
       <div className={styles.toolbar} role="toolbar" aria-label={t('hdr_view_label') || 'Image view'}>
-        <button type="button" className={styles.zbtn} onClick={() => zoomTo(view.zoom / STEP)}
+        <button type="button" className={styles.zbtn} onClick={() => zoomTo((z) => z / STEP)}
                 title={t('hdr_zoom_out') || 'Zoom out'} aria-label={t('hdr_zoom_out') || 'Zoom out'}>−</button>
         <span className={styles.pct} data-hdr-zoom="">{Math.round(view.zoom * 100)}%</span>
-        <button type="button" className={styles.zbtn} onClick={() => zoomTo(view.zoom * STEP)}
+        <button type="button" className={styles.zbtn} onClick={() => zoomTo((z) => z * STEP)}
                 title={t('hdr_zoom_in') || 'Zoom in'} aria-label={t('hdr_zoom_in') || 'Zoom in'}>+</button>
         <button type="button" className={styles.tbtn} aria-pressed={view.mode === 'fit'} onClick={() => setView(fitView())}>
           {t('hdr_zoom_fit') || 'Fit image'}

@@ -24,6 +24,10 @@ export function useLiveDisplay() {
     let dead = false
     const monitor = createDisplayMonitor(({ display, screen }) => {
       if (!dead) setState((s) => ({ ...s, display, screen }))
+    }, {
+      // Permission granted through another monitor (Settings → Identify displays): this one has
+      // attached silently, so drop the Identify link here too.
+      onStatus: (status) => { if (!dead) setState((s) => ({ ...s, status })) },
     })
     monitorRef.current = monitor
     monitor.start().then((status) => { if (!dead) setState((s) => ({ ...s, status })) })

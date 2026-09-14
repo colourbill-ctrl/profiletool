@@ -83,6 +83,16 @@ const cases = [
   // chunk, not the raster. This is the claim that lets the feature ship with no codec.
   ['big_mdat',         build({ props: [colrProf(B), colrProf(A)], assoc: [[2, [1]], [1, [2]]], primary: 1,
                                mdat: Buffer.alloc(8 * 1024 * 1024, 0x5a) }), A],
+  // HOSTILE: a 64-bit largesize of 2^64 − 16 at offset 16. `pos + size` wraps to 0, so a
+  // bounds check written as a sum passes and the walk jumps back to the start — forever.
+  // Before the fix this case never returned; now it must refuse the box and find nothing.
+  ['largesize_wraps',  Buffer.concat([box('ftyp', Buffer.concat([Buffer.from('heic'), u32(0)])),
+                                      u32(1), Buffer.from('meta'), u64(2n ** 64n - 16n), Buffer.alloc(16)]), null],
+  // HOSTILE: an ipma far larger than any real file (100 000 entries). Entries past the cap are
+  // ignored, so the primary item's association — placed LAST — is never seen and the walker
+  // falls back to the first colr in ipco. Bounded memory, a defined answer, no exception.
+  ['ipma_over_cap',    build({ props: [colrProf(B), colrProf(A)], primary: 1,
+                               assoc: [...Array.from({ length: 100000 }, (_, i) => [i + 2, []]), [1, [2]]], ipmaV: 1 }), B],
 ]
 
 const mod = await createIccImageModule()

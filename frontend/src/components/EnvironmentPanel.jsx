@@ -1,7 +1,7 @@
 // (c) 2026 William Li
 import { useEffect, useRef, useState } from 'react'
-import { detectEnvironment } from '../lib/environment.js'
-import { createDisplayMonitor, headroomRatio } from '../lib/displayWatcher.js'
+import { getEnvironment } from '../lib/environment.js'
+import { createDisplayMonitor, headroomRatio, readDisplay } from '../lib/displayWatcher.js'
 import { capabilityMatrix, hdrPathway, environmentSummaryParts, FORMATS, browserFlags, flagsNeedAttention, reasonText } from '../lib/capabilities.js'
 import { useT } from '../i18n.jsx'
 import styles from './EnvironmentPanel.module.css'
@@ -50,11 +50,16 @@ export default function EnvironmentPanel({ compact = false }) {
       setEnv((e) => (e ? { ...e, display: { ...e.display, ...display } } : e))
       setScreen(s)
       setLog((l) => [{ at: new Date(), sources, display, screen: s }, ...l].slice(0, LOG_MAX))
+    }, {
+      // Permission granted through another monitor (the HDR tab's Identify displays).
+      onStatus: (st) => { if (!cancelled) setScreenStatus(st) },
     })
     monitorRef.current = monitor
 
-    detectEnvironment()
-      .then((e) => { if (!cancelled) setEnv(e) })
+    // The page-wide cached probe (the HDR tab shares it, so WebGPU is asked for an adapter once),
+    // with the display block re-read now: the cached one is as old as the first call.
+    getEnvironment()
+      .then((e) => { if (!cancelled) setEnv({ ...e, display: { ...e.display, ...readDisplay() } }) })
       .catch((e) => { if (!cancelled) setError(e.message) })
     // Attaches trigger (2) silently only if permission is already granted; never prompts.
     monitor.start().then((s) => { if (!cancelled) setScreenStatus(s) })

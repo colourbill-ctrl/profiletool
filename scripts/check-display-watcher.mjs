@@ -94,6 +94,9 @@ function manualTimers() {
   check('no matchMedia → null (cannot tell), not false', none.hdr === null && none.p3 === null && none.dpr === null, none)
   const throwing = readDisplay({ matchMedia: () => { throw new Error('x') }, getDpr: () => 2 })
   check('throwing matchMedia → null per query', throwing.hdr === null && throwing.dpr === 2, throwing)
+  // A feature the browser does not know parses to 'not all' and never matches — cannot tell.
+  const notAll = readDisplay({ matchMedia: (q) => ({ media: /video-dynamic-range/.test(q) ? 'not all' : q, matches: false }), getDpr: () => 1 })
+  check("unknown media feature ('not all') → null, a known one still false", notAll.videoHdr === null && notAll.hdr === false, notAll)
 }
 
 // ── trigger (1) ────────────────────────────────────────────────────────────
@@ -318,6 +321,30 @@ function manualTimers() {
   await p
   check('stop before getScreenDetails settles → listeners detached when it does', details.total() === 0 && details.currentScreen.total() === 0 && m.listeners() === 0,
     { d: details.total(), s: details.currentScreen.total(), m: m.listeners() })
+}
+{
+  // Two monitors on one page (Settings + HDR tab). Permission granted through ONE attaches the
+  // other silently and reports its new status through onStatus — no second Identify needed.
+  let state = 'prompt'
+  const perms = { query: async () => ({ state }) }
+  const details = fakeDetails([fakeScreen({ label: 'Shared' })])
+  const getScreenDetails = async () => { state = 'granted'; return details }
+  const statusesB = []
+  const mA = fakeMedia(), mB = fakeMedia()
+  const a = createDisplayMonitor(() => {}, { matchMedia: mA.matchMedia, getDpr: mA.getDpr, timers: manualTimers(), getScreenDetails, permissions: perms })
+  const b = createDisplayMonitor(() => {}, { matchMedia: mB.matchMedia, getDpr: mB.getDpr, timers: manualTimers(), getScreenDetails, permissions: perms,
+    onStatus: (s) => statusesB.push(s) })
+  const stA = await a.start(), stB = await b.start()
+  check('two monitors start not-granted', stA === 'not-granted' && stB === 'not-granted', { stA, stB })
+  check('identify through A → active', (await a.identify()) === 'active')
+  for (let i = 0; i < 5 && statusesB.length === 0; i++) await new Promise((r) => setTimeout(r, 0))
+  check('B attaches without a prompt and reports active via onStatus', statusesB.at(-1) === 'active', statusesB)
+  b.stop()
+  // A stopped monitor is out of the page registry: a later grant must not reach it.
+  const c = createDisplayMonitor(() => {}, { matchMedia: fakeMedia().matchMedia, getDpr: () => 1, timers: manualTimers(), getScreenDetails, permissions: perms, onStatus: () => { throw new Error('stopped monitor notified') } })
+  c.stop()
+  a.stop()
+  check('stopped monitors leave the registry (no notification, no throw)', true)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

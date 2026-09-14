@@ -192,6 +192,40 @@ for (const o of ORIENTS) {
   check('refuses: RLE scanline width ≠ header width', throws(() => decodeRadiance(wrongW), /width/))
   const rep0 = cat(header('-Y 1 +X 2'), Uint8Array.from([1, 1, 1, 1]))
   check('refuses: old-style repeat with no pixel before it', throws(() => decodeRadiance(rep0), /repeat/))
+
+  // Allocation bombs: refused from the header and the file size alone, before the output
+  // buffer exists. Timed, because an allocate-then-fail decoder also "refuses" these.
+  {
+    const t0 = performance.now()
+    const headerOnly = header('-Y 6324 +X 6324')
+    check('refuses: header-only 40 MP file as truncated, without allocating',
+      throws(() => decodeRadiance(headerOnly), /truncated/) && performance.now() - t0 < 50, `${(performance.now() - t0).toFixed(1)} ms`)
+    // One pixel plus repeat markers per scanline describes 6324×6324 in ~76 KB.
+    const scan = Uint8Array.from([128, 128, 128, 128, 1, 1, 1, 0xb3, 1, 1, 1, 0x18])
+    const rows = new Uint8Array(scan.length * 6324)
+    for (let i = 0; i < 6324; i++) rows.set(scan, i * scan.length)
+    const t1 = performance.now()
+    check('refuses: repeat-marker decompression bomb (~76 KB → 40 MP)',
+      throws(() => decodeRadiance(cat(header('-Y 6324 +X 6324'), rows)), /compression/) && performance.now() - t1 < 50, `${(performance.now() - t1).toFixed(1)} ms`)
+  }
+  // A 4th consecutive repeat marker is legal (Radiance oldreadcolrs has no digit limit short
+  // of the run fitting): 0, 0, 0, 1 repeats the pixel 2^24 times. Padded so the file is not
+  // rejected as a bomb; the pad is past the last scanline and never read.
+  {
+    const W = 2 ** 24 + 1
+    const px = Uint8Array.from([100, 50, 25, 129, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1])
+    const pad = new Uint8Array(Math.ceil(W / 64) + 64)
+    let d = null
+    try { d = decodeRadiance(cat(header(`-Y 1 +X ${W}`), px, pad)) } catch (e) { d = { error: e.message } }
+    const f = d.rgb
+    const same = f && f[3 * (W - 1)] === f[0] && f[3 * (W - 1) + 2] === f[2] && f[0] > 0
+    check('accepts: 4th repeat marker (2^24-pixel run) and fills the whole scanline', !!same, d.error || `${d.width}×${d.height}`)
+  }
+  // `rgb` is the samples' own float view — no second copy.
+  {
+    const d = decodeRadiance(good)
+    check('rgb is a Float32Array over the same buffer as samples', d.rgb instanceof Float32Array && d.rgb.buffer === d.samples.buffer && d.rgb.length * 4 === d.samples.byteLength)
+  }
 }
 
 // ── file classification ──────────────────────────────────────────────────────

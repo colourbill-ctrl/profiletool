@@ -82,24 +82,37 @@ export function normalizeChromaticities(c) {
   if (!v || v.length < 8) return null
   v = v.slice(0, 8).map(Number)
   if (!v.every((n) => Number.isFinite(n) && n > 0 && n <= 1)) return null
+  // Each pair must be a real chromaticity: x + y ≤ 1 (z = 1 − x − y is not negative), and y
+  // not so small that X = x/y, Z = z/y blow up into a meaningless matrix.
+  for (let i = 0; i < 8; i += 2) {
+    if (v[i] + v[i + 1] > 1 + 1e-6 || v[i + 1] < 1e-6) return null
+  }
   return { red: [v[0], v[1]], green: [v[2], v[3]], blue: [v[4], v[5]], white: [v[6], v[7]] }
+}
+
+/** True when `primaries` are Rec.709 with a D65 white, to within 5e-4 — no conversion needed. */
+export function isRec709Primaries(p) {
+  if (!p) return false
+  const same = (a, b) => Math.abs(a[0] - b[0]) < 5e-4 && Math.abs(a[1] - b[1]) < 5e-4
+  return same(p.red, REC709.red) && same(p.green, REC709.green) && same(p.blue, REC709.blue) && same(p.white, D65)
 }
 
 /**
  * Linear RGB in `primaries` → linear sRGB/Rec.709 (D65), Bradford-adapting the white.
  * null means "no conversion needed" (Rec.709/D65 within 5e-4) — also returned for
- * degenerate primaries, which the caller reports rather than renders through.
+ * degenerate primaries (collinear, or a non-finite result), which the caller tells apart with
+ * isRec709Primaries() and reports as ignored rather than rendering through.
  */
 export function toSrgbLinearMatrix(primaries) {
   const p = primaries
-  if (!p) return null
+  if (!p || isRec709Primaries(p)) return null
   const same = (a, b) => Math.abs(a[0] - b[0]) < 5e-4 && Math.abs(a[1] - b[1]) < 5e-4
-  if (same(p.red, REC709.red) && same(p.green, REC709.green) && same(p.blue, REC709.blue) && same(p.white, D65)) return null
   const src = rgbToXyzMatrix(p)
   const dst = rgbToXyzMatrix(REC709)
   if (!src || !dst) return null
   const adapted = same(p.white, D65) ? src : mul3(bradford(p.white, D65), src)
-  return mul3(inv3(dst), adapted)
+  const m = mul3(inv3(dst), adapted)
+  return m.every(Number.isFinite) ? m : null
 }
 
 // ── decoded samples and the ICC PCS ──────────────────────────────────────────
@@ -145,9 +158,7 @@ export function scaleSamples(src, factor) {
 
 export function samplesToUnitFloat(img) {
   const raw = img.samples
-  if (img.sampleFormat === 'float') {
-    return new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength))
-  }
+  if (img.sampleFormat === 'float') return floatSamples(img)
   if (img.bitDepth === 16) {
     const n = raw.byteLength >> 1
     const out = new Float32Array(n)
@@ -158,6 +169,20 @@ export function samplesToUnitFloat(img) {
   const out = new Float32Array(raw.byteLength)
   for (let i = 0; i < raw.byteLength; i++) out[i] = raw[i] / 255
   return out
+}
+
+/**
+ * Float samples as a Float32Array WITHOUT copying where that is safe: the decoder's own float
+ * array (`rgb`, Radiance), or a view when the bytes sit on a 4-byte boundary (the WASM codec
+ * returns a fresh JS-owned buffer at offset 0). Only a misaligned view is copied. A 40 MP image
+ * is 480 MB per copy, so this is the difference between one buffer and two. Callers must not
+ * write into the result: it may share memory with the decode result.
+ */
+export function floatSamples(img) {
+  if (img.rgb instanceof Float32Array) return img.rgb
+  const raw = img.samples
+  if (raw.byteOffset % 4 === 0 && raw.byteLength % 4 === 0) return new Float32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4)
+  return new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength))
 }
 
 // ── the range operator ───────────────────────────────────────────────────────
@@ -180,12 +205,14 @@ export function softCeiling(Y, C) {
  *   exposure and conversion but BEFORE the ceiling — what the file asks for, which is
  *   what the user needs to judge how much headroom it wants.
  */
-export function renderFloatRgba(rgb, w, h, { exposureStops = 0, limitStops = MAX_LIMIT_STOPS, matrix = null } = {}) {
+export function renderFloatRgba(rgb, w, h, { exposureStops = 0, limitStops = MAX_LIMIT_STOPS, matrix = null, out: reuse = null } = {}) {
   const n = w * h
   if (!(n > 0) || !rgb || rgb.length < n * 3) throw new Error('pixel buffer is smaller than width × height × 3')
   const gain = 2 ** exposureStops
   const C = limitStops >= MAX_LIMIT_STOPS ? Infinity : 2 ** Math.max(0, limitStops)
-  const out = new Float32Array(n * 4)
+  // `out`: a buffer from the previous frame, reused when it is the right size — a slider drag
+  // on a 40 MP image otherwise allocates 640 MB per step. Every element is written below.
+  const out = reuse instanceof Float32Array && reuse.length === n * 4 ? reuse : new Float32Array(n * 4)
   let peak = 0
   for (let i = 0; i < n; i++) {
     let r = rgb[i * 3] * gain, g = rgb[i * 3 + 1] * gain, b = rgb[i * 3 + 2] * gain
@@ -256,8 +283,9 @@ export function srgbEncode(v) {
 }
 
 /** Float RGBA → 8-bit sRGB RGBA for an SDR canvas. Clips to [0, 1]; run the ceiling first. */
-export function encodeSrgb8(rgba) {
-  const out = new Uint8ClampedArray(rgba.length)
+export function encodeSrgb8(rgba, reuse = null) {
+  // `reuse`: the previous frame's buffer, when the size matches (every element is written).
+  const out = reuse instanceof Uint8ClampedArray && reuse.length === rgba.length ? reuse : new Uint8ClampedArray(rgba.length)
   for (let i = 0; i < rgba.length; i += 4) {
     for (let c = 0; c < 3; c++) {
       const v = Math.min(1, Math.max(0, rgba[i + c]))

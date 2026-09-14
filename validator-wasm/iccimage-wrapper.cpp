@@ -303,7 +303,11 @@ void writeIccApp2(jpeg_compress_struct& cinfo, const Bytes& icc) {
 using ReadAt = std::function<std::size_t(std::uint64_t off, void* dst, std::size_t n)>;
 
 constexpr int kMaxBoxDepth = 8;              // meta>iprp>ipco>colr is 4; 8 is slack
-constexpr std::uint64_t kMaxIccInImage = 64ULL * 1024 * 1024;   // sanity cap
+constexpr std::uint64_t kMaxIccInImage = 64ULL * 1024 * 1024;   // sanity cap, per profile AND in total
+// ipma entries kept. Each costs a few file bytes but a vector element on the heap, so a
+// crafted box listing hundreds of millions of items exhausts memory; real files have a
+// handful of items (primary, thumbnail, gain map, a few tiles' worth of grid cells).
+constexpr std::uint32_t kMaxIpmaEntries = 65536;
 
 inline std::uint32_t be32(const std::uint8_t* p) {
   return ((std::uint32_t)p[0] << 24) | ((std::uint32_t)p[1] << 16) |
@@ -334,7 +338,10 @@ struct BoxIter {
     } else if (size == 0) {                // box runs to the end of its container
       size = end - pos;
     }
-    if (size < hdr || pos + size > end) return false;   // overlapping/short box
+    // `size > end - pos`, never `pos + size > end`: a 64-bit largesize near 2^64 wraps the
+    // sum, passes the check, and `pos += size` then moves BACKWARDS — an endless walk.
+    // pos <= end holds on entry (checked above), so the subtraction cannot wrap.
+    if (size < hdr || size > end - pos) return false;   // overlapping/short box
     bodyBegin = pos + hdr;
     bodyEnd = pos + size;
     pos += size;                            // guaranteed forward: size >= hdr >= 8
@@ -355,6 +362,10 @@ void isoScanIpco(const ReadAt& rd, std::uint64_t b, std::uint64_t e, IsoColr& ou
   BoxIter it{rd, b, e};
   char t[5]; std::uint64_t bb, be_;
   std::uint32_t index = 0;
+  // Bytes already copied out of every colr box. Without a running total, many boxes each
+  // just under the per-profile cap would each be copied, multiplying the heap cost.
+  std::uint64_t kept = 0;
+  for (const auto& pr : out.props) kept += pr.second.size();
   while (it.next(t, bb, be_)) {
     ++index;                                  // EVERY property counts toward the index
     if (std::strcmp(t, "colr") != 0) continue;
@@ -364,7 +375,8 @@ void isoScanIpco(const ReadAt& rd, std::uint64_t b, std::uint64_t e, IsoColr& ou
     const bool ricc = !std::memcmp(kind, "rICC", 4);
     if (!prof && !ricc) continue;             // 'nclx' is CICP, not a profile
     const std::uint64_t n = be_ - bb - 4;
-    if (n == 0 || n > kMaxIccInImage) continue;
+    if (n == 0 || n > kMaxIccInImage || n > kMaxIccInImage - kept) continue;
+    kept += n;
     Bytes icc((std::size_t)n);
     if (rd(bb + 4, icc.data(), icc.size()) != icc.size()) continue;
     out.props.emplace_back(index, std::move(icc));
@@ -379,8 +391,10 @@ void isoScanIpma(const ReadAt& rd, std::uint64_t b, std::uint64_t e, IsoColr& ou
   std::uint8_t cnt[4];
   if (rd(b + 4, cnt, 4) != 4) return;
   std::uint64_t p = b + 8;
+  // Capped, including across several ipma boxes: past the cap the rest are ignored, which at
+  // worst loses the primary item's association and falls back to the first colr in ipco.
   const std::uint32_t entries = be32(cnt);
-  for (std::uint32_t i = 0; i < entries; ++i) {
+  for (std::uint32_t i = 0; i < entries && out.ipma.size() < kMaxIpmaEntries; ++i) {
     std::uint32_t itemId = 0;
     // Item IDs widen to 32 bits at version >= 1; association indices widen with flags&1.
     if (version < 1) { std::uint8_t x[2]; if (p + 2 > e || rd(p, x, 2) != 2) return; itemId = ((std::uint32_t)x[0] << 8) | x[1]; p += 2; }
@@ -823,11 +837,28 @@ emscripten::val probeExr(const Bytes& b) {
     res.set("error", std::string("EXR header: ") + (err ? err : "unreadable"));
     FreeEXRErrorMessage(err); return res;
   }
-  const int w = hdr.data_window.max_x - hdr.data_window.min_x + 1;
-  const int h = hdr.data_window.max_y - hdr.data_window.min_y + 1;
+  // 64-bit: the window's corners are arbitrary int32s, so max − min + 1 can overflow int.
+  const std::int64_t w64 = (std::int64_t)hdr.data_window.max_x - hdr.data_window.min_x + 1;
+  const std::int64_t h64 = (std::int64_t)hdr.data_window.max_y - hdr.data_window.min_y + 1;
+  const int w = w64 > 0 && w64 <= INT32_MAX ? (int)w64 : 0;
+  const int h = h64 > 0 && h64 <= INT32_MAX ? (int)h64 : 0;
   res.set("ok", w > 0 && h > 0);
   if (w <= 0 || h <= 0) res.set("error", std::string("EXR data window is empty."));
   res.set("width", w); res.set("height", h);
+  // THE DECODE BUDGET, enforced here — before tinyexr allocates anything. tinyexr's own
+  // total-size guard is compiled out unless pointers are 8 bytes (tinyexr.h, the #104
+  // workaround), and on wasm32 its size_t(w)*size_t(h)*sizeof(float) wraps: a 32768×32768
+  // ZIP file of a few MB would get a 0-byte buffer and have its pixels written past it. Every
+  // buffer tinyexr then makes is at most one float per channel per pixel, plus its RGBA
+  // output, so bounding w·h·max(channels, 4)·4 in 64-bit arithmetic bounds all of them.
+  if (w > 0 && h > 0) {
+    const std::uint64_t ch = (std::uint64_t)std::max(hdr.num_channels, 4);
+    if ((std::uint64_t)w * (std::uint64_t)h * ch * sizeof(float) > (std::uint64_t)kMaxImageBytes) {
+      res.set("ok", false);
+      res.set("error", std::string("EXR too large: ") + std::to_string(w) + "×" + std::to_string(h) +
+                       " with " + std::to_string(hdr.num_channels) + " channels exceeds the decode limit.");
+    }
+  }
   // We always deliver RGB(A)-shaped float to the caller; report what we WILL produce,
   // matching the other probes, which report post-decode channel counts.
   res.set("channels", hdr.num_channels >= 3 ? 3 : 1);
@@ -999,7 +1030,7 @@ bool isoHasItemType(const ReadAt& rd, std::uint64_t b, std::uint64_t e, const ch
 // byte like 0xFF becomes two bytes and every offset after it shifts — which silently
 // broke JPEG magic detection when this was first written, while leaving the ISOBMFF
 // cases passing because their header bytes happen to be ASCII-safe.
-emscripten::val gainMapInfo(emscripten::val bytesVal) {
+emscripten::val gainMapInfoImpl(emscripten::val bytesVal) {
   emscripten::val r = emscripten::val::object();
   const Bytes b = toBytes(bytesVal);
   r.set("present", false);
@@ -1067,6 +1098,19 @@ emscripten::val gainMapInfo(emscripten::val bytesVal) {
   }
 
   return r;
+}
+
+// Exceptions (std::bad_alloc from a crafted file above all) become "no gain map found, and
+// why" rather than a bare pointer number thrown into JS.
+emscripten::val gainMapInfo(emscripten::val bytesVal) {
+  try { return gainMapInfoImpl(bytesVal); }
+  catch (const std::exception& e) {
+    emscripten::val r = emscripten::val::object();
+    r.set("present", false); r.set("error", std::string("Gain map scan failed: ") + e.what()); return r;
+  } catch (...) {
+    emscripten::val r = emscripten::val::object();
+    r.set("present", false); r.set("error", std::string("Gain map scan failed.")); return r;
+  }
 }
 
 emscripten::val probeImageStreamImpl(int id) {
@@ -1410,18 +1454,25 @@ Bytes encodeJpegBytes(int width, int height, int channels,
 }
 
 // ── embind boundaries ───────────────────────────────────────────────────────
+// Both extractors swallow exceptions (std::bad_alloc from a crafted box above all) into
+// "no profile found": an escaping C++ exception reaches JS as a bare pointer number, and a
+// hostile file must not be able to turn a lookup into an uncaught error.
 emscripten::val findProfile(emscripten::val bytesVal) {
-  Bytes prof = findProfileImpl(toBytes(bytesVal));
-  if (prof.empty()) return emscripten::val::null();
-  return makeUint8Array(prof.data(), prof.size());
+  try {
+    Bytes prof = findProfileImpl(toBytes(bytesVal));
+    if (prof.empty()) return emscripten::val::null();
+    return makeUint8Array(prof.data(), prof.size());
+  } catch (...) { return emscripten::val::null(); }
 }
 // Streaming extractor: reads byte-ranges from a JS source (globalThis.__imgRead over
 // a File) — only the metadata, never the raster. `sourceId` is passed through to the
 // JS reader (single source per call → 0).
 emscripten::val findProfileStream(int sourceId) {
-  Bytes prof = findProfileStreamImpl(sourceId);
-  if (prof.empty()) return emscripten::val::null();
-  return makeUint8Array(prof.data(), prof.size());
+  try {
+    Bytes prof = findProfileStreamImpl(sourceId);
+    if (prof.empty()) return emscripten::val::null();
+    return makeUint8Array(prof.data(), prof.size());
+  } catch (...) { return emscripten::val::null(); }
 }
 // Streaming probe: header-only geometry + colour space (validate an image without
 // loading its pixels). Never throws — a bad image is a normal {ok:false} result.

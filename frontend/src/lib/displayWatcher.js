@@ -53,7 +53,13 @@ function defaultDpr() {
 export function readDisplay({ matchMedia = defaultMatchMedia(), getDpr = defaultDpr } = {}) {
   const out = {}
   for (const { key, query } of DISPLAY_QUERIES) {
-    try { out[key] = matchMedia ? !!matchMedia(query).matches : null } catch { out[key] = null }
+    try {
+      if (!matchMedia) { out[key] = null; continue }
+      // A media feature the browser does not know does not throw: it parses to 'not all' and
+      // never matches (Firefox has no video-dynamic-range). That is "cannot tell", not "no".
+      const mql = matchMedia(query)
+      out[key] = mql?.media === 'not all' ? null : !!mql?.matches
+    } catch { out[key] = null }
   }
   const dpr = getDpr()
   out.dpr = typeof dpr === 'number' && Number.isFinite(dpr) && dpr > 0 ? dpr : null
@@ -289,9 +295,17 @@ export function createScheduler(run, {
  *               Resolves the trigger-(2) status: 'active' | 'unsupported' | 'not-granted' | 'denied' | 'error'.
  * identify()  — user gesture: attach trigger (2), prompting if needed. Resolves the same statuses.
  * stop()      — detach everything. Safe to call more than once, and before start() settles.
+ *
+ * deps.onStatus(status), optional, reports a status change that did NOT come from this
+ * monitor's own start()/identify() — today, permission granted through ANOTHER monitor on the
+ * page (Settings' Identify displays while the HDR tab is open), which this monitor then
+ * attaches to silently rather than showing its own Identify button until remounted.
  */
+// Monitors started and not yet stopped, so a permission granted through one reaches the rest.
+const liveMonitors = new Set()
+
 export function createDisplayMonitor(onUpdate, deps = {}) {
-  const { matchMedia, getDpr, getScreenDetails, permissions, timers } = deps
+  const { matchMedia, getDpr, getScreenDetails, permissions, timers, onStatus } = deps
   const readOpts = {
     ...(matchMedia ? { matchMedia } : {}),
     ...(getDpr ? { getDpr } : {}),
@@ -322,21 +336,32 @@ export function createDisplayMonitor(onUpdate, deps = {}) {
     unwatch2 = r.unsubscribe
     // Report the screen facts straight away rather than waiting for the next move.
     scheduler.schedule(prompt ? 'identify' : 'permission-granted')
+    // Granted by the user just now: every other monitor on the page can attach without asking.
+    if (prompt) for (const m of liveMonitors) if (m !== api) m.permissionGranted()
     return 'active'
   }
 
-  return {
+  const api = {
     async start() {
+      if (!stopped) liveMonitors.add(api)
       unwatch1 = watchDisplay(onEvent, readOpts)
       return attach2(false)
     },
     identify() { return attach2(true) },
+    // Called by another monitor after its identify() succeeded. Never prompts.
+    async permissionGranted() {
+      if (stopped || details) return
+      const s = await attach2(false)
+      if (!stopped) onStatus?.(s)
+    },
     stop() {
       stopped = true
+      liveMonitors.delete(api)
       scheduler.cancel()
       unwatch1(); unwatch2()
       unwatch1 = unwatch2 = () => {}
       details = null
     },
   }
+  return api
 }

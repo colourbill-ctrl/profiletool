@@ -36,12 +36,13 @@ const chlist = (names) => Buffer.concat([
 ])
 const box2i = (a, b, c, d) => Buffer.concat([i32(a), i32(b), i32(c), i32(d)])
 
-function writeExr({ width, height, pixels, compression = 0, chromaticities = null, whiteLuminance = null }) {
+function writeExr({ width, height, pixels, compression = 0, chromaticities = null, whiteLuminance = null, dataWindow = null }) {
   const names = ['B', 'G', 'R']
   const attrs = [
     attr('channels', 'chlist', chlist(names)),
     attr('compression', 'compression', Buffer.from([compression])),
-    attr('dataWindow', 'box2i', box2i(0, 0, width - 1, height - 1)),
+    // `dataWindow` overrides the header's claim only; the pixel blocks stay width × height.
+    attr('dataWindow', 'box2i', dataWindow ? box2i(...dataWindow) : box2i(0, 0, width - 1, height - 1)),
     attr('displayWindow', 'box2i', box2i(0, 0, width - 1, height - 1)),
     attr('lineOrder', 'lineOrder', Buffer.from([0])),
     attr('pixelAspectRatio', 'float', f32(1)),
@@ -84,6 +85,15 @@ cases.push(['with_chroma', writeExr({ width: W, height: H, pixels: val, chromati
 cases.push(['dwaa_refused', writeExr({ width: W, height: H, pixels: val, compression: 8 }),
             { ok: false, errorHas: 'DWAA' }])
 cases.push(['not_exr', Buffer.from('not an image at all, and no format magic'), { unrecognised: true }])
+// HOSTILE: a ZIP EXR claiming a 32768 × 32768 data window. On wasm32 tinyexr's
+// size_t(w)*size_t(h)*sizeof(float) wraps to 0 (its own size guard is 64-bit only), and the
+// decoded blocks would be written past a 0-byte buffer. The header alone must be refused —
+// by the probe AND before decodeImage ever hands the file to tinyexr.
+cases.push(['window_bomb', writeExr({ width: W, height: H, pixels: val, compression: 3, dataWindow: [0, 0, 32767, 32767] }),
+            { ok: false, errorHas: 'too large' }])
+// HOSTILE: corners at the int32 extremes, where max − min + 1 overflows int.
+cases.push(['window_overflow', writeExr({ width: W, height: H, pixels: val, dataWindow: [-2147483648, 0, 2147483647, 0] }),
+            { ok: false, errorHas: 'empty' }])
 
 let pass = 0, fail = 0
 const near = (a, b) => Math.abs(a - b) < 1e-5

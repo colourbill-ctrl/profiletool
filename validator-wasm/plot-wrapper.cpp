@@ -911,6 +911,11 @@ std::string hagcEvaluateImpl(const std::string& bytes, double targetHeadroom, in
     return json{{"error", "Profile exceeds size limit"}}.dump();
   CIccProfile* pIcc = parseCached(bytes);
   if (!pIcc) return json{{"error", "Failed to parse ICC profile"}}.dump();
+  // Stops. Clamped before the cast to float: a finite double past FLT_MAX would overflow it
+  // (undefined behaviour). NaN passes through unchanged for EvaluateHagc to refuse, and any
+  // headroom beyond ±1024 stops already selects an endpoint curve.
+  if (targetHeadroom > 1024.0) targetHeadroom = 1024.0;
+  else if (targetHeadroom < -1024.0) targetHeadroom = -1024.0;
   const auto ev = iccviz::EvaluateHagc(pIcc, static_cast<float>(targetHeadroom), nSamples);
   if (!ev.ok) return json{{"error", ev.error}}.dump();
   json j;

@@ -995,6 +995,9 @@ emscripten::val hdrApplyBeginImpl(std::string profBytes, double targetHeadroom, 
     throw std::runtime_error("The profile is empty or too large.");
   if (!std::isfinite(targetHeadroom))
     throw std::runtime_error("The target headroom is not a number.");
+  // It becomes an icFloatNumber (float) below; a finite double past FLT_MAX would overflow
+  // that cast, which is undefined behaviour. Past 2^64× reference white nothing changes anyway.
+  if (targetHeadroom > 18446744073709551616.0) targetHeadroom = 18446744073709551616.0;
   if (policy < (int)icHdrToneMapAuto || policy > (int)icHdrToneMapDisable)
     throw std::runtime_error("Unknown HDR tone-mapping policy.");
   if (intent < 0 || intent > 3) intent = (int)icRelativeColorimetric;
@@ -1014,7 +1017,8 @@ emscripten::val hdrApplyBeginImpl(std::string profBytes, double targetHeadroom, 
     if (!h) { delete p; throw std::runtime_error("Out of memory creating the HDR hint."); }
     h->m_targetHeadroom = (icFloatNumber)targetHeadroom;
     h->m_nPolicy = (icHdrToneMapPolicy)policy;
-    if (!hint.AddHint(h)) { delete h; delete p; throw std::runtime_error("Could not attach the HDR hint."); }
+    // AddHint deletes the hint itself on both of its failure paths, so it is not deleted here.
+    if (!hint.AddHint(h)) { delete p; throw std::runtime_error("Could not attach the HDR hint."); }
   }
   // On failure AddXform frees p (its ownership contract), so it is never deleted after this.
   icStatusCMM stat = cmm->AddXform(p, (icRenderingIntent)intent, icInterpTetrahedral, NULL,

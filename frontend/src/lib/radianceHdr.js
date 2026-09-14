@@ -23,6 +23,14 @@
 
 /** Largest image accepted: 3 × Float32 per pixel, so this bounds the samples at ~480 MB. */
 export const MAX_RADIANCE_PIXELS = 40_000_000
+/**
+ * Most pixels one file byte may stand for. New-style RLE — what every current writer emits —
+ * reaches ~16 pixels per byte on a flat scanline (8 bytes per 127-pixel run across the four
+ * channels). Old-style repeat markers could legally describe a 40 MP image in ~75 KB, a
+ * decompression bomb worth ~2 GB of buffers downstream, so the ratio is capped at 4× the best
+ * new-style case.
+ */
+export const MAX_PIXELS_PER_BYTE = 64
 /** The header is a few lines of text; anything longer is not a Radiance file. */
 const MAX_HEADER_BYTES = 64 * 1024
 /** Radiance's scanline encoder only uses new-style RLE for widths in this range. */
@@ -101,6 +109,13 @@ export function decodeRadiance(bytes) {
   if (width * height > MAX_RADIANCE_PIXELS) {
     throw new Error(`Radiance HDR: ${width}×${height} is larger than the ${MAX_RADIANCE_PIXELS / 1e6} MP limit`)
   }
+  // Checked BEFORE the output buffer is allocated, so a header-only file cannot make the tab
+  // allocate hundreds of MB just to report "truncated". Every scanline takes at least 4 bytes.
+  const remaining = bytes.length - pos
+  if (remaining < n1 * 4) throw new Error('Radiance HDR: file is truncated')
+  if (width * height > remaining * MAX_PIXELS_PER_BYTE) {
+    throw new Error(`Radiance HDR: ${width}×${height} from ${remaining} bytes of pixel data is more compression than a Radiance writer produces`)
+  }
 
   // Where file position (scanline i, pixel j) lands in a top-row-first, left-to-right
   // buffer. Radiance's Y axis points UP, so "-Y" (decreasing Y) runs top to bottom.
@@ -128,11 +143,14 @@ export function decodeRadiance(bytes) {
       pos += 4
       if (r === 1 && g === 1 && b === 1) {
         if (j === 0) throw new Error('Radiance HDR: repeat marker with no pixel to repeat')
-        const count = e << shift
+        // Consecutive markers are successive base-256 digits (Radiance oldreadcolrs), so the
+        // 4th sits at shift 24. Checked BEFORE applying, and multiplied rather than shifted:
+        // `e << 24` goes negative for e ≥ 128.
+        if (shift > 24) throw new Error('Radiance HDR: repeat count too large')
+        const count = e * 2 ** shift
         if (count > n2 - j) throw new Error('Radiance HDR: run overflows the scanline')
         for (let k = 0; k < count; k++, j++) line.copyWithin(j * 4, (j - 1) * 4, j * 4)
         shift += 8
-        if (shift > 24) throw new Error('Radiance HDR: repeat count too large')
       } else {
         line[j * 4] = r; line[j * 4 + 1] = g; line[j * 4 + 2] = b; line[j * 4 + 3] = e
         j++; shift = 0
@@ -188,6 +206,9 @@ export function decodeRadiance(bytes) {
     ok: true, width, height, channels: 3, bitDepth: 32, sampleFormat: 'float',
     // Float32Array's own bytes are little-endian on every platform browsers run on.
     samples: new Uint8Array(out.buffer),
+    // The same pixels as a float view — aligned and JS-owned — so callers need not copy them
+    // out of `samples` (a 40 MP image is 480 MB per copy).
+    rgb: out,
     compression: sawRle && sawFlat ? 'RLE + flat' : sawRle ? 'RLE' : 'none',
     exposure,
   }

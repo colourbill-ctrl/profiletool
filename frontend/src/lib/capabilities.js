@@ -12,7 +12,8 @@
 // unanswerable:
 //
 //   inspect  read the embedded ICC profile, validate it, show its tags and curves.
-//            Needs a container parse, NOT a codec. True for every format, everywhere.
+//            Needs a container parse, NOT a codec. True for every format, everywhere —
+//            except JPEG XL, whose profile is compressed inside the codestream.
 //   display  put the pixels on screen at all, even tone-mapped to SDR.
 //   hdr      render brighter-than-white. Needs display + an HDR screen + an HDR canvas.
 //
@@ -45,6 +46,7 @@ export const REASON = {
   NO_HDR_PATHWAY: 'this browser exposes no HDR canvas path (needs float16 canvas or WebGPU)',
   FIREFOX_NO_HDR: 'Firefox renders no HDR images and reads no gain maps; HDR content is shown as SDR',
   INSPECT_ALWAYS: 'inspection needs a container parse, not a codec',
+  JXL_NO_INSPECT: 'a JPEG XL profile is compressed inside the codestream, which profiletool does not decompress yet',
   HDR_OK: 'HDR display and an HDR canvas path are both available',
   UNKNOWN_FORMAT: 'unknown format',
 }
@@ -93,7 +95,9 @@ export function capabilityFor(format, env) {
 
   // INSPECT is unconditional. Every format here is parsed by our own WASM — including
   // HEIC and AVIF, whose ICC profile is reached by walking ISOBMFF boxes with no codec.
-  const inspect = verdict(true, 'INSPECT_ALWAYS')
+  // The one exception is JPEG XL, whose ICC profile is Brotli-compressed inside the codestream
+  // rather than sitting in a container box — so its row must not claim inspection.
+  const inspect = format === 'jxl' ? verdict(false, 'JXL_NO_INSPECT') : verdict(true, 'INSPECT_ALWAYS')
 
   const display = spec.decoder === 'ours'
     ? verdict(true, 'OURS')

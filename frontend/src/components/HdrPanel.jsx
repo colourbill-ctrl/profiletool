@@ -8,7 +8,7 @@ import { capabilityFor, hdrPathway, FORMATS, reasonText } from '../lib/capabilit
 import { decodeImage, findEmbeddedProfileFromFile, gainMapInfo } from '../lib/imageCodec.js'
 import { decodeRadiance } from '../lib/radianceHdr.js'
 import HdrViewport from './HdrViewport.jsx'
-import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay, samplesToUnitFloat, scaleSamples } from '../lib/hdrPixels.js'
+import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, isRec709Primaries, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay, samplesToUnitFloat, floatSamples } from '../lib/hdrPixels.js'
 import { useLiveDisplay } from './useLiveDisplay.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
 import { hdrTransformPixels, HDR_POLICY } from '../lib/hdrProfileTransform.js'
@@ -40,6 +40,11 @@ const LINEAR_LIGHT = new Set(['exr', 'hdr'])
 const DETAILS_KEY = 'profiletool.hdrDetailsOpen'
 // 'refwhite' | 'nits' — what file 1.0 means for a float image under a Linear-transfer profile.
 const LINEAR_SCALE_KEY = 'profiletool.hdrLinearScale'
+// Largest file the tab reads, checked against File.size BEFORE any read: mirrors kMaxImageBytes
+// in iccimage-wrapper.cpp, which only bounds bytes that JS has already allocated and copied in.
+const MAX_HDR_FILE_BYTES = 512 * 1024 * 1024
+// Target headroom stays within the slider's range, whatever the display reports.
+const clampStops = (s) => Math.min(MAX_LIMIT_STOPS, Math.max(0, s))
 
 export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   const t = useT()
@@ -59,6 +64,9 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   const setDetailsOpen = (v) => { setDetailsOpenState(v); store.set(DETAILS_KEY, v ? '1' : '0') }
   const inputRef = useRef(null)
   const loadToken = useRef(0)
+  // `load` is created once; it reads the current translator through this ref.
+  const tRef = useRef(t)
+  tRef.current = t
 
   const clear = useCallback(() => {
     loadToken.current++
@@ -71,6 +79,13 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
     const live = () => token === loadToken.current
     setFile(f); setInfo(null); setProfile(null); setGain(null); setError(null); setAssignSel('none')
     try {
+      // Refused by size before ANY read: the gain-map scan and the decoders read the whole file.
+      if (f.size > MAX_HDR_FILE_BYTES) {
+        const mb = (n) => String(Math.ceil(n / (1024 * 1024)))
+        setError((tRef.current('hdr_too_large') || 'This file is {size} MB; the HDR tab opens images up to {max} MB.')
+          .replace('{size}', mb(f.size)).replace('{max}', mb(MAX_HDR_FILE_BYTES)))
+        return
+      }
       const head = new Uint8Array(await f.slice(0, 64).arrayBuffer())
       const { kind, format } = classifyFile(head, f.name)
       const base = await getEnvironment()
@@ -86,8 +101,9 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
             if (!live()) return
             setProfile(p ? { size: p.length, bytes: p } : { none: true })
             // A TIFF shows nothing unless a profile says what its values mean, so its own
-            // embedded profile is the natural starting point.
-            if (p && format === 'tiff') setAssignSel('embedded')
+            // embedded profile is the natural starting point — unless the user already picked
+            // a pool profile while the scan was running.
+            if (p && format === 'tiff') setAssignSel((s) => (s === 'none' ? 'embedded' : s))
           })
           .catch(() => { if (live()) setProfile({ none: true }) })
       }
@@ -358,7 +374,17 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
   const dpk = displayPeakInfo({ hdr: envLive.display.hdr, headroomStops: live.screen?.headroom })
   const refPref = useRefWhitePref()
   const [decoded, setDecoded] = useState(null)
-  const [error, setError] = useState(null)
+  // Three errors, kept apart because they end differently. A decode failure leaves nothing to
+  // show. An apply failure (one target, one policy) and a draw failure must not unmount the
+  // canvas: the next target or backend may well succeed, and the surface belongs to that canvas.
+  const [decodeError, setDecodeError] = useState(null)
+  const [applyError, setApplyError] = useState(null)
+  const [drawError, setDrawError] = useState(null)
+  // Effects read the current translator here rather than re-running when it changes.
+  const tRef = useRef(t)
+  tRef.current = t
+  // The previous frame's RGBA buffer, reused while the size holds (renderFloatRgba `out`).
+  const frameBuf = useRef(null)
   const [kind, setKind] = useState(null)          // backend being tried / in use
   const [surface, setSurface] = useState(null)
   const [fallbacks, setFallbacks] = useState([])
@@ -368,7 +394,14 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
   const canvasRef = useRef(null)
   // Assigned-profile state: target headroom in stops (the CMM hint takes 2^stops), the
   // tone-mapping policy, and what the CMM reported it engaged.
-  const [targetStops, setTargetStops] = useState(() => (dpk.stops != null ? dpk.stops : 0))
+  const [targetStops, setTargetStops] = useState(() => (dpk.stops != null ? clampStops(dpk.stops) : 0))
+  // Seeded from the display's headroom. The live monitor often reports it only after mount, so
+  // the first value to arrive is taken too — once, and never after the user has moved the control.
+  const stopsChosen = useRef(dpk.stops != null)
+  useEffect(() => {
+    if (!stopsChosen.current && dpk.stops != null) { stopsChosen.current = true; setTargetStops(clampStops(dpk.stops)) }
+  }, [dpk.stops])
+  const setStopsByUser = useCallback((v) => { stopsChosen.current = true; setTargetStops(v) }, [])
   const [policy, setPolicy] = useState(HDR_POLICY.auto)
   const [cmmInfo, setCmmInfo] = useState(null)
   const [applying, setApplying] = useState(false)
@@ -380,7 +413,12 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
 
   // Decode once per file. EXR (WASM) and Radiance HDR (JS) decode synchronously; a very
   // large file blocks the tab for the duration, which is acceptable for a one-image viewer.
+  // Keyed on WHETHER a profile is assigned, not on the assignment object: that object is
+  // rebuilt whenever the pool or the language changes, and each rebuild would decode the whole
+  // image again. (PixelRoute is remounted per assigned profile, so the choice itself cannot
+  // change under a mounted route.)
   const isRadiance = info.format === 'hdr'
+  const assigned = !!assign
   useEffect(() => {
     let dead = false
     ;(async () => {
@@ -388,10 +426,11 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
         const bytes = new Uint8Array(await file.arrayBuffer())
         // Same result shape either way: 3-channel float samples plus optional chromaticities.
         const d = isRadiance ? decodeRadiance(bytes) : await decodeImage(bytes)
-        if (assign) {
+        if (d?.ok === false) throw new Error(d.error || 'decode failed')
+        if (assigned) {
           // The profile interprets the raw values: decode to [0,1] device RGB and let the
           // transform effect below produce display-linear pixels.
-          if (d.channels !== 3) throw new Error(t('hdr_assign_channels') || 'Assigning a profile needs a 3-channel RGB image.')
+          if (d.channels !== 3) throw new Error(tRef.current('hdr_assign_channels') || 'Assigning a profile needs a 3-channel RGB image.')
           const src = samplesToUnitFloat(d)
           if (dead) return
           setDecoded({ w: d.width, h: d.height, src, rgb: null, primaries: null, matrix: null, compression: d.compression, isFloat: d.sampleFormat === 'float' })
@@ -399,31 +438,35 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
           return
         }
         if (d.sampleFormat !== 'float' || d.channels !== 3) throw new Error('expected 3-channel float samples')
-        // Copy out to an aligned buffer: the WASM view's byteOffset need not be a multiple of 4.
-        const raw = d.samples
-        const rgb = new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength))
+        // The decoder's own float array, or a view of its bytes — copied only if misaligned.
+        const rgb = floatSamples(d)
         const primaries = normalizeChromaticities(d.chromaticities)
         if (dead) return
         setDecoded({ w: d.width, h: d.height, rgb, primaries, matrix: toSrgbLinearMatrix(primaries), compression: d.compression })
         setKind(hdrPathway(env) || 'sdr')
       } catch (e) {
-        if (!dead) setError(e.message || String(e))
+        if (!dead) setDecodeError(e.message || String(e))
       }
     })()
     return () => { dead = true }
-  }, [file, env, assign, t, isRadiance])
+  }, [file, env, assigned, isRadiance])
 
   // Assigned profile: run the pixels through the CMM whenever the target or policy changes.
-  // Debounced, and stale results are dropped, so dragging the slider does not queue passes.
+  // Debounced, and a superseded request is CANCELLED, not just ignored: `isStale` stops it
+  // before its session starts (if it is still queued behind another) and between chunks, so
+  // dragging the slider never leaves full-image passes running for results nobody will see.
+  // Keyed on the profile's bytes, not the assignment object (see the decode effect).
+  const assignBytes = assign?.bytes
   const srcRef = decoded?.src
   useEffect(() => {
-    if (!assign || !srcRef) return
+    if (!assignBytes || !srcRef) return
     let dead = false
+    const isStale = () => dead
     const id = setTimeout(async () => {
       setApplying(true)
+      setApplyError(null)
       try {
-        const opts = { profileBytes: assign.bytes, targetHeadroom: 2 ** targetStops, policy }
-        let input = srcRef
+        const opts = { profileBytes: assignBytes, targetHeadroom: 2 ** targetStops, policy, isStale }
         let inputScale = null
         if (decoded.isFloat) {
           // One pixel first: the transfer and reference white come from the CMM itself, and a
@@ -433,7 +476,7 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
           // Float samples (OpenEXR, Radiance HDR) are linear light; a PQ/HLG profile would
           // decode them as code values.
           if (probe.info.transfer !== 8) {
-            setError((t('hdr_assign_exr_linear') || '{format} holds linear light, so it needs a profile whose transfer is Linear (8).')
+            setApplyError((tRef.current('hdr_assign_exr_linear') || '{format} holds linear light, so it needs a profile whose transfer is Linear (8).')
               .replace('{format}', FORMATS[info.format]?.label || 'OpenEXR'))
             return
           }
@@ -442,56 +485,71 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
           // first puts file 1.0 on it — unless the user chose the clause's own reading.
           const w = probe.info.referenceWhite
           inputScale = linearScale === 'refwhite' && w > 0 ? w : 1
-          if (inputScale !== 1) input = scaleSamples(srcRef, inputScale)
         }
-        const { rgb, info: ci } = await hdrTransformPixels({ ...opts, rgb: input, nPixels: decoded.w * decoded.h })
+        // The scale is applied chunk by chunk inside the transform: no full-size scaled copy.
+        const { rgb, info: ci } = await hdrTransformPixels({ ...opts, rgb: srcRef, nPixels: decoded.w * decoded.h, inputScale: inputScale ?? 1 })
         if (dead) return
         setCmmInfo({ ...ci, inputScale })
         setDecoded((d) => (d && d.src === srcRef ? { ...d, rgb } : d))
       } catch (e) {
-        if (!dead) setError(e.message || String(e))
+        if (!dead && e?.name !== 'StaleTransformError') setApplyError(e.message || String(e))
       } finally {
         if (!dead) setApplying(false)
       }
     }, 120)
     return () => { dead = true; clearTimeout(id) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assign, srcRef, targetStops, policy, linearScale])
+  }, [assignBytes, srcRef, targetStops, policy, linearScale])
 
-  // Create the surface for `kind`; on failure, record why and step down the chain. The
-  // WebGPU step is skipped when the environment already knows it has no adapter.
+  // Step down the backend chain from `from`, recording why. The WebGPU step is skipped when the
+  // environment already knows it has no adapter. Used for a backend that cannot be created, one
+  // whose draw throws, and one that reports a failure later (WebGPU validation, device loss).
+  const fallBack = useCallback((from, why) => {
+    let next = FALLBACK[from]
+    if (next === 'webgpu' && !env.pathway?.webgpu) next = 'sdr'
+    setFallbacks((f) => [...f, { from, why }])
+    setSurface(null)
+    setKind(next)
+    if (!next) setDrawError(why)     // the SDR canvas was the last resort
+  }, [env])
+
+  // Create the surface for `kind`.
   useEffect(() => {
     if (!kind || !canvasRef.current) return
     let dead = false
     let made = null
-    createHdrSurface(canvasRef.current, kind)
+    createHdrSurface(canvasRef.current, kind, { onError: (why) => { if (!dead) fallBack(kind, why) } })
       .then((s) => { if (dead) { s.dispose(); return } made = s; setSurface(s) })
-      .catch((e) => {
-        if (dead) return
-        let next = FALLBACK[kind]
-        if (next === 'webgpu' && !env.pathway?.webgpu) next = 'sdr'
-        setFallbacks((f) => [...f, { from: kind, why: e.message || String(e) }])
-        setSurface(null)
-        setKind(next)
-      })
+      .catch((e) => { if (!dead) fallBack(kind, e.message || String(e)) })
     return () => { dead = true; made?.dispose() }
-  }, [kind, env])
+  }, [kind, fallBack])
 
-  // Draw, throttled to one frame: slider drags would otherwise queue full-image passes.
+  // Draw, throttled to one frame: slider drags would otherwise queue full-image passes. The
+  // RGBA buffer is reused across frames, so a drag does not allocate a full image per step.
   const limitStops = surface?.hdr ? share * MAX_LIMIT_STOPS : 0
   useEffect(() => {
     if (!surface || !decoded?.rgb) return
     const id = requestAnimationFrame(() => {
+      let frame
       try {
-        const { rgba, peak: p } = renderFloatRgba(decoded.rgb, decoded.w, decoded.h, { exposureStops: exposure, limitStops, matrix: decoded.matrix })
-        surface.draw(rgba, decoded.w, decoded.h)
-        setPeak(p)
-      } catch (e) { setError(e.message || String(e)) }
+        frame = renderFloatRgba(decoded.rgb, decoded.w, decoded.h, { exposureStops: exposure, limitStops, matrix: decoded.matrix, out: frameBuf.current })
+        frameBuf.current = frame.rgba
+      } catch (e) { setDrawError(e.message || String(e)); return }
+      try {
+        surface.draw(frame.rgba, decoded.w, decoded.h)
+        setPeak(frame.peak)
+        setDrawError(null)
+      } catch (e) {
+        // This backend cannot draw this image (e.g. beyond the GPU's texture limit): the next
+        // one may, so step down rather than replace the viewer with an error.
+        if (surface.kind !== 'sdr') fallBack(surface.kind, e.message || String(e))
+        else setDrawError(e.message || String(e))
+      }
     })
     return () => cancelAnimationFrame(id)
-  }, [surface, decoded, exposure, limitStops])
+  }, [surface, decoded, exposure, limitStops, fallBack])
 
-  if (error) return <p className={styles.error}>{t('hdr_decode_failed') || 'Could not decode:'} {error}</p>
+  if (decodeError) return <p className={styles.error}>{t('hdr_decode_failed') || 'Could not decode:'} {decodeError}</p>
   if (!decoded) return <p className={styles.note}>{t('hdr_decoding') || 'Decoding…'}</p>
   // No early return while an assigned profile is still being applied: the <canvas> must be
   // mounted when `kind` is set, or the surface is never created (the effect does not re-run
@@ -524,7 +582,10 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
         // a few hundredths, where two decimals would round it to a meaningless 0.02.
         [t('hdr_peak') || 'Brightest pixel', peak == null ? '…' : (t('hdr_peak_value') || '{n}× SDR white').replace('{n}', String(peak >= 10 ? +peak.toFixed(1) : +peak.toPrecision(3)))],
         ...(assign ? assignFacts(t, assign, cmmInfo) : [[t('hdr_chromaticities') || 'Chromaticities',
-          p ? `R ${p.red.join(', ')} · G ${p.green.join(', ')} · B ${p.blue.join(', ')} · W ${p.white.join(', ')}${decoded.matrix ? '' : ' (Rec. 709)'}`
+          // No matrix means either "already Rec. 709" or "these primaries form no colour space";
+          // the second must not be labelled as the first.
+          p ? `R ${p.red.join(', ')} · G ${p.green.join(', ')} · B ${p.blue.join(', ')} · W ${p.white.join(', ')}${decoded.matrix ? ''
+              : isRec709Primaries(p) ? ' (Rec. 709)' : ` ${t('hdr_chroma_degenerate') || '(these primaries do not define a colour space — ignored, Rec. 709 used)'}`}`
             : (t('hdr_chroma_default') || 'not stated — Rec. 709 assumed')]]),
       ]} />}
       {hdrWhy && <p className={styles.note}>{reasonText(hdrWhy, t)}.</p>}
@@ -551,7 +612,7 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
 
       <div className={styles.controls}>
         {assign && (
-          <TargetControl t={t} stops={targetStops} setStops={setTargetStops} policy={policy} setPolicy={setPolicy}
+          <TargetControl t={t} stops={targetStops} setStops={setStopsByUser} policy={policy} setPolicy={setPolicy}
                          displayStops={dpk.stops} applying={applying} />
         )}
         {assign && decoded.isFloat && (
@@ -589,6 +650,8 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
         </label>
       </div>
 
+      {applyError && <p className={styles.error} data-hdr-apply-error="">{t('hdr_apply_failed') || 'Could not apply the profile:'} {applyError}</p>}
+      {drawError && <p className={styles.error} data-hdr-draw-error="">{t('hdr_draw_failed') || 'Could not draw the image:'} {drawError}</p>}
       <RefWhiteBar t={t} pref={refPref} />
       <HdrViewport t={t} contentW={decoded.w} contentH={decoded.h}
                    overlay={({ viewportRef, tick }) => <RefWhitePatch t={t} viewerRef={viewportRef} targetRef={canvasRef} pref={refPref} tick={tick} />}>
@@ -698,7 +761,10 @@ function assignFacts(t, assign, ci) {
 }
 
 function TargetControl({ t, stops, setStops, policy, setPolicy, displayStops, applying }) {
-  const fitActive = displayStops != null && Math.abs(stops - displayStops) < 0.005
+  // Fit targets the display's headroom, within the slider's range: a display reporting more
+  // than MAX_LIMIT_STOPS would otherwise set a value the slider cannot show.
+  const fitStops = displayStops != null ? clampStops(displayStops) : null
+  const fitActive = fitStops != null && Math.abs(stops - fitStops) < 0.005
   return (
     <>
       <div className={styles.range}>
@@ -708,7 +774,7 @@ function TargetControl({ t, stops, setStops, policy, setPolicy, displayStops, ap
         <span className={styles.sliderValue}>
           {(t('hdr_target_value') || '{r}× reference white ({n} stops)').replace('{r}', (2 ** stops).toFixed(2)).replace('{n}', stops.toFixed(2))}
         </span>
-        <FitButton t={t} onFit={displayStops != null ? () => setStops(displayStops) : null} active={fitActive} reason={fitOffPeak(t)} />
+        <FitButton t={t} onFit={fitStops != null ? () => setStops(fitStops) : null} active={fitActive} reason={fitOffPeak(t)} />
         {applying && <span className={styles.muted}>{t('hdr_applying') || 'Applying the profile…'}</span>}
       </div>
       <label className={styles.slider}>
