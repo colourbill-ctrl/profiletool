@@ -525,6 +525,15 @@ HDR section; it remains the one we may freely mutate.
      - **A label fix.** The authored-points graph's x axis said "log2" but the value is linear.
      - **Still to do:** confirm the WebGPU backend on real hardware, and decide how to display
        TIFF (Phase 4.3).
+     - **TODO (user request, 2026-09-13): resize and zoom the displayed HDR image.** Both routes
+       (the `<img>` and the HdrSurface canvas) should get zoom in/out, pan, reset-to-fit and a
+       resizable viewport. `components/viz/RasterCanvas.jsx` already does this for CLUT images
+       as a pure CSS transform on the element (native-size bitmap, zoom 25%–6400%, Ctrl/⌘+wheel
+       toward the cursor, drag to pan, corner grip persisted in `profiletool.rasterSize`).
+       Reuse that interaction rather than re-implementing it. Because it transforms the
+       element, not the pixels, it works for float16/WebGPU canvases and `<img>` alike, and
+       never re-renders the HDR buffer. The SDR white strip must stay outside the zoomed
+       viewport.
   4. **Gain-map awareness** — ISO 21496-1:2025 metadata (and Ultra HDR's MPF variant) shown
      next to the profile's own adaptive gain curve. HEIC being first makes test material
      free: any recent iPhone produces exactly this file.
