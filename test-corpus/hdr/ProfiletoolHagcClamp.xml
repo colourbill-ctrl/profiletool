@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  profiletool's HAGC CLAMP fixture — a conforming ICC.1 clause 8.10 HDR Profile whose
+  headroomAdaptiveGainCurveTag switches the Headroom Adaptive Tone Map flag ON but lists
+  ZERO alternate images.
+
+  Why this exists. Proposal 1.2.2.6 gives that combination a defined meaning: no tone
+  mapping is performed, and the baseline image is clamped to the target colour volume.
+  IccProfLib implements it — CIccHagcEvaluator::Init() accepts the tag, builds no curves,
+  and ClampsToTargetVolume() reports the case to the caller — and profiletool's Tags view
+  has a note for it. Nothing in either corpus reached that branch:
+
+    HagcHexData   also has zero alternates, but its flag is CLEAR, so the evaluator
+                  declines before the count is read (proposal 1.2.2.2: no tone-mapping
+                  metadata at all, clause 8.10.3 descriptor b).
+    every other   carries at least one alternate image.
+
+  So this is the flag-set twin of HagcHexData, authored in the structured form so the
+  intent is readable: HeadroomAdaptiveToneMap="true" with no <AlternateImage> children.
+
+  Otherwise the ProfiletoolHdrDisplay shell: RGB Display v4.50, BT.2020 primaries adapted
+  to D50, PQ via cicpTag, no TRC tags, identity AToB0/BToA0 pair. HDRReferenceWhite 203
+  agrees with CRWL; DERH 2.0 matches the 2-stop baseline.
+
+  Generated through the iccxml WASM path (xmlToIcc), not by hand.
+-->
+<IccProfile>
+  <Header>
+    <PreferredCMMType>ICCD</PreferredCMMType>
+    <ProfileVersion>4.50</ProfileVersion>
+    <ProfileDeviceClass>mntr</ProfileDeviceClass>
+    <DataColourSpace>RGB </DataColourSpace>
+    <PCS>XYZ </PCS>
+    <CreationDateTime>2026-09-14T00:00:00</CreationDateTime>
+    <ProfileFlags EmbeddedInFile="true" UseWithEmbeddedDataOnly="true"/>
+    <DeviceAttributes ReflectiveOrTransparency="reflective" GlossyOrMatte="glossy" MediaPolarity="positive" MediaColour="colour"/>
+    <RenderingIntent>Relative Colorimetric</RenderingIntent>
+    <PCSIlluminant>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </PCSIlluminant>
+    <ProfileCreator>ICCD</ProfileCreator>
+  </Header>
+  <Tags>
+    <!-- BT.2020 primaries, chromatically adapted to D50. -->
+    <redColorantTag> <XYZArrayType>
+      <XYZNumber X="0.636962890625" Y="0.262695312500" Z="0.000000000000"/>
+    </XYZArrayType> </redColorantTag>
+
+    <greenColorantTag> <XYZArrayType>
+      <XYZNumber X="0.144622802734" Y="0.677978515625" Z="0.028076171875"/>
+    </XYZArrayType> </greenColorantTag>
+
+    <blueColorantTag> <XYZArrayType>
+      <XYZNumber X="0.168869018555" Y="0.059326171875" Z="1.060989379883"/>
+    </XYZArrayType> </blueColorantTag>
+
+    <mediaWhitePointTag> <XYZArrayType>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </XYZArrayType> </mediaWhitePointTag>
+
+    <cicpTag> <cicpType>
+      <cicpFields ColorPrimaries="9" TransferCharacteristics="16" MatrixCoefficients="0" VideoFullRangeFlag="1"/>
+    </cicpType> </cicpTag>
+
+    <AToB0Tag> <lutAtoBType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutAtoBType> </AToB0Tag>
+
+    <BToA0Tag> <lutBtoAType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutBtoAType> </BToA0Tag>
+
+    <!-- The point of the fixture: the tone-map flag set, and no alternate images. -->
+    <headroomAdaptiveGainCurveTag> <headroomAdaptiveGainCurveType>
+      <HagcMetadata ApplicationVersion="1" MinApplicationVersion="1"
+                    HDRReferenceWhite="203.0000"
+                    BaselineHeadroom="2.0000" HeadroomAdaptiveToneMap="true"
+                    ChromaticitiesMode="1" CommonComponentMixing="false" CommonCurveParameters="false">
+      </HagcMetadata>
+    </headroomAdaptiveGainCurveType> </headroomAdaptiveGainCurveTag>
+
+    <metaDataTag> <dictType>
+      <DictEntry Name="CRWL" Value="203.0"/>
+      <DictEntry Name="DERH" Value="2.0"/>
+      <DictEntry Name="DRWL" Value="203.0"/>
+      <DictEntry Name="DCV" Value="812.0 0.005 1"/>
+    </dictType> </metaDataTag>
+
+    <profileDescriptionTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[profiletool HAGC clamp: tone-map flag set, no alternate images (BT.2020 PQ)]]></LocalizedText>
+    </multiLocalizedUnicodeType> </profileDescriptionTag>
+
+    <copyrightTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[Copyright (C) 2026 William Li. Generated fixture, no measured data.]]></LocalizedText>
+    </multiLocalizedUnicodeType> </copyrightTag>
+  </Tags>
+</IccProfile>

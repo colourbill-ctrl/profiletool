@@ -1,7 +1,7 @@
 # HDR test corpus
 
 **43 fixtures mirrored from iccDEV `Testing/HDR/` @ `ac264764` (branch `hdr-profiles`),
-plus 4 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
+plus 5 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
 from the previous refresh: their XML carries no creation date, so regenerating them changes
 only the header timestamp and profile ID.
 
@@ -294,6 +294,20 @@ grey outputs. It is the fixture the Tags view's preview strip, heatmap and curve
 around. Otherwise it is the `ProfiletoolHdrDisplay` shell: conforming, PQ, HDR reference white
 203 = CRWL, and DERH 3.0 = the baseline.
 
+**`ProfiletoolHagcClamp`** (added 2026-09-14) sets the Headroom Adaptive Tone Map flag and lists
+**zero** alternate images. Proposal 1.2.2.6 gives that a defined meaning: no tone mapping, with the
+baseline clamped to the target colour volume. No fixture reached that branch before.
+`HagcHexData` also has zero alternates, but its flag is *clear*, so IccProfLib declines it first
+(proposal 1.2.2.2: *"Headroom Adaptive Tone Map flag is not set"*). The two work as a pair.
+`scripts/check-hagc-clamp.mjs` pins the division of labour:
+- **Evaluator:** accepts the tag, reports `ClampsToTargetVolume`, builds no curves and applies no
+  gain. The grey output is the identity at every headroom.
+- **CMM:** does the clamp. Grey output is `min(input, target headroom)` relative to reference
+  white, with no gain curve engaged. The baked-table policy takes the AToB0 path instead.
+
+Otherwise the `ProfiletoolHdrDisplay` shell: baseline 2 stops, DERH 2.0, reference white
+203 = CRWL.
+
 `ProfiletoolHdrRefWhiteConflict` is described above. `ProfiletoolHdrDisplay` is the happy path: It is a conforming HDR Profile (RGB Display, version 4.50,
 cicp PQ, no TRC tags, A2B0/B2A0 pair) with `CRWL` set to agree with the HAGC tag's
 `HDRReferenceWhite` so H7 reports a genuine agreement. It scores **H1..H8 all OK**.
@@ -363,4 +377,5 @@ c93706a78c25c822bca2d66ee9c0952d875b380c8069afb73f9a4b3bb23e1dff  HdrVersion46.i
 b9933202e0ff4a95299d4a6f342e97851270e9506ccf72325e670d1c9f4dca7f  ProfiletoolHdrDisplay.icc
 53997216ad1db9415dbba5f4a65930526d0b6257fcaee28a56c4cbe45e3eaa81  ProfiletoolHdrRefWhiteConflict.icc
 a65a8eae39156279e53bb57b49a138a2aba016187181b29f4b30e940292b90e9  ProfiletoolHagcFamily.icc
+347c621b1cb28d2407c9750062f265ffe7b149b06475a2f5b4c55e5ebef1a049  ProfiletoolHagcClamp.icc
 ```

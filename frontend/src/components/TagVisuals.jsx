@@ -73,18 +73,21 @@ export default function TagVisuals({ tag, bytes, descriptors = [], chromaDesc, d
     )
   }
 
-  // headroomAdaptiveGainCurveTag — one polyline per alternate image, drawn
-  // through the authored control points. Present only when the WASM was built
-  // with the HDR modules; otherwise no descriptor is enumerated and this falls
-  // through to the plain dump, which is also what happens for a HAGC tag whose
-  // metadata did not decode.
+  // headroomAdaptiveGainCurveTag. The authored-points graph (one polyline per alternate
+  // image) exists only when the tag HAS alternates to draw — iccplot enumerates no descriptor
+  // otherwise. The evaluated view is shown for EVERY HAGC tag regardless, because the cases
+  // with nothing to plot are exactly the ones it explains: tone-map flag set with zero
+  // alternates (a clamp to the target volume, ProfiletoolHagcClamp) and a tag IccProfLib
+  // declines (flag clear, HagcHexData). Gating it on the descriptor hid both behind the dump.
   const hagc = descriptors.find((d) => d.kind === KIND.HagcGainCurve)
-  if (hagc) {
+  if (hagc || tag.id === 'HAGC') {
     return (
       <>
-        <Collapsible title={t('viz_hagc') || 'Gain curve'} defaultOpen>
-          <GraphView bytes={bytes} id={hagc.id} />
-        </Collapsible>
+        {hagc && (
+          <Collapsible title={t('viz_hagc') || 'Gain curve'} defaultOpen>
+            <GraphView bytes={bytes} id={hagc.id} />
+          </Collapsible>
+        )}
         {/* The same tag as a CMM applies it, at a chosen display headroom. Separate from the
             authored-points graph above on purpose: that one shows the file's data, this one
             IccProfLib's reconstruction of the curve from it. */}
