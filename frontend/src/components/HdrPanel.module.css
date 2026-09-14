@@ -50,7 +50,9 @@
 }
 .refPatch:active { cursor: grabbing; }
 .refPatch:focus-visible { outline: 2px solid var(--accent, #4a90e2); outline-offset: 2px; }
-.refSwatch { width: 44px; height: 44px; background: #fff; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6); }
+/* No frame, border or ring: any edge around the square would itself be compared against the
+   image and change how bright the white reads. */
+.refSwatch { width: 44px; height: 44px; background: #fff; }
 .refLabel { font-size: 0.64rem; color: #cfd6e0; background: rgba(0, 0, 0, 0.55); padding: 0 4px; border-radius: 2px; white-space: nowrap; }
 .noteStrong { margin: 0 0 8px; font-size: 0.8rem; line-height: 1.45; padding: 5px 8px; border-radius: 4px; background: #fff7e6; border: 1px solid #f0b429; }
 :global(body.dark) .noteStrong { background: rgba(240, 180, 41, 0.12); border-color: #b7891f; }
