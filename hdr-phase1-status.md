@@ -2,9 +2,17 @@
 
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
-**Date:** 2026-09-13. **Built against:** `hdr-profiles` @ **`80a162c2`**
-(`80a162c2f136a1e2bbbbb96e285b315e190c19b5`), the published head on `origin` and a fast-forward
-from `ac264764`. CI had not yet run on it; the last CI-green commit is `0b41d664`.
+**Date:** 2026-09-14. **Built against:** `hdr-profiles` @ **`649fc750`**
+(`649fc75067194a061cf5952cf0eb4c94482fee27`), the published head on `origin` and a fast-forward
+from `80a162c2`. CI had not yet run on it; the last CI-green commit is `0b41d664`.
+
+> **Re-pin 2026-09-14: `80a162c2` → `649fc750`**, 10 commits (iccDEV-hdr's code + security review
+> fixes). Full clean rebuild, because `CIccCmmSearch` gained members (ABI change): all six
+> iccDEV-linked modules change (`.wasm` and `.mjs`); `iccimage` is byte-identical. Behaviour that
+> reaches profiletool: HAGC XML/JSON fail closed and round-trip byte-exact; 8.10.1 membership
+> needs PCS XYZ; PQ/HLG input clamped to [0,1]; a target headroom exactly on a stored curve uses
+> that curve alone; PAWG section H states every clause 8.10 finding. Every Node check and browser
+> suite passed unchanged on the rebuild.
 
 > **Re-pin 2026-09-13: `ac264764` → `80a162c2`.** Three compiled files changed:
 > `IccHdrToneMap.{h,cpp}` (comments only — every changed line checked) and
