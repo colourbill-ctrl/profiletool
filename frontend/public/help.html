@@ -179,7 +179,7 @@ body.dark .diag {
 <p>You can load <code>.icc</code> / <code>.icm</code> profiles <em>and</em> images. Drop a <strong>TIFF, PNG, JPEG, HEIC or AVIF</strong> and the tool extracts its <strong>embedded ICC profile</strong> and adds that to the pool. It reads only the file's metadata, never the pixels. For HEIC and AVIF it walks the file's boxes, so this works in every browser, including ones that cannot display those formats. An <strong>OpenEXR</strong> or <strong>Radiance HDR</strong> (<code>.hdr</code>) file is refused with the reason: neither format has a slot for an ICC profile. OpenEXR states its colour through chromaticities, Radiance HDR through an optional <code>PRIMARIES</code> header line. To <em>view</em> an image, use the <a href="#4-7-hdr-tab">HDR tab</a>. A <strong>＋ New from .cube</strong> button builds a DeviceLink from a <code>.cube</code> LUT.</p>
 <p>A profile is accepted if its first 36 bytes contain the <code>acsp</code> signature and it parses through IccProfLib's <code>ValidateIccProfile</code>. Files that fail are listed in a rejection summary with the specific reason; their bytes are not retained.</p>
 <h3 id="the-profiles-pane">The Profiles pane</h3>
-<p>Loaded profiles are grouped into collapsible sections by <strong>profile class</strong> (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). ICC.1 clause 8.10 <strong>HDR Profiles</strong> get their own section at the top instead, split by transfer into <strong>Linear transfer</strong> and <strong>Non-linear transfer (PQ, HLG)</strong>, with the transfer shown as a badge on each row. The split matters in the <a href="#4-7-hdr-tab">HDR tab</a>, where only a Linear-transfer profile can be assigned to an OpenEXR image. Each row shows the filename and badges for class, colour space, version and size; a profile that could only be partially parsed is flagged. Use the <strong>A–Z</strong> button to cycle the sort (load order → ascending → descending), the <strong>×</strong> on a row to remove it, and the handle on the pane's right edge to resize it — or collapse the pane entirely.</p>
+<p>Loaded profiles are grouped into collapsible sections by <strong>profile class</strong> (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). ICC.1 clause 8.10 <strong>HDR Profiles</strong> get their own section at the top instead, split by transfer into <strong>Linear transfer</strong> and <strong>Non-linear transfer (PQ, HLG)</strong>, with the transfer shown as a badge on each row. The split matters in the <a href="#4-7-hdr-tab">HDR tab</a>, where only a Linear-transfer profile can be assigned to an OpenEXR or Radiance HDR image. Each row shows the filename and badges for class, colour space, version and size; a profile that could only be partially parsed is flagged. Use the <strong>A–Z</strong> button to cycle the sort (load order → ascending → descending), the <strong>×</strong> on a row to remove it, and the handle on the pane's right edge to resize it — or collapse the pane entirely.</p>
 <p>Click to select a row; Ctrl/Cmd-click to toggle and Shift-click to select a range. <strong>Drag rows out of the pool onto a tab</strong> to put them to work.</p>
 <div class="note">
 <strong>The pool is session-only.</strong> Nothing is uploaded and nothing is persisted — your filesystem stays the durable store. Reloading the page empties the pool.
@@ -260,7 +260,7 @@ body.dark .diag {
 <h3 id="number-format">Number format</h3>
 <p>Chooses how numeric values are displayed throughout the profile views — <strong>Hexadecimal</strong> or <strong>Decimal</strong>.</p>
 <h3 id="language">Language</h3>
-<p>Overrides the interface language. <strong>System default (…)</strong> detects the browser locale and uses the closest supported language, with the native name in the parenthetical so you can see which it picked. Translation covers the app chrome: the Profiles pane, tab labels, the Combine, Spectral and HDR tools, the settings panel including Environment and its reasons, and this guide's chrome. Some text is not translated:</p>
+<p>Overrides the interface language. <strong>System default (…)</strong> detects the browser locale and uses the closest supported language, with the native name in the parenthetical so you can see which it picked. Translation covers the app chrome: the Profiles pane, tab labels, the Combine, Spectral and HDR tools, the HDR gain-curve views in Tags, the settings panel including Environment and its reasons, and this guide's chrome. Some text is not translated:</p>
 <ul>
 <li>Strings produced by IccProfLib — tag descriptions, validation messages, header field names — come from the C++ library in English.</li>
 <li>The browser-flag name stays in English so it matches the browser's own flags page.</li>
@@ -279,9 +279,13 @@ body.dark .diag {
  
   - A web page cannot open or change browser flags. Click <strong>Copy</strong>, paste the address into the address bar, set the flag to <em>Enabled</em>, then relaunch the browser.
 <li><strong>Display facts</strong> — <strong>HDR display</strong>, <strong>Wide gamut</strong> (sRGB, Display P3 or Rec. 2020), <strong>Pixel ratio</strong>, and the <strong>HDR canvas path</strong> in use (<code>float16-canvas</code>, <code>webgpu</code> or none). These refresh on their own when you drag the window onto a screen where they differ. The switch happens once most of the window is on the new screen.</li>
-<li><strong>Identify displays</strong> (Chromium browsers) — asks permission to see which monitor the window is on. Once allowed, the panel refreshes even between monitors that look alike, names the <strong>Current monitor</strong>, and shows <strong>HDR headroom</strong> where the browser exposes it (Chrome with the flag above), for example <em>1.35 stops (≈2.55× SDR white)</em>. On Windows the headroom updates when the window moves to another screen or Chrome becomes the active app again, not while you change brightness. If you refuse the permission, change it in the site's settings.</li>
+<li><strong>Identify displays</strong> (Chromium browsers) — asks permission to see which monitor the window is on. Once allowed, the panel refreshes even between monitors that look alike, names the <strong>Current monitor</strong>, and shows <strong>HDR headroom</strong> where the browser exposes it (Chrome with the flag above), for example <em>1.35 stops (≈2.55× SDR white)</em>. If you refuse the permission, change it in the site's settings.</li>
+ 
+  - Headroom is the room above SDR white, so on a laptop's built-in HDR panel it <strong>falls as you raise the brightness</strong> (SDR white gets brighter while the panel's peak stays put) and rises as you lower it. For HDR viewing, lower the brightness.
+ 
+  - On Windows a new value arrives a few seconds after a brightness change, once the display driver reports it. It also refreshes when the window moves to another screen or Chrome becomes the active app again.
 <li><strong>Display events</strong> — a collapsible log of the last 20 refreshes and what triggered each one. It is useful when reporting a display problem.</li>
-<li><strong>Format table</strong> — one row per format (ICC profile, TIFF, PNG, JPEG, OpenEXR, AVIF, HEIC/HEIF, JPEG XL), with three questions:</li>
+<li><strong>Format table</strong> — one row per format (ICC profile, TIFF, PNG, JPEG, OpenEXR, Radiance HDR, AVIF, HEIC/HEIF, JPEG XL), with three questions:</li>
  
   - <strong>Inspect</strong>: can the embedded profile be read?
  
@@ -307,11 +311,11 @@ body.dark .diag {
 <tr><td><code>#</code></td><td>Position in the directory (1-based)</td></tr>
 <tr><td><code>Name</code></td><td>Long human-readable name (e.g. <code>profileDescriptionTag</code>)</td></tr>
 <tr><td><code>ID</code></td><td>4-character signature (e.g. <code>desc</code>)</td></tr>
-<tr><td><code>Type</code></td><td>Tag type signature (e.g. <code>descType</code>, <code>mft2</code>, <code>mAB</code>)</td></tr>
 <tr><td><code>Offset</code></td><td>Byte offset from the start of the file</td></tr>
 <tr><td><code>Size</code></td><td>Byte size of the tag data</td></tr>
 <tr><td><code>Pad</code></td><td>Padding bytes between this tag and the next</td></tr>
 </tbody></table>
+<p>The tag <strong>type</strong> signature (e.g. <code>descType</code>, <code>mft2</code>, <code>mAB</code>) is shown with the offset and size at the top of the expanded tag.</p>
 <p>Tags are sorted by offset. The <strong>Pad</strong> column is colour-coded — <code>Pad < 0</code> (overlapping tags, non-compliant) is shown in red; <code>Pad > 3</code> (above-spec padding) is shown in amber.</p>
 <p><strong>Click any row</strong> to expand it in place (an accordion — one tag open at a time). The expanded detail always ends with the full type-specific description — equivalent to running IccProfLib's <code>CIccTag::Describe(verbosity = 100)</code>. For tags that contain large CLUTs or curves (e.g. <code>A2B0</code>, <code>B2A0</code>), this includes every grid cell or curve point.</p>
 <p>Above that description, tags that carry visualizable data show one or more <strong>inline visualizations</strong>, each in a collapsible section:</p>
@@ -322,7 +326,7 @@ body.dark .diag {
 <tr><td>LUT transforms (<code>A2B0–3</code>, <code>B2A0–3</code>, <code>gamt</code>, <code>pre0–2</code>)</td><td>Input-side and output-side tone curves (overlaid, colour-coded per colorant, with a legend to toggle traces); the CLUT lattice as an image; the <strong>gamut image</strong> (for the profile's <code>gamutTag</code>, colour-coded — neutral = in gamut, red = out of gamut); the <strong>evaluator</strong> (below); and the raw data table, collapsed.</td></tr>
 <tr><td>Named / colorant tables (<code>ncl2</code>/<code>nmcl</code>/<code>clrt</code>/<code>clot</code>)</td><td>A scatter of the colours on the CIELAB a*b* (and CIE xy) charts; the tables are collapsed below.</td></tr>
 <tr><td>Coding-independent code points (<code>cicp</code>)</td><td><strong>Code points</strong>: colour primaries, transfer characteristics, matrix coefficients and the full-range flag, each named as ITU-T H.273 defines it. Values H.273 does not assign are flagged, as are non-zero reserved bytes.</td></tr>
-<tr><td>Adaptive gain curve (<code>headroomAdaptiveGainCurveTag</code>)</td><td><strong>Gain curve</strong> and <strong>Gain at a display headroom</strong>. See <em>HDR gain curves (HAGC)</em> below.</td></tr>
+<tr><td>Adaptive gain curve (<code>headroomAdaptiveGainCurveTag</code>)</td><td><strong>Gain at a display headroom</strong>, plus <strong>Gain curve</strong> when the tag stores alternate images. See <em>HDR gain curves (HAGC)</em> below.</td></tr>
 </tbody></table>
 <div class="note">
 <strong>Malformed data is never hidden.</strong> If a curve or other visualizable element fails IccProfLib's validation — for example a tone curve with a degenerate gamma of 0 — the section still renders what it can and shows a ⚠ warning with the exact reason from the library, rather than silently omitting the graph.
@@ -337,7 +341,7 @@ body.dark .diag {
 <h4>HDR gain curves (HAGC)</h4>
 <p>A <code>headroomAdaptiveGainCurveTag</code> says how an HDR Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:</p>
 <ul>
-<li><strong>Gain curve</strong> plots the control points exactly as stored in the file, one line per alternate image. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.</li>
+<li><strong>Gain curve</strong> plots the control points exactly as stored in the file, one line per alternate image. It is absent when the tag stores no alternate images. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.</li>
 <li><strong>Gain at a display headroom</strong> shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag <strong>Display headroom</strong> from 0 to 6 stops; it starts at the tag's baseline, and <strong>Baseline</strong> returns there. Two plots follow the slider:</li>
 <p>
   - <strong>Gain applied at this headroom</strong>: the blended curve, drawn against every curve in the tag;
@@ -354,7 +358,14 @@ body.dark .diag {
  
   - <strong>Grey tone curves by headroom</strong> overlays the tone curve at each headroom the tag stores, shaded from blue (low) to red (high), with the slider's curve in amber. Both axes are in stops, so the diagonal means no change.
 </p>
-<p>  A note appears when slopes or whole curves are derived rather than stored. Another appears when the headroom is outside the tag's range, in which case the nearest curve is used unchanged. If IccProfLib declines to apply the curve, the view says why.</p>
+<p>  A note appears when slopes or whole curves are derived rather than stored. Another appears when the headroom is outside the tag's range, in which case the nearest curve is used unchanged.</p>
+<p>
+  Two cases have no curves to draw, and the view still explains them:
+ 
+  - <strong>Tone mapping on, no alternate images.</strong> The tag asks for no tone mapping, only a clamp to what the display can show. The gain is zero at every headroom, and the preview strip shows the clamp.
+ 
+  - <strong>Tone mapping off</strong> (the tag's <em>Headroom Adaptive Tone Map</em> flag is clear), or a tag IccProfLib cannot apply. The view says why IccProfLib declines, and a colour engine falls back to the next tone-mapping method (clause 8.10.3).
+</p>
 <h3 id="3-3-validation">3.3 Validation</h3>
 <p>Runs the <strong>ICC Profile Assessment Working Group</strong> checklist against the loaded profile and shows it as a report. The checks come from the iccDEV <code>iccPawgReport</code> tool, compiled to a separate WebAssembly module that's fetched only when you first open this tab. (The same report drives the validity badge in the title bar, and is reachable from a URL launch as either <code>VAL</code> or the legacy <code>PAWG</code>.)</p>
 <p>Each check is grouped under <strong>Security</strong>, <strong>Conformance</strong>, or <strong>Quality</strong>, and carries one verdict. Profiles with HDR content get a fourth group, <strong>HDR</strong>. Its first check reports whether the profile is a conforming ICC.1 <strong>HDR Profile</strong> (clause 8.10), and the rest check the HDR metadata that clause relies on:</p>
@@ -526,9 +537,9 @@ body.dark .diag {
 <tr><th>File</th><th>Shown by</th><th>SDR ↔ HDR control</th></tr></thead><tbody>
 <tr><td><strong>AVIF</strong>, <strong>JPEG</strong> (including gain-map JPEG), <strong>PNG</strong> (including cICP-tagged), <strong>HEIC</strong> on Safari</td><td>the browser</td><td><strong>SDR</strong> / <strong>HDR</strong> buttons, plus a <strong>Dynamic range</strong> slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only.</td></tr>
 <tr><td><strong>OpenEXR</strong>, <strong>Radiance HDR</strong> (<code>.hdr</code>, RGBE)</td><td>profiletool</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
-<tr><td><strong>TIFF</strong></td><td>not shown yet</td><td>—</td></tr>
+<tr><td><strong>TIFF</strong></td><td>profiletool, once a profile is assigned (a TIFF's own embedded profile is assigned automatically); a TIFF with no profile shows a note</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
 </tbody></table>
-<p>The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the <strong>brightest pixel</strong> as a multiple of SDR white (OpenEXR, Radiance HDR), its chromaticities, any <strong>gain map</strong>, and any <strong>embedded ICC profile</strong>. <strong>Open in Profile tab</strong> loads that profile for inspection.</p>
+<p>The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the <strong>brightest pixel</strong> as a multiple of SDR white (whenever profiletool renders the pixels), its chromaticities, any <strong>gain map</strong>, and any <strong>embedded ICC profile</strong>. <strong>Open in Profile tab</strong> loads that profile for inspection.</p>
 <p><strong>Radiance HDR.</strong> profiletool reads run-length-encoded and flat RGBE files in any orientation. A <code>PRIMARIES</code> header line sets the chromaticities; without one (or with Photoshop's all-zero line) Rec. 709 is assumed, as for OpenEXR. The stored values are shown as they are: an <code>EXPOSURE</code> line is not undone. XYZE files are refused, and so is any image over 40 megapixels.</p>
 <p>
 <strong>Outputs for OpenEXR and Radiance HDR.</strong> profiletool renders the pixels itself, through the first of these that works:
@@ -676,8 +687,7 @@ https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRG
 <li>A <strong>?</strong> button below ⚙ opens this guide in its slide-in pane.</li>
 <li>A <strong>✉</strong> button opens the contact form in a new browser tab.</li>
 <li>Tapping the dimmed backdrop closes the open drawer.</li>
-<li>The tag table reflows from a wide grid into stacked cards so every column stays readable without horizontal scrolling.</li>
-<li>The tag detail modal goes full-screen.</li>
+<li>The tag table reflows from a wide grid into stacked cards so every column stays readable without horizontal scrolling; a tag still expands in place.</li>
 </ul>
 <p>All features are available; the layout adapts to the smaller screen.</p>
 <hr>
@@ -688,6 +698,7 @@ https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRG
 <tr><td><strong>256 MB</strong></td><td>postMessage / file load</td><td>Refuses to load anything larger; prevents heap exhaustion from a hostile opener</td></tr>
 <tr><td><strong>32 MB</strong></td><td>XML and JSON converters</td><td>Both the JS guard (<code>MAX_XML_BYTES</code> / <code>MAX_JSON_BYTES</code>) and the C++ wrappers (<code>kMaxXmlBytes</code> / <code>kMaxJsonBytes</code>) enforce this; the C++ side is independently authoritative</td></tr>
 <tr><td><strong>XML entity-bomb guard</strong></td><td>XML converter</td><td>Any XML containing <code><!DOCTYPE</code> or <code><!ENTITY</code>, or a NUL byte, is rejected before libxml2 sees it. libxml2's own entity-expansion limits are also active, so this is a second layer of defence against billion-laughs input</td></tr>
+<tr><td><strong>40 megapixels</strong></td><td>Radiance HDR decode (HDR tab)</td><td>Checked from the header before any pixel memory is allocated</td></tr>
 <tr><td><strong>Origin allowlist</strong></td><td>postMessage launch</td><td>Only same-origin and chardata's dev-host origins can send <code>profiletool:load</code> bytes</td></tr>
 <tr><td><strong>HTTPS + CORS</strong></td><td><code>#url=</code> launch</td><td>A URL-launch profile must be served over HTTPS from a host that permits cross-origin reads; the fetched bytes feed only the validator and are never re-sent</td></tr>
 </tbody></table>
