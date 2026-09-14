@@ -560,6 +560,8 @@ https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRG
 </tbody></table>
 <p>The <code>#url=</code> launch (added in 1.1.5) is the one case where the tool makes an off-origin request after page load: it widens the Content-Security-Policy <code>connect-src</code> to <code>https:</code> so the named profile can be fetched. Script loading is <strong>not</strong> widened — only data fetches.</p>
 <p>If you need to inspect a profile that exceeds these limits, build iccDEV from source and use the native CLI tools — those have no JS-side caps.</p>
+<h3 id="licence">Licence</h3>
+<p>profiletool is released under the MIT License. The app also includes third-party components under their own licences: iccDEV's IccProfLib (International Color Consortium), LibTIFF, libpng, zlib, libxml2, JSON for Modern C++, the Emscripten runtime, and JavaScript packages including React, Plotly and CodeMirror. This software is based in part on the work of the Independent JPEG Group. The full notices are in <a href="THIRD-PARTY-NOTICES.txt">THIRD-PARTY-NOTICES.txt</a>.</p>
 <h3 id="icc-2-iccmax-coverage">ICC.2 (iccMAX) coverage</h3>
 <p>Both <strong>ICC.1</strong> and <strong>ICC.2</strong> profiles are supported, but ICC.2 coverage is <strong>incomplete in 2.0.0</strong>. Loading, the header and tag views, validation, the XML/JSON round-trip and the transform engines all understand ICC.2; the known gaps are multi-part <strong>ICS</strong> interchange workflows, choosing a V5 <strong>sub-profile</strong> when applying a transform, and inverse search on some ICC.2 profiles. A profile using an unsupported ICC.2 construct is reported by the Validation tab rather than silently mis-read.</p>
 

@@ -461,6 +461,10 @@ The `#url=` launch (added in 1.1.5) is the one case where the tool makes an off-
 
 If you need to inspect a profile that exceeds these limits, build iccDEV from source and use the native CLI tools — those have no JS-side caps.
 
+### Licence
+
+profiletool is released under the MIT License. The app also includes third-party components under their own licences: iccDEV's IccProfLib (International Color Consortium), LibTIFF, libpng, zlib, libxml2, JSON for Modern C++, the Emscripten runtime, and JavaScript packages including React, Plotly and CodeMirror. This software is based in part on the work of the Independent JPEG Group. The full notices are in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).
+
 ### ICC.2 (iccMAX) coverage
 
 Both **ICC.1** and **ICC.2** profiles are supported, but ICC.2 coverage is **incomplete in 2.0.0**. Loading, the header and tag views, validation, the XML/JSON round-trip and the transform engines all understand ICC.2; the known gaps are multi-part **ICS** interchange workflows, choosing a V5 **sub-profile** when applying a transform, and inverse search on some ICC.2 profiles. A profile using an unsupported ICC.2 construct is reported by the Validation tab rather than silently mis-read.
