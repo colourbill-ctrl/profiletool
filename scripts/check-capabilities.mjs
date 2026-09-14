@@ -32,6 +32,7 @@ const CASES = [
   // name, env, expectations: [format, inspect, display, hdr]
   ['Chrome / Windows (HDR)', env({ browser: 'Chrome', os: 'Windows', decode: { heic: false, avif: true, jxl: false } }), [
     ['icc', true, true, true], ['exr', true, true, true], ['avif', true, true, true],
+    ['hdr', true, true, true],      // Radiance HDR: decoded by profiletool, like OpenEXR
     ['heic', true, false, false],   // the headline cost of DL-HDRENV1
     ['jxl', true, false, false], ['jpeg', true, true, true],
   ]],
@@ -51,7 +52,7 @@ const CASES = [
   ['Firefox / Windows (HDR screen)', env({ browser: 'Firefox', os: 'Windows',
     decode: { heic: false, avif: true, jxl: false } }), [
     ['avif', true, true, false],    // decodes, but Firefox renders no HDR images
-    ['heic', true, false, false], ['exr', true, true, false],
+    ['heic', true, false, false], ['exr', true, true, false], ['hdr', true, true, false],
     ['icc', true, true, false],
   ]],
   ['Chrome / Windows, SDR screen', env({ browser: 'Chrome', os: 'Windows',
@@ -122,6 +123,8 @@ const CLASSIFY = [
   ['PNG',           new Uint8Array([0x89,0x50,0x4e,0x47]),            FileKind.IMAGE, ImageFormat.PNG],
   ['JPEG',          new Uint8Array([0xff,0xd8,0xff,0xe0]),            FileKind.IMAGE, ImageFormat.JPEG],
   ['EXR',           new Uint8Array([0x76,0x2f,0x31,0x01]),            FileKind.IMAGE, ImageFormat.EXR],
+  ['Radiance HDR',  new TextEncoder().encode('#?RADIANCE\n'),         FileKind.IMAGE, ImageFormat.HDR],
+  ['Radiance RGBE', new TextEncoder().encode('#?RGBE\n'),             FileKind.IMAGE, ImageFormat.HDR],
   ['HEIC (heic)',   ftyp('heic'),                                     FileKind.IMAGE, ImageFormat.HEIC],
   ['HEIC (mif1)',   ftyp('mif1'),                                     FileKind.IMAGE, ImageFormat.HEIC],
   ['AVIF (avif)',   ftyp('avif'),                                     FileKind.IMAGE, ImageFormat.AVIF],

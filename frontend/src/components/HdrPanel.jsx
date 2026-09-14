@@ -6,6 +6,7 @@ import { getEnvironment } from '../lib/environment.js'
 import { readDisplay } from '../lib/displayWatcher.js'
 import { capabilityFor, hdrPathway, FORMATS, reasonText } from '../lib/capabilities.js'
 import { decodeImage, findEmbeddedProfileFromFile, gainMapInfo } from '../lib/imageCodec.js'
+import { decodeRadiance } from '../lib/radianceHdr.js'
 import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay, samplesToUnitFloat } from '../lib/hdrPixels.js'
 import { useLiveDisplay } from './useLiveDisplay.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
@@ -20,7 +21,8 @@ import styles from './HdrPanel.module.css'
  *             HEIC on Safari). Shown by an <img>; the SDR↔HDR control is CSS
  *             `dynamic-range-limit`, and a blend where `dynamic-range-limit-mix()` exists.
  *             No pixel is read back from this route, ever.
- *   'pixels'  A file profiletool decodes itself — OpenEXR, which no browser decodes. Rendered
+ *   'pixels'  A file profiletool decodes itself — OpenEXR and Radiance HDR, which no browser
+ *             decodes. Rendered
  *             through HdrSurface (float16 canvas → WebGPU → SDR fallback) with one range
  *             operator for the same control, plus exposure.
  *
@@ -29,7 +31,10 @@ import styles from './HdrPanel.module.css'
  * works where display does not (DL-HDRENV1).
  */
 // Formats that can be decoded by profiletool and so can have a profile assigned to their pixels.
-const ASSIGNABLE = new Set(['tiff', 'png', 'jpeg', 'exr'])
+const ASSIGNABLE = new Set(['tiff', 'png', 'jpeg', 'exr', 'hdr'])
+// Formats whose samples are linear light rather than code values: no ICC profile slot, the
+// 'pixels' route, and only Linear-transfer HDR Profiles may interpret them.
+const LINEAR_LIGHT = new Set(['exr', 'hdr'])
 
 export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   const t = useT()
@@ -67,7 +72,7 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
       if (!live()) return
       setInfo({ kind, format, env, ...routeFor(kind, format, env) })
 
-      if (kind === FileKind.IMAGE && format !== 'exr') {
+      if (kind === FileKind.IMAGE && !LINEAR_LIGHT.has(format)) {
         findEmbeddedProfileFromFile(f)
           .then((p) => {
             if (!live()) return
@@ -112,18 +117,18 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   return (
     <div className={`${styles.wrap} ${over ? styles.over : ''}`} {...dropProps}>
       <p className={styles.intro}>
-        {t('hdr_intro') || 'View one HDR image on this display. Files the browser can decode are shown by the browser itself; OpenEXR is decoded and rendered by profiletool.'}
+        {t('hdr_intro') || 'View one HDR image on this display. Files the browser can decode are shown by the browser itself; OpenEXR and Radiance HDR are decoded and rendered by profiletool.'}
       </p>
 
       <input ref={inputRef} type="file" hidden
-             accept=".exr,.avif,.heic,.heif,.jpg,.jpeg,.png,.tif,.tiff,image/*"
+             accept=".exr,.hdr,.pic,.rgbe,.avif,.heic,.heif,.jpg,.jpeg,.png,.tif,.tiff,image/*"
              onChange={(e) => { load(e.target.files?.[0]); e.target.value = '' }} />
 
       {!file ? (
         <div className={styles.drop} onClick={() => inputRef.current?.click()} role="button" tabIndex={0}
              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}>
           <div className={styles.dropTitle}>{t('hdr_drop') || 'Drop an HDR image here, or click to choose one'}</div>
-          <div className={styles.dropFormats}>{t('hdr_formats') || 'OpenEXR, AVIF, JPEG (including gain-map JPEG), PNG — and HEIC on Safari.'}</div>
+          <div className={styles.dropFormats}>{t('hdr_formats') || 'OpenEXR, Radiance HDR (.hdr), AVIF, JPEG (including gain-map JPEG), PNG — and HEIC on Safari.'}</div>
         </div>
       ) : (
         <div className={styles.fileBar}>
@@ -141,7 +146,7 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
           <ProfileRow t={t} info={info} profile={profile} onOpen={() => onOpenInProfile?.(file)} />
           {info.kind === FileKind.IMAGE && ASSIGNABLE.has(info.format) && (
             <AssignRow t={t} value={assign ? assignSel : 'none'} onChange={setAssignSel} profile={profile} hdrProfiles={hdrProfiles}
-                       linearOnly={info.format === 'exr'} />
+                       linearOnly={LINEAR_LIGHT.has(info.format)} formatLabel={FORMATS[info.format]?.label || info.format} />
           )}
           {gain?.present && <GainRow t={t} gain={gain} />}
           <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} live={live} assign={assign} />
@@ -157,8 +162,8 @@ function routeFor(kind, format, env) {
   if (kind !== FileKind.IMAGE) {
     return { route: ACCEPTED_KINDS.has(kind) ? 'notImage' : 'unknown' }
   }
-  if (format === 'exr') {
-    const cap = capabilityFor('exr', env)
+  if (LINEAR_LIGHT.has(format)) {
+    const cap = capabilityFor(format, env)
     return { route: 'pixels', hdrWhy: cap.hdr.ok ? null : cap.hdr }
   }
   // TIFF: no browser decodes it (bar Safari), and how HDR is carried in a 16-bit TIFF is
@@ -173,6 +178,7 @@ function routeFor(kind, format, env) {
 function ProfileRow({ t, info, profile, onOpen }) {
   let value
   if (info.format === 'exr') value = t('hdr_profile_exr') || 'none — OpenEXR states colour through chromaticities'
+  else if (info.format === 'hdr') value = t('hdr_profile_hdr') || 'none — Radiance HDR states colour through its PRIMARIES header'
   else if (info.kind !== FileKind.IMAGE) value = '—'
   else if (!profile) value = t('hdr_checking') || 'checking…'
   else if (profile.none) value = t('hdr_profile_none') || 'none'
@@ -333,14 +339,16 @@ function PixelRoute({ t, file, info, env, live, assign }) {
   const [cmmInfo, setCmmInfo] = useState(null)
   const [applying, setApplying] = useState(false)
 
-  // Decode once per file. EXR decode is synchronous in WASM; a very large file blocks the
-  // tab for the duration, which is acceptable for a one-image viewer.
+  // Decode once per file. EXR (WASM) and Radiance HDR (JS) decode synchronously; a very
+  // large file blocks the tab for the duration, which is acceptable for a one-image viewer.
+  const isRadiance = info.format === 'hdr'
   useEffect(() => {
     let dead = false
     ;(async () => {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer())
-        const d = await decodeImage(bytes)
+        // Same result shape either way: 3-channel float samples plus optional chromaticities.
+        const d = isRadiance ? decodeRadiance(bytes) : await decodeImage(bytes)
         if (assign) {
           // The profile interprets the raw values: decode to [0,1] device RGB and let the
           // transform effect below produce display-linear pixels.
@@ -364,7 +372,7 @@ function PixelRoute({ t, file, info, env, live, assign }) {
       }
     })()
     return () => { dead = true }
-  }, [file, env, assign, t])
+  }, [file, env, assign, t, isRadiance])
 
   // Assigned profile: run the pixels through the CMM whenever the target or policy changes.
   // Debounced, and stale results are dropped, so dragging the slider does not queue passes.
@@ -380,9 +388,11 @@ function PixelRoute({ t, file, info, env, live, assign }) {
           targetHeadroom: 2 ** targetStops, policy,
         })
         if (dead) return
-        // OpenEXR samples are linear light; a PQ/HLG profile would decode them as code values.
+        // Float samples (OpenEXR, Radiance HDR) are linear light; a PQ/HLG profile would
+        // decode them as code values.
         if (decoded.isFloat && ci.transfer !== 8) {
-          setError(t('hdr_assign_exr_linear') || 'OpenEXR holds linear light, so it needs a profile whose transfer is Linear (8).')
+          setError((t('hdr_assign_exr_linear') || '{format} holds linear light, so it needs a profile whose transfer is Linear (8).')
+            .replace('{format}', FORMATS[info.format]?.label || 'OpenEXR'))
           return
         }
         setCmmInfo(ci)
@@ -538,9 +548,9 @@ function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive }) 
 }
 
 // ── assigned profile ─────────────────────────────────────────────────────────
-function AssignRow({ t, value, onChange, profile, hdrProfiles, linearOnly }) {
+function AssignRow({ t, value, onChange, profile, hdrProfiles, linearOnly, formatLabel }) {
   // Pooled HDR Profiles, split by transfer exactly as the Profiles pane groups them.
-  // OpenEXR stores linear light, so it is offered only the Linear group; the note says why
+  // OpenEXR and Radiance HDR store linear light, so they are offered only the Linear group; the note says why
   // the rest are missing and where they are, instead of leaving a silently shorter list.
   const linear = hdrProfiles.filter((p) => p.transfer === 'Linear')
   const nonLinear = hdrProfiles.filter((p) => p.transfer !== 'Linear')
@@ -568,7 +578,7 @@ function AssignRow({ t, value, onChange, profile, hdrProfiles, linearOnly }) {
       </div>
       {linearOnly && (
         <p className={styles.note} data-assign-note="exr">
-          {t('hdr_assign_exr_only') || 'OpenEXR holds linear light, so only HDR Profiles with a Linear transfer can be assigned.'}{' '}
+          {(t('hdr_assign_exr_only') || '{format} holds linear light, so only HDR Profiles with a Linear transfer can be assigned.').replace('{format}', formatLabel)}{' '}
           {nonLinear.length > 0
             ? (t('hdr_assign_exr_hidden') || '{n} PQ/HLG HDR Profile(s) in the pool are not offered — the Profiles pane lists them under HDR Profiles › Non-linear transfer.').replace('{n}', String(nonLinear.length))
             : linear.length === 0

@@ -26,6 +26,7 @@ export const FORMATS = {
   png:  { label: 'PNG',         decoder: 'ours' },
   jpeg: { label: 'JPEG',        decoder: 'ours' },
   exr:  { label: 'OpenEXR',     decoder: 'ours' },
+  hdr:  { label: 'Radiance HDR', decoder: 'ours' },   // RGBE, decoded in JS (radianceHdr.js)
   avif: { label: 'AVIF',        decoder: 'browser' },
   heic: { label: 'HEIC/HEIF',   decoder: 'browser' },
   jxl:  { label: 'JPEG XL',     decoder: 'browser' },

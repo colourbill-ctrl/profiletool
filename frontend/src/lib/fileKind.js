@@ -32,14 +32,19 @@ function isIcc(bytes) {
 //
 //   tiff/png/jpeg  decoded by our own WASM — browser-independent
 //   exr            likewise (tinyexr), and carries no ICC profile at all
+//   hdr            Radiance RGBE, decoded in JS (lib/radianceHdr.js); no ICC profile either
 //   heic/avif      ICC profile extracted by walking ISOBMFF boxes with NO codec, so
 //                  inspection works everywhere; DISPLAY needs the browser's decoder,
 //                  which for HEIC means Safari only
 //
 // Content sniffing only; the filename is never authoritative.
 export const ImageFormat = {
-  TIFF: 'tiff', PNG: 'png', JPEG: 'jpeg', EXR: 'exr', HEIC: 'heic', AVIF: 'avif',
+  TIFF: 'tiff', PNG: 'png', JPEG: 'jpeg', EXR: 'exr', HDR: 'hdr', HEIC: 'heic', AVIF: 'avif',
 }
+
+// "#?RADIANCE" (Radiance itself) or "#?RGBE" (HDRShop and others) at the very start.
+const RADIANCE_MAGICS = ['#?RADIANCE', '#?RGBE'].map((s) => Array.from(s, (ch) => ch.charCodeAt(0)))
+const startsWith = (bytes, magic) => bytes.length >= magic.length && magic.every((v, i) => bytes[i] === v)
 
 function imageFormat(bytes) {
   if (bytes.length < 4) return null
@@ -50,6 +55,7 @@ function imageFormat(bytes) {
   if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) return ImageFormat.JPEG
   // OpenEXR: 0x76 0x2f 0x31 0x01, little-endian.
   if (b0 === 0x76 && b1 === 0x2f && b2 === 0x31 && b3 === 0x01) return ImageFormat.EXR
+  if (RADIANCE_MAGICS.some((m) => startsWith(bytes, m))) return ImageFormat.HDR
   // ISOBMFF: the first box is 'ftyp', so bytes 4..7 are its type. The BRAND that follows
   // separates HEIC from AVIF — but only for naming and for which decoder we would ask
   // for; the ICC extraction is identical for both, because `colr` is defined for the
@@ -88,6 +94,10 @@ export function rejectReason(kind, format) {
     // file rather than a property of the format.
     if (format === ImageFormat.EXR) {
       return 'OpenEXR carries no ICC profile — it states colour through chromaticities'
+    }
+    // Radiance HDR likewise: its only colour statement is an optional PRIMARIES header line.
+    if (format === ImageFormat.HDR) {
+      return 'Radiance HDR carries no ICC profile — it states colour through its PRIMARIES header'
     }
     return 'image has no embedded ICC profile'
   }

@@ -69,7 +69,7 @@ Load files in either of two ways:
 - Click **Load Profiles** at the top of the Profiles pane and pick one or more files, or
 - **Drag and drop** files onto the Profiles pane.
 
-You can load `.icc` / `.icm` profiles *and* images. Drop a **TIFF, PNG, JPEG, HEIC or AVIF** and the tool extracts its **embedded ICC profile** and adds that to the pool. It reads only the file's metadata, never the pixels. For HEIC and AVIF it walks the file's boxes, so this works in every browser, including ones that cannot display those formats. An **OpenEXR** file is refused with the reason: the format has no slot for an ICC profile and states its colour through chromaticities instead. To *view* an image, use the [HDR tab](#4-7-hdr-tab). A **＋ New from .cube** button builds a DeviceLink from a `.cube` LUT.
+You can load `.icc` / `.icm` profiles *and* images. Drop a **TIFF, PNG, JPEG, HEIC or AVIF** and the tool extracts its **embedded ICC profile** and adds that to the pool. It reads only the file's metadata, never the pixels. For HEIC and AVIF it walks the file's boxes, so this works in every browser, including ones that cannot display those formats. An **OpenEXR** or **Radiance HDR** (`.hdr`) file is refused with the reason: neither format has a slot for an ICC profile. OpenEXR states its colour through chromaticities, Radiance HDR through an optional `PRIMARIES` header line. To *view* an image, use the [HDR tab](#4-7-hdr-tab). A **＋ New from .cube** button builds a DeviceLink from a `.cube` LUT.
 
 A profile is accepted if its first 36 bytes contain the `acsp` signature and it parses through IccProfLib's `ValidateIccProfile`. Files that fail are listed in a rejection summary with the specific reason; their bytes are not retained.
 
@@ -401,12 +401,14 @@ Drop **one** image on the **HDR** tab, or click the drop area to choose one. A n
 | File | Shown by | SDR ↔ HDR control |
 |---|---|---|
 | **AVIF**, **JPEG** (including gain-map JPEG), **PNG** (including cICP-tagged), **HEIC** on Safari | the browser | **SDR** / **HDR** buttons, plus a **Dynamic range** slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only. |
-| **OpenEXR** | profiletool | the same buttons and slider, plus **Exposure** |
+| **OpenEXR**, **Radiance HDR** (`.hdr`, RGBE) | profiletool | the same buttons and slider, plus **Exposure** |
 | **TIFF** | not shown yet | — |
 
-The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the **brightest pixel** as a multiple of SDR white (OpenEXR), its chromaticities, any **gain map**, and any **embedded ICC profile**. **Open in Profile tab** loads that profile for inspection.
+The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the **brightest pixel** as a multiple of SDR white (OpenEXR, Radiance HDR), its chromaticities, any **gain map**, and any **embedded ICC profile**. **Open in Profile tab** loads that profile for inspection.
 
-**Outputs for OpenEXR.** profiletool renders the pixels itself, through the first of these that works:
+**Radiance HDR.** profiletool reads run-length-encoded and flat RGBE files in any orientation. A `PRIMARIES` header line sets the chromaticities; without one (or with Photoshop's all-zero line) Rec. 709 is assumed, as for OpenEXR. The stored values are shown as they are: an `EXPOSURE` line is not undone. XYZE files are refused, and so is any image over 40 megapixels.
+
+**Outputs for OpenEXR and Radiance HDR.** profiletool renders the pixels itself, through the first of these that works:
 1. **HDR canvas (float16)**: needs `chrome://flags/#enable-experimental-web-platform-features` (see [Environment](#environment)).
 2. **WebGPU (extended range)**: needs no flag, but needs a working GPU adapter.
 3. **SDR canvas (tone-mapped)**: always available. It cannot show brighter-than-white, so the slider is hidden.
@@ -415,11 +417,11 @@ On the slider, 0% is the SDR rendering and 100% is no limit. Values in between c
 
 **Matching the display.** The panel tracks the monitor the window is on: drag it to another screen and the facts and notes update.
 - **Display peak** says how bright this display can go, as a multiple of SDR white. It comes from the headroom the browser reports; see [Environment](#environment), where **Identify displays** grants the permission (the button also appears here). An SDR display reads *1× — SDR display*. When the browser does not report a peak, the panel says so rather than guessing.
-- When an OpenEXR image asks for more than the display shows, a note says so — for example *asks for 4.93×, this display shows up to 2.23×*. Values above the display's peak then **clip** to flat white, which is why the SDR and HDR ends can look alike even on an HDR monitor.
+- When an OpenEXR or Radiance HDR image asks for more than the display shows, a note says so — for example *asks for 4.93×, this display shows up to 2.23×*. Values above the display's peak then **clip** to flat white, which is why the SDR and HDR ends can look alike even on an HDR monitor.
 - **Fit to display** sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.
 - An **SDR white patch** — plain white — sits against the image's right edge, for comparison by eye. **Drag** it anywhere over the viewer (or focus it and use the arrow keys; Shift for bigger steps), and **double-click** it to put it back beside the image. The **SDR white patch** button above the image turns it on and off. Its position and on/off state are remembered. On an HDR display with real HDR output, highlights look brighter than the patch; at the SDR end the brightest pixels sit just below it, because the SDR rendering eases highlights in under white. If highlights never look brighter, the output is being clamped.
 
-**Assigning an HDR profile.** For TIFF, PNG, JPEG and OpenEXR, **Assign profile** chooses a profile to interpret the image's pixel values:
+**Assigning an HDR profile.** For TIFF, PNG, JPEG, OpenEXR and Radiance HDR, **Assign profile** chooses a profile to interpret the image's pixel values:
 - the image's **embedded profile**;
 - any **HDR Profile in the pool** (load one in the Profiles pane first);
 - **None**, to go back to what the file itself signals.
@@ -430,7 +432,7 @@ With a profile assigned, profiletool decodes the image itself and runs it throug
 - **Target headroom** (0 to 6 stops) is the display the image is being prepared for. The profile's gain curve is evaluated there, the same curve **Gain at a display headroom** plots in the Tags tab. **Fit to display** sets it to this display's peak.
 - **Tone mapping** chooses the method: **Auto** (the clause 8.10.3 ranking), **Gain curve** only, the profile's **Baked SDR fallback** (`AToB0Tag`), or **Off**, which behaves like a colour engine that predates the amendment.
 - The panel reports what the colour engine actually did: which **path** (HDR with the gain curve applied, HDR without a curve, or the baked table), the **transfer**, and the **HDR reference white**. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the **Dynamic range** limit is what keeps its highlights within the display.
-- Pooled HDR Profiles appear in two groups, **Linear transfer** and **PQ / HLG transfer**, matching the Profiles pane. OpenEXR stores linear light, so for an OpenEXR image only the **Linear transfer** group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.
+- Pooled HDR Profiles appear in two groups, **Linear transfer** and **PQ / HLG transfer**, matching the Profiles pane. OpenEXR and Radiance HDR store linear light, so for those images only the **Linear transfer** group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.
 
 <div class="note">
 <strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
