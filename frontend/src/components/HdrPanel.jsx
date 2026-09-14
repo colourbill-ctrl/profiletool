@@ -140,7 +140,8 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
         <>
           <ProfileRow t={t} info={info} profile={profile} onOpen={() => onOpenInProfile?.(file)} />
           {info.kind === FileKind.IMAGE && ASSIGNABLE.has(info.format) && (
-            <AssignRow t={t} value={assign ? assignSel : 'none'} onChange={setAssignSel} profile={profile} hdrProfiles={hdrProfiles} />
+            <AssignRow t={t} value={assign ? assignSel : 'none'} onChange={setAssignSel} profile={profile} hdrProfiles={hdrProfiles}
+                       linearOnly={info.format === 'exr'} />
           )}
           {gain?.present && <GainRow t={t} gain={gain} />}
           <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} live={live} assign={assign} />
@@ -537,23 +538,45 @@ function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive }) 
 }
 
 // ── assigned profile ─────────────────────────────────────────────────────────
-function AssignRow({ t, value, onChange, profile, hdrProfiles }) {
+function AssignRow({ t, value, onChange, profile, hdrProfiles, linearOnly }) {
+  // Pooled HDR Profiles, split by transfer exactly as the Profiles pane groups them.
+  // OpenEXR stores linear light, so it is offered only the Linear group; the note says why
+  // the rest are missing and where they are, instead of leaving a silently shorter list.
+  const linear = hdrProfiles.filter((p) => p.transfer === 'Linear')
+  const nonLinear = hdrProfiles.filter((p) => p.transfer !== 'Linear')
   return (
-    <div className={styles.fact}>
-      <span className={styles.factLabel}>{t('hdr_assign') || 'Assign profile'}</span>
-      <select className={styles.select} value={value} onChange={(e) => onChange(e.target.value)}
-              aria-label={t('hdr_assign') || 'Assign profile'}>
-        <option value="none">{t('hdr_assign_none') || 'None — use what the file signals'}</option>
-        {profile?.size > 0 && (
-          <option value="embedded">{(t('hdr_assign_embedded') || 'Embedded profile ({n} B)').replace('{n}', profile.size.toLocaleString())}</option>
-        )}
-        {hdrProfiles.length > 0 && (
-          <optgroup label={t('hdr_assign_pool') || 'HDR Profiles in the pool'}>
-            {hdrProfiles.map((p) => <option key={p.id} value={p.id}>{p.filename}</option>)}
-          </optgroup>
-        )}
-      </select>
-    </div>
+    <>
+      <div className={styles.fact}>
+        <span className={styles.factLabel}>{t('hdr_assign') || 'Assign profile'}</span>
+        <select className={styles.select} value={value} onChange={(e) => onChange(e.target.value)}
+                aria-label={t('hdr_assign') || 'Assign profile'}>
+          <option value="none">{t('hdr_assign_none') || 'None — use what the file signals'}</option>
+          {profile?.size > 0 && (
+            <option value="embedded">{(t('hdr_assign_embedded') || 'Embedded profile ({n} B)').replace('{n}', profile.size.toLocaleString())}</option>
+          )}
+          {linear.length > 0 && (
+            <optgroup label={t('hdr_assign_pool_linear') || 'HDR Profiles — Linear transfer'}>
+              {linear.map((p) => <option key={p.id} value={p.id}>{p.filename}</option>)}
+            </optgroup>
+          )}
+          {!linearOnly && nonLinear.length > 0 && (
+            <optgroup label={t('hdr_assign_pool_nonlinear') || 'HDR Profiles — PQ / HLG transfer'}>
+              {nonLinear.map((p) => <option key={p.id} value={p.id}>{`${p.filename} (${p.transfer})`}</option>)}
+            </optgroup>
+          )}
+        </select>
+      </div>
+      {linearOnly && (
+        <p className={styles.note} data-assign-note="exr">
+          {t('hdr_assign_exr_only') || 'OpenEXR holds linear light, so only HDR Profiles with a Linear transfer can be assigned.'}{' '}
+          {nonLinear.length > 0
+            ? (t('hdr_assign_exr_hidden') || '{n} PQ/HLG HDR Profile(s) in the pool are not offered — the Profiles pane lists them under HDR Profiles › Non-linear transfer.').replace('{n}', String(nonLinear.length))
+            : linear.length === 0
+              ? (t('hdr_assign_exr_none') || 'There is no Linear-transfer HDR Profile in the pool yet; the Profiles pane groups HDR Profiles by transfer.')
+              : ''}
+        </p>
+      )}
+    </>
   )
 }
 

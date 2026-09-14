@@ -75,7 +75,7 @@ A profile is accepted if its first 36 bytes contain the `acsp` signature and it 
 
 ### The Profiles pane
 
-Loaded profiles are grouped into collapsible sections by **profile class** (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). Each row shows the filename and badges for class, colour space, version and size; a profile that could only be partially parsed is flagged. Use the **A–Z** button to cycle the sort (load order → ascending → descending), the **×** on a row to remove it, and the handle on the pane's right edge to resize it — or collapse the pane entirely.
+Loaded profiles are grouped into collapsible sections by **profile class** (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). ICC.1 clause 8.10 **HDR Profiles** get their own section at the top instead, split by transfer into **Linear transfer** and **Non-linear transfer (PQ, HLG)**, with the transfer shown as a badge on each row. The split matters in the [HDR tab](#4-7-hdr-tab), where only a Linear-transfer profile can be assigned to an OpenEXR image. Each row shows the filename and badges for class, colour space, version and size; a profile that could only be partially parsed is flagged. Use the **A–Z** button to cycle the sort (load order → ascending → descending), the **×** on a row to remove it, and the handle on the pane's right edge to resize it — or collapse the pane entirely.
 
 Click to select a row; Ctrl/Cmd-click to toggle and Shift-click to select a range. **Drag rows out of the pool onto a tab** to put them to work.
 
@@ -430,7 +430,7 @@ With a profile assigned, profiletool decodes the image itself and runs it throug
 - **Target headroom** (0 to 6 stops) is the display the image is being prepared for. The profile's gain curve is evaluated there, the same curve **Gain at a display headroom** plots in the Tags tab. **Fit to display** sets it to this display's peak.
 - **Tone mapping** chooses the method: **Auto** (the clause 8.10.3 ranking), **Gain curve** only, the profile's **Baked SDR fallback** (`AToB0Tag`), or **Off**, which behaves like a colour engine that predates the amendment.
 - The panel reports what the colour engine actually did: which **path** (HDR with the gain curve applied, HDR without a curve, or the baked table), the **transfer**, and the **HDR reference white**. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the **Dynamic range** limit is what keeps its highlights within the display.
-- OpenEXR stores linear light, so it accepts only a profile whose transfer is Linear. Assigning needs a 3-channel RGB image.
+- Pooled HDR Profiles appear in two groups, **Linear transfer** and **PQ / HLG transfer**, matching the Profiles pane. OpenEXR stores linear light, so for an OpenEXR image only the **Linear transfer** group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.
 
 <div class="note">
 <strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.

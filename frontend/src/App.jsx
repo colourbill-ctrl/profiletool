@@ -526,8 +526,9 @@ export default function App() {
   // HDR tab: the pooled profiles an image can be assigned — those that classify as ICC.1
   // clause 8.10 HDR Profiles, with the bytes the CMM needs.
   const hdrProfiles = useMemo(() => [...pool.values()]
-    .filter((e) => e.parsed && classifyHdrProfile(e.parsed, e.currentBytes).isHdr)
-    .map((e) => ({ id: e.id, filename: e.filename, bytes: e.currentBytes })), [pool])
+    .map((e) => ({ e, c: e.parsed ? classifyHdrProfile(e.parsed, e.currentBytes) : null }))
+    .filter(({ c }) => c?.isHdr)
+    .map(({ e, c }) => ({ id: e.id, filename: e.filename, bytes: e.currentBytes, transfer: c.transfer })), [pool])
   const onDropFiles = useCallback((files, tab) => loadFiles(files, { tab }), [loadFiles])
 
   // HDR tab → "Open in Profile tab": ingest the image's embedded profile (same streaming

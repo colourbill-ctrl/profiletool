@@ -4,6 +4,7 @@
 // It is the load target (multi-file <input> + OS drop) and the drag SOURCE: rows
 // drag onto the Profile/Compare/Link tabs' accumulators. Nothing here persists —
 // the pool is session-only; the user's filesystem is the durable store (DL-STORE1).
+import { classifyHdrProfile } from '../lib/hdrProfile.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../i18n.jsx'
 import { formatSize } from '../lib/pool.js'
@@ -69,7 +70,7 @@ export default function PoolPane({ entries, selectedIds, onSelect, onLoadFiles, 
   // ColorSpace, …). Because we group the SORTED list, the sort button orders each
   // type's sub-list independently. Class is read from the header signature (offset
   // 12) for language/format stability.
-  const sections = useMemo(() => groupByClass(shownEntries), [shownEntries])
+  const sections = useMemo(() => groupByClass(shownEntries, t), [shownEntries, t])
 
   // Drag-to-resize the right edge.
   const dragState = useRef(null)
@@ -120,6 +121,37 @@ export default function PoolPane({ entries, selectedIds, onSelect, onLoadFiles, 
     e.dataTransfer.setData(POOL_DND_MIME, JSON.stringify(ids))
     e.dataTransfer.effectAllowed = 'copy'
   }, [selectedIds])
+
+  // One section's rows — shared by class sections and the HDR Profiles sub-sections.
+  const renderList = (items) => (
+    <ul className={styles.list}>
+      {items.map((e) => (
+        <li
+          key={e.id}
+          className={`${styles.row} ${selectedIds.has(e.id) ? styles.rowSel : ''}`}
+          draggable
+          onDragStart={(ev) => onRowDragStart(e.id, ev)}
+          onClick={(ev) => onSelect(e.id, ev)}
+          title={e.filename}
+        >
+          <div className={styles.rowMain}>
+            <span className={styles.rowName}>{e.filename}</span>
+            <button className={styles.remove} title={t('pool_remove') || 'Remove'}
+                    aria-label={t('pool_remove') || 'Remove'}
+                    onClick={(ev) => { ev.stopPropagation(); onRemove(e.id) }}>×</button>
+          </div>
+          <div className={styles.badges}>
+            {e.meta.partial && <span className={`${styles.badge} ${styles.badgeWarn}`}>partial</span>}
+            {e.hdrTransfer && <span className={styles.badge} data-hdr-transfer={e.hdrTransfer}>{e.hdrTransfer}</span>}
+            {e.meta.profileClass && <span className={styles.badge}>{shortClass(e.meta.profileClass)}</span>}
+            {e.meta.colorSpace && <span className={styles.badge}>{e.meta.colorSpace.trim()}</span>}
+            {e.meta.version && <span className={styles.badgeDim}>v{e.meta.version}</span>}
+            {e.meta.sizeBytes ? <span className={styles.badgeDim}>{formatSize(e.meta.sizeBytes)}</span> : null}
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
 
   if (collapsed) {
     return (
@@ -198,41 +230,29 @@ export default function PoolPane({ entries, selectedIds, onSelect, onLoadFiles, 
           sections.map((sec) => {
             const groupCollapsed = collapsedGroups.has(sec.key)
             return (
-            <section key={sec.key} className={styles.group}>
+            <section key={sec.key} className={styles.group} data-pool-group={sec.key}>
               <button type="button" className={styles.groupHead}
                       onClick={() => toggleGroup(sec.key)} aria-expanded={!groupCollapsed}>
                 <span className={styles.groupCaret} aria-hidden="true">{groupCollapsed ? '▸' : '▾'}</span>
                 <span className={styles.groupLabel}>{sec.label}</span>
                 <span className={styles.groupCount}>{sec.items.length}</span>
               </button>
-              {!groupCollapsed && (
-              <ul className={styles.list}>
-                {sec.items.map((e) => (
-                  <li
-                    key={e.id}
-                    className={`${styles.row} ${selectedIds.has(e.id) ? styles.rowSel : ''}`}
-                    draggable
-                    onDragStart={(ev) => onRowDragStart(e.id, ev)}
-                    onClick={(ev) => onSelect(e.id, ev)}
-                    title={e.filename}
-                  >
-                    <div className={styles.rowMain}>
-                      <span className={styles.rowName}>{e.filename}</span>
-                      <button className={styles.remove} title={t('pool_remove') || 'Remove'}
-                              aria-label={t('pool_remove') || 'Remove'}
-                              onClick={(ev) => { ev.stopPropagation(); onRemove(e.id) }}>×</button>
+              {!groupCollapsed && (sec.sub
+                ? sec.sub.map((sub) => {
+                  const subCollapsed = collapsedGroups.has(sub.key)
+                  return (
+                    <div key={sub.key} className={styles.subgroup} data-pool-subgroup={sub.key}>
+                      <button type="button" className={`${styles.groupHead} ${styles.subHead}`}
+                              onClick={() => toggleGroup(sub.key)} aria-expanded={!subCollapsed}>
+                        <span className={styles.groupCaret} aria-hidden="true">{subCollapsed ? '▸' : '▾'}</span>
+                        <span className={styles.groupLabel}>{sub.label}</span>
+                        <span className={styles.groupCount}>{sub.items.length}</span>
+                      </button>
+                      {!subCollapsed && renderList(sub.items)}
                     </div>
-                    <div className={styles.badges}>
-                      {e.meta.partial && <span className={`${styles.badge} ${styles.badgeWarn}`}>partial</span>}
-                      {e.meta.profileClass && <span className={styles.badge}>{shortClass(e.meta.profileClass)}</span>}
-                      {e.meta.colorSpace && <span className={styles.badge}>{e.meta.colorSpace.trim()}</span>}
-                      {e.meta.version && <span className={styles.badgeDim}>v{e.meta.version}</span>}
-                      {e.meta.sizeBytes ? <span className={styles.badgeDim}>{formatSize(e.meta.sizeBytes)}</span> : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              )}
+                  )
+                })
+                : renderList(sec.items))}
             </section>
             )
           })
@@ -274,9 +294,22 @@ const CLASS_SECTIONS = {
 // Group a (pre-ordered) entry list into class sections. Because the input is already
 // sorted, each section's sub-list inherits that order — so the sort button orders
 // within every type independently. Unknown classes fall to the end, labelled by sig.
-function groupByClass(entries) {
+//
+// ICC.1 clause 8.10 HDR Profiles get their own section, first, split by transfer: an
+// HDR Profile is a Display or Input profile, but what it can be USED for depends on its
+// cicp transfer — only a Linear one can interpret OpenEXR's linear light (the HDR tab
+// offers only those), so the pane shows the same split the HDR tab applies. The test is
+// lib/hdrProfile.js's classifier, the same one the HDR tab uses, so they cannot disagree.
+function groupByClass(entries, t = () => '') {
   const groups = new Map()
+  const hdrLinear = [], hdrNonLinear = []
   for (const e of entries) {
+    const hc = e.parsed ? classifyHdrProfile(e.parsed, e.currentBytes) : null
+    if (hc?.isHdr) {
+      const row = { ...e, hdrTransfer: hc.transfer }
+      if (hc.transfer === 'Linear') hdrLinear.push(row); else hdrNonLinear.push(row)
+      continue
+    }
     const key = poolClassSig(e.currentBytes) || '????'
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(e)
@@ -286,5 +319,13 @@ function groupByClass(entries) {
       const def = CLASS_SECTIONS[key]
       return { key, items, order: def ? def.order : 99, label: def ? def.label : (key.trim() || 'Other') }
     })
+    .concat(hdrLinear.length || hdrNonLinear.length ? [{
+      key: 'hdr', order: 0, label: t('pool_hdr') || 'HDR Profiles',
+      items: [...hdrLinear, ...hdrNonLinear],
+      sub: [
+        { key: 'hdr:linear', label: t('pool_hdr_linear') || 'Linear transfer', items: hdrLinear },
+        { key: 'hdr:nonlinear', label: t('pool_hdr_nonlinear') || 'Non-linear transfer (PQ, HLG)', items: hdrNonLinear },
+      ].filter((x) => x.items.length),
+    }] : [])
     .sort((a, b) => a.order - b.order || a.label.localeCompare(b.label))
 }
