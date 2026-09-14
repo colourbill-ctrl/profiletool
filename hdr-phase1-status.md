@@ -523,7 +523,12 @@ HDR section; it remains the one we may freely mutate.
      - **A HAGC view in Tags.** It samples IccProfLib's `CIccHagcEvaluator` through the new
        `IccVizModel::EvaluateHagc`, with a display-headroom slider, gain and grey tone plots.
      - **A label fix.** The authored-points graph's x axis said "log2" but the value is linear.
-     - **Still to do:** confirm the WebGPU backend on real hardware, and decide how to display
+     - **Confirmed on real hardware (2026-09-13, user's Windows HDR laptop + SDR monitor):** at
+       the HDR end the top of the EXR ramp looks brighter than the SDR white reference on the
+       HDR panel and about equal to it on the SDR monitor; at the SDR end it sits slightly below
+       it (the 0.8·C soft-ceiling knee, as designed). So HDR output reaches the panel. Which
+       backend (float16 canvas or WebGPU) was not recorded.
+     - **Still to do:** confirm the WebGPU backend specifically, and decide how to display
        TIFF (Phase 4.3).
      - **TODO (user request, 2026-09-13): resize and zoom the displayed HDR image.** Both routes
        (the `<img>` and the HdrSurface canvas) should get zoom in/out, pan, reset-to-fit and a

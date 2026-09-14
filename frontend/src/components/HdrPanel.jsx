@@ -220,6 +220,8 @@ function ImgRoute({ t, file, info, env, profile, gain, live }) {
   const hdrCap = capabilityFor(info.format, envLive).hdr
   const hdrWhy = hdrCap.ok || hdrCap.code === 'NO_HDR_DISPLAY' ? null : hdrCap
   const dpk = displayPeakInfo({ hdr: envLive.display.hdr, headroomStops: live.screen?.headroom })
+  const viewerRef = useRef(null)
+  const refPref = useRefWhitePref()
   const [url, setUrl] = useState(null)
   const [failed, setFailed] = useState(false)
   const [share, setShare] = useState(1)
@@ -258,13 +260,14 @@ function ImgRoute({ t, file, info, env, profile, gain, live }) {
       {support.drl
         ? <RangeControl t={t} share={share} setShare={setShare} blend={support.mix} />
         : <p className={styles.note}>{t('hdr_no_drl') || 'This browser cannot switch an image between SDR and HDR, so it is shown as the browser renders it.'}</p>}
-      <div className={styles.viewer}>
+      <RefWhiteBar t={t} pref={refPref} />
+      <div className={styles.viewer} ref={viewerRef}>
         {url && !failed && (
           <img ref={imgRef} src={url} alt={file.name} className={styles.image}
                onError={() => setFailed(true)} />
         )}
         {failed && <p className={styles.error}>{t('hdr_img_failed') || 'The browser could not decode this image.'}</p>}
-        <RefWhite t={t} />
+        <RefWhitePatch t={t} viewerRef={viewerRef} targetRef={imgRef} pref={refPref} />
       </div>
     </>
   )
@@ -278,6 +281,8 @@ function PixelRoute({ t, file, info, env, live }) {
   const hdrCap = capabilityFor(info.format, envLive).hdr
   const hdrWhy = hdrCap.ok || hdrCap.code === 'NO_HDR_DISPLAY' ? null : hdrCap
   const dpk = displayPeakInfo({ hdr: envLive.display.hdr, headroomStops: live.screen?.headroom })
+  const viewerRef = useRef(null)
+  const refPref = useRefWhitePref()
   const [decoded, setDecoded] = useState(null)
   const [error, setError] = useState(null)
   const [kind, setKind] = useState(null)          // backend being tried / in use
@@ -411,9 +416,10 @@ function PixelRoute({ t, file, info, env, live }) {
         </label>
       </div>
 
-      <div className={styles.viewer}>
+      <RefWhiteBar t={t} pref={refPref} />
+      <div className={styles.viewer} ref={viewerRef}>
         <canvas key={kind} ref={canvasRef} className={styles.image} data-surface={surface?.kind || ''} />
-        <RefWhite t={t} />
+        <RefWhitePatch t={t} viewerRef={viewerRef} targetRef={canvasRef} pref={refPref} />
       </div>
     </>
   )
@@ -461,13 +467,129 @@ function DisplayPeak({ t, dpk, live }) {
   )
 }
 
+// ── SDR white reference patch ────────────────────────────────────────────────
 // Plain CSS white: in an HDR-composited page this is SDR white, so HDR highlights on an HDR
-// display should look brighter than it and on an SDR display never can.
-function RefWhite({ t }) {
+// display should look brighter than it and on an SDR display never can. It floats over the
+// viewer — not inside the image element — so it can sit beside or on top of any part of the
+// picture, and a later zoom transform on the image will not scale it.
+
+const REF_ON_KEY = 'profiletool.hdrRefWhite'
+const REF_POS_KEY = 'profiletool.hdrRefWhitePos'
+const PATCH = 44       // px, the white square
+const GAP = 6          // px, between the image's right edge and the docked patch
+
+const store = {
+  get(k) { try { return localStorage.getItem(k) } catch { return null } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v) } catch { /* private mode */ } },
+}
+
+// On/off and position, remembered across images and reloads. `pos` is null while the patch is
+// docked to the image's right edge; once dragged it is a fraction of the viewer's free space,
+// so it keeps its relative place when the viewer is resized.
+function useRefWhitePref() {
+  const [on, setOnState] = useState(() => store.get(REF_ON_KEY) !== '0')
+  const [pos, setPosState] = useState(() => {
+    try { const p = JSON.parse(store.get(REF_POS_KEY)); return p && Number.isFinite(p.fx) && Number.isFinite(p.fy) ? p : null } catch { return null }
+  })
+  const setOn = useCallback((v) => { setOnState(v); store.set(REF_ON_KEY, v ? '1' : '0') }, [])
+  const setPos = useCallback((p) => { setPosState(p); store.set(REF_POS_KEY, p ? JSON.stringify(p) : null) }, [])
+  return { on, setOn, pos, setPos }
+}
+
+function RefWhiteBar({ t, pref }) {
   return (
-    <div className={styles.refWhite} data-ref-white="" title={t('hdr_ref_white_help') || 'Plain SDR white, for comparison. On an HDR display, HDR highlights look brighter than this.'}>
+    <div className={styles.viewerBar}>
+      <button type="button" className={pref.on ? styles.fitOn : styles.btn} aria-pressed={pref.on}
+              onClick={() => pref.setOn(!pref.on)}>
+        {t('hdr_ref_white_toggle') || 'SDR white patch'}
+      </button>
+      {pref.on && <span className={styles.muted}>{t('hdr_ref_white_hint') || 'Drag to move it; double-click to put it back beside the image.'}</span>}
+    </div>
+  )
+}
+
+function RefWhitePatch({ t, viewerRef, targetRef, pref }) {
+  const [box, setBox] = useState(null)       // { left, top } in viewer content px
+  const drag = useRef(null)
+
+  // Where the patch goes: docked (image's right edge, top-aligned, kept inside the viewer)
+  // or the stored fraction of the free space. Recomputed whenever the viewer or image resizes.
+  const place = useCallback(() => {
+    const vp = viewerRef.current
+    if (!vp) return
+    const freeW = Math.max(0, vp.scrollWidth - PATCH)
+    const freeH = Math.max(0, vp.scrollHeight - PATCH - 16)
+    if (pref.pos) {
+      setBox({ left: pref.pos.fx * freeW, top: pref.pos.fy * freeH })
+      return
+    }
+    const img = targetRef.current
+    const vr = vp.getBoundingClientRect()
+    const ir = img ? img.getBoundingClientRect() : null
+    const left = ir && ir.width > 0 ? ir.right - vr.left + vp.scrollLeft + GAP : freeW
+    const top = ir && ir.height > 0 ? ir.top - vr.top + vp.scrollTop : 8
+    setBox({ left: Math.min(Math.max(0, left), freeW), top: Math.min(Math.max(0, top), freeH) })
+  }, [viewerRef, targetRef, pref.pos])
+
+  useEffect(() => {
+    if (!pref.on) return
+    place()
+    const ro = new ResizeObserver(place)
+    if (viewerRef.current) ro.observe(viewerRef.current)
+    if (targetRef.current) ro.observe(targetRef.current)
+    // The image's own size arrives late (decode, first draw), so also re-place on load.
+    const img = targetRef.current
+    img?.addEventListener?.('load', place)
+    return () => { ro.disconnect(); img?.removeEventListener?.('load', place) }
+  }, [pref.on, place, viewerRef, targetRef])
+
+  if (!pref.on || !box) return null
+
+  const commit = (left, top) => {
+    const vp = viewerRef.current
+    if (!vp) return
+    const freeW = Math.max(1, vp.scrollWidth - PATCH)
+    const freeH = Math.max(1, vp.scrollHeight - PATCH - 16)
+    const l = Math.min(Math.max(0, left), freeW), tp = Math.min(Math.max(0, top), freeH)
+    setBox({ left: l, top: tp })
+    return { fx: l / freeW, fy: tp / freeH }
+  }
+  const onPointerDown = (e) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drag.current = { x: e.clientX, y: e.clientY, left: box.left, top: box.top, moved: false }
+  }
+  const onPointerMove = (e) => {
+    const d = drag.current
+    if (!d) return
+    d.moved = true
+    d.last = commit(d.left + e.clientX - d.x, d.top + e.clientY - d.y)
+  }
+  const onPointerUp = (e) => {
+    const d = drag.current
+    drag.current = null
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+    if (d?.moved && d.last) pref.setPos(d.last)
+  }
+  const onKeyDown = (e) => {
+    const step = e.shiftKey ? 40 : 8
+    const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+    const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+    if (!dx && !dy) return
+    e.preventDefault()
+    const p = commit(box.left + dx, box.top + dy)
+    if (p) pref.setPos(p)
+  }
+
+  return (
+    <div className={styles.refPatch} data-ref-white="" style={{ left: box.left, top: box.top }}
+         role="button" tabIndex={0}
+         aria-label={t('hdr_ref_white') || 'SDR white'}
+         title={`${t('hdr_ref_white_help') || 'Plain SDR white, for comparison. On an HDR display, HDR highlights look brighter than this.'} ${t('hdr_ref_white_hint') || 'Drag to move it; double-click to put it back beside the image.'}`}
+         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
+         onDoubleClick={() => pref.setPos(null)} onKeyDown={onKeyDown}>
       <div className={styles.refSwatch} />
-      <span>{t('hdr_ref_white') || 'SDR white'}</span>
+      <span className={styles.refLabel}>{t('hdr_ref_white') || 'SDR white'}</span>
     </div>
   )
 }
