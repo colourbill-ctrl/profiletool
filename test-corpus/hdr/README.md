@@ -1,7 +1,7 @@
 # HDR test corpus
 
 **43 fixtures mirrored from iccDEV `Testing/HDR/` @ `ac264764` (branch `hdr-profiles`),
-plus 5 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
+plus 6 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
 from the previous refresh: their XML carries no creation date, so regenerating them changes
 only the header timestamp and profile ID.
 
@@ -308,6 +308,26 @@ baseline clamped to the target colour volume. No fixture reached that branch bef
 Otherwise the `ProfiletoolHdrDisplay` shell: baseline 2 stops, DERH 2.0, reference white
 203 = CRWL.
 
+**`ProfiletoolHagcBaked`** (added 2026-09-14) is `ProfiletoolHagcFamily` with a **real SDR
+fallback**. Every other HDR Profile here carries an identity `AToB0`/`BToA0` pair: valid, but it
+passes raw PQ code values through, so the HDR tab's *Baked SDR fallback* policy, and any CMM that
+does not implement clause 8.10, showed nothing meaningful. This pair was produced by iccDEV's own
+baker, not by hand: `iccHdrFallback -grid 33` at hdr-profiles `649fc750` (a native build of the
+pinned worktree), following ICC White Paper #62 at a target headroom of 1.0. The result went
+through `iccToXml`; only the XML comment and the description were changed before the `.icc` was
+regenerated with our iccxml WASM. The baked tables and the HAGC tag are byte-identical to the tool
+output, and every other tag is the family's, so classification, headroom and the gain curve are
+unchanged. The 33³ grid is the tool default. At 17³ the grey error against the gain curve reaches
+11.5%; at 33³ it is 3.5%, though accuracy is not monotone in grid size.
+`scripts/check-hagc-baked.mjs` pins:
+- **Both builds agree:** the baked path matches native `iccApplyNamedCmm` (`-HDR 1 -HDRMAP lut`,
+  and with no `-HDR` at all) in the WASM CMM.
+- **Grey:** the baked `AToB0` follows the gain curve at headroom 1.0 to within a few percent, and
+  the family's identity pair does not.
+- **Saturated highlights:** these differ by design. The gain-curve path can leave a channel above
+  1.0, which a `lutAToBType` table cannot, so the table clips each channel at the peak (green at
+  1000 cd/m²: Y 0.92 on the curve, 0.67 baked).
+
 `ProfiletoolHdrRefWhiteConflict` is described above. `ProfiletoolHdrDisplay` is the happy path: It is a conforming HDR Profile (RGB Display, version 4.50,
 cicp PQ, no TRC tags, A2B0/B2A0 pair) with `CRWL` set to agree with the HAGC tag's
 `HDRReferenceWhite` so H7 reports a genuine agreement. It scores **H1..H8 all OK**.
@@ -378,4 +398,5 @@ b9933202e0ff4a95299d4a6f342e97851270e9506ccf72325e670d1c9f4dca7f  ProfiletoolHdr
 53997216ad1db9415dbba5f4a65930526d0b6257fcaee28a56c4cbe45e3eaa81  ProfiletoolHdrRefWhiteConflict.icc
 a65a8eae39156279e53bb57b49a138a2aba016187181b29f4b30e940292b90e9  ProfiletoolHagcFamily.icc
 347c621b1cb28d2407c9750062f265ffe7b149b06475a2f5b4c55e5ebef1a049  ProfiletoolHagcClamp.icc
+ad71169bbe904955fa4ec3faa1b9caafafb08eade0245fa8c90d313de35160dd  ProfiletoolHagcBaked.icc
 ```

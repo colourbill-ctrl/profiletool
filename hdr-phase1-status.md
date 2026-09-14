@@ -580,11 +580,18 @@ HDR section; it remains the one we may freely mutate.
          (17/17); headless run 15/15.
        - **This settles TIFF display in practice:** a TIFF with an embedded HDR Profile now
          auto-assigns it. The Phase 4.3 question remains only for a TIFF with no profile.
-       - **Known test-data limit:** the corpus fixtures' AToB0 tables are identity curves, so
-         the *baked fallback* policy produces PQ code values, not a real SDR rendering. A
-         fixture with a fallback baked by `iccHdrFallback` is still to add.
-     - **Still to do:** confirm the WebGPU backend specifically; an `iccHdrFallback`-baked test
-       fixture.
+       - **Test-data limit, RESOLVED 2026-09-14:** the corpus fixtures' AToB0 tables are identity
+         curves, so the *baked fallback* policy produces PQ code values, not a real SDR rendering.
+         `test-corpus/hdr/ProfiletoolHagcBaked` now carries a pair baked by iccDEV's
+         `iccHdrFallback -grid 33` (649fc750, native build of the pinned worktree).
+         `scripts/check-hagc-baked.mjs` (15) shows three things:
+         - WASM matches native `iccApplyNamedCmm`, and the baked table equals the no-hint rendering.
+         - Grey stays within 1% of the gain curve at headroom 1.0.
+         - Saturated highlights are clipped per channel by the table, by design.
+
+         Browser test `hagc-baked-ui` (7): the ramp top is a neutral SDR white (luminance ≈ 1.0)
+         versus the family's code values (≈ 1.50, not neutral).
+     - **Still to do:** confirm the WebGPU backend specifically.
      - **DONE 2026-09-13 — `components/HdrViewport.jsx`.** Zoom (absolute; opens at 1:1 or
        shrunk to fit, never enlarged), pan, Fit image / 1:1, Ctrl+wheel, keys, corner grip
        (`profiletool.hdrViewSize`); the SDR white patch is an overlay outside the transform.
