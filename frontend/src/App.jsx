@@ -43,6 +43,10 @@ function renderPoweredBy(template) {
 
 const uniq = (arr) => [...new Set(arr)]
 
+// Tabs that work on IMAGE files rather than pooled profiles. Loading a profile must not pull the
+// user off one of these: the tab would unmount and lose its image.
+const IMAGE_TABS = new Set(['SpecSep', 'HDR'])
+
 export default function App() {
   const [pool, setPool] = useState(() => new Map())        // id -> entry
   const [accum, setAccum] = useState({ Profile: null, Compare: [], Link: [], SpecSep: [] })
@@ -69,6 +73,7 @@ export default function App() {
 
   // Refs mirror state for synchronous reads inside async load loops.
   const poolRef = useRef(pool);  poolRef.current = pool
+  const activeTabRef = useRef(activeTab); activeTabRef.current = activeTab
   const accumRef = useRef(accum); accumRef.current = accum
 
   // Validate ICC bytes and add a pool entry (dedup by identity). Returns the
@@ -239,7 +244,11 @@ export default function App() {
       // first profile so the Profile tab isn't blank on a fresh single load.)
       if (tab) dropOnTab(tab, ids)
       else if (wasEmpty || accumRef.current.Profile == null) {
-        setAccum((a) => ({ ...a, Profile: ids[0] })); setActiveTab('Profile')
+        // The first profile still lands in the Profile tab so that tab is not blank — but the
+        // view only switches there if the user is not working in an image tab. Switching from
+        // HDR used to unmount it, clearing the open image on the first profile load only.
+        setAccum((a) => ({ ...a, Profile: ids[0] }))
+        if (!IMAGE_TABS.has(activeTabRef.current)) setActiveTab('Profile')
       }
     }
     if (rejects.length) setRejected(rejects)

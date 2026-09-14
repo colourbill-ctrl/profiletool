@@ -43,6 +43,9 @@ export default function MainCanvas({
   const t = useT()
   const [dropTab, setDropTab] = useState(null)
   const [panelDrag, setPanelDrag] = useState(false)
+  // The HDR tab stays mounted once visited (see the render below).
+  const [hdrMounted, setHdrMounted] = useState(false)
+  useEffect(() => { if (activeTab === 'HDR') setHdrMounted(true) }, [activeTab])
 
   // Safety net for the drag-highlight state. When a drop lands on a Link maker card,
   // the card stopPropagation()s it so it doesn't double-accumulate onto the tab — but
@@ -184,7 +187,14 @@ export default function MainCanvas({
                      v4Roles={v4Roles} setV4Roles={setV4Roles} />
         )}
         {activeTab === 'SpecSep' && <SpecSepPanel onAssemble={onAssembleSpec} />}
-        {activeTab === 'HDR' && <HdrPanel onOpenInProfile={onOpenInProfile} hdrProfiles={hdrProfiles} />}
+        {/* Mounted on first visit, then kept mounted and hidden: the HDR tab holds an image, its
+            assignment and its output surface, none of which live in App, so unmounting on a tab
+            switch (or on "Open in Profile tab") threw the image away. */}
+        {(hdrMounted || activeTab === 'HDR') && (
+          <div hidden={activeTab !== 'HDR'} data-tab-panel="HDR">
+            <HdrPanel onOpenInProfile={onOpenInProfile} hdrProfiles={hdrProfiles} />
+          </div>
+        )}
       </div>
     </section>
   )
