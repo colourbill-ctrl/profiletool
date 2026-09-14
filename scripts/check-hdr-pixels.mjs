@@ -12,6 +12,7 @@ import {
   MAX_LIMIT_STOPS, REC709, rgbToXyzMatrix, toSrgbLinearMatrix, normalizeChromaticities,
   softCeiling, renderFloatRgba, srgbEncode, encodeSrgb8, drlValue,
   displayPeakInfo, fitShare, clipsBeyondDisplay,
+  xyzD50ToSrgbLinearMatrix, applyMatrix3, samplesToUnitFloat,
 } from '../frontend/src/lib/hdrPixels.js'
 
 let passed = 0, failed = 0
@@ -139,6 +140,32 @@ const mulVec = (m, v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] +
   check('clipsBeyondDisplay: image dimmer than the display → no clip', !clipsBeyondDisplay(1.5, 2.2346))
   check('clipsBeyondDisplay: SDR display, HDR image → clips', clipsBeyondDisplay(4.926, 1))
   check('clipsBeyondDisplay: unknown display → false (never claimed)', !clipsBeyondDisplay(4.926, null))
+}
+
+// ── decoded samples and the ICC PCS ──────────────────────────────────────────
+{
+  const m = xyzD50ToSrgbLinearMatrix()
+  // PCS white (the ICC D50 illuminant) must come out as linear sRGB white.
+  const w = applyMatrix3(new Float32Array([0.9642, 1.0, 0.8249]), m)
+  check('PCS D50 white → linear sRGB (1, 1, 1)', [...w].every((v) => near(v, 1, 2e-3)), Array.from(w))
+  // Above-white survives the conversion unclipped (the whole point for HDR).
+  const hi = applyMatrix3(new Float32Array([0.9642 * 13.33, 13.33, 0.8249 * 13.33]), m)
+  check('PCS 13.33× white → linear sRGB ≈ 13.33 (no clip)', [...hi].every((v) => near(v, 13.33, 0.03)), Array.from(hi))
+  // A D50-referenced sRGB red primary lands on sRGB red after adaptation.
+  const red = applyMatrix3(new Float32Array([0.4361, 0.2225, 0.0139]), m)
+  check('PCS (D50) sRGB red → linear sRGB ≈ (1, 0, 0)', near(red[0], 1, 0.01) && near(red[1], 0, 0.01) && near(red[2], 0, 0.01), Array.from(red))
+
+  const u8 = samplesToUnitFloat({ bitDepth: 8, samples: new Uint8Array([0, 128, 255]) })
+  check('samplesToUnitFloat: 8-bit ÷255', u8[0] === 0 && near(u8[1], 128 / 255, 1e-7) && u8[2] === 1)
+  const le = new Uint8Array(new Uint16Array([0, 38055, 65535]).buffer)
+  const u16 = samplesToUnitFloat({ bitDepth: 16, samples: le })
+  check('samplesToUnitFloat: 16-bit little-endian ÷65535', u16[0] === 0 && near(u16[1], 38055 / 65535, 1e-7) && u16[2] === 1, Array.from(u16))
+  const fl = new Uint8Array(new Float32Array([0.5, 4.926, -0.1]).buffer)
+  const f = samplesToUnitFloat({ bitDepth: 32, sampleFormat: 'float', samples: fl })
+  check('samplesToUnitFloat: float passes through (above 1 and below 0 kept)', near(f[0], 0.5, 1e-7) && near(f[1], 4.926, 1e-5) && near(f[2], -0.1, 1e-7), Array.from(f))
+  let threw = false
+  try { samplesToUnitFloat({ bitDepth: 12, samples: new Uint8Array(4) }) } catch { threw = true }
+  check('samplesToUnitFloat: unsupported depth throws', threw)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

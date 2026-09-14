@@ -29,6 +29,9 @@
 // into the iccconstruct target via ICCPROFLIB_SOURCES (see CMakeLists.txt).
 #include "IccProfile.h"
 #include "IccCmm.h"
+#ifdef PROFILETOOL_HAS_HDR
+#include "IccHdrProfile.h"   // icGetHdrProfileInfo — reported by hdrApplyBegin
+#endif
 #include "IccTag.h"
 #include "IccTagMPE.h"
 #include "IccTagLut.h"
@@ -47,6 +50,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -965,6 +969,148 @@ emscripten::val imageApplyChunk(std::string srcBytes) {
 // Release the active session (frees the CMM). Safe to call with no session.
 void imageApplyEnd() { g_imgCmm.reset(); g_imgNSrc = g_imgNDst = 0; }
 
+// ── HDR Profile apply — the HDR tab's "Assign profile" ─────────────────────────
+// Push decoded image pixels through ONE ICC.1 clause 8.10 HDR Profile, device → PCS, the
+// way iccApplyNamedCmm does with -HDR/-HDRMAP: a CIccCreateHdrXformHint is attached ONLY
+// when a target headroom is given (> 0), exactly as IccConnect does, so without one the
+// profile runs as in a pre-amendment CMM. The hint engages CIccXformMatrixTrcHdr: the
+// cicpTag's analytic EOTF renormalised so 1.0 is the profile's HDR reference white, the HAGC
+// gain at the target headroom (policy permitting), then the colorant matrix. Float PCS keeps
+// values above 1, so the chunk output is real XYZ with Y = 1 at that reference white
+// (icXyzFromPcs undoes the internal PCS scaling). Measured against the native CLI by
+// scripts/check-hdr-apply.mjs.
+//
+// Single session, like the image apply above — one image at a time in the HDR tab. Kept
+// separate from g_imgCmm so an HDR preview never tears down a Combine-tab transform.
+static std::unique_ptr<CIccCmm> g_hdrCmm;
+static bool g_hdrLabPcs = false;
+
+emscripten::val hdrApplyBeginImpl(std::string profBytes, double targetHeadroom, int policy, int intent) {
+  g_hdrCmm.reset(); g_hdrLabPcs = false;
+#ifndef PROFILETOOL_HAS_HDR
+  (void)profBytes; (void)targetHeadroom; (void)policy; (void)intent;
+  throw std::runtime_error("This build has no HDR Profile support.");
+#else
+  if (profBytes.empty() || profBytes.size() > kMaxIccBytes)
+    throw std::runtime_error("The profile is empty or too large.");
+  if (!std::isfinite(targetHeadroom))
+    throw std::runtime_error("The target headroom is not a number.");
+  if (policy < (int)icHdrToneMapAuto || policy > (int)icHdrToneMapDisable)
+    throw std::runtime_error("Unknown HDR tone-mapping policy.");
+  if (intent < 0 || intent > 3) intent = (int)icRelativeColorimetric;
+
+  CIccProfile* p = ReadIccProfile((const icUInt8Number*)profBytes.data(), (icUInt32Number)profBytes.size());
+  if (!p) throw std::runtime_error("The profile could not be read as an ICC profile.");
+
+  // Everything reported about the profile is captured BEFORE AddXform takes ownership.
+  icHdrProfileInfo info;
+  const bool haveInfo = icGetHdrProfileInfo(p, info);
+
+  std::unique_ptr<CIccCmm> cmm(new CIccCmm(icSigUnknownData, icSigUnknownData, true));
+  CIccCreateXformHintManager hint;
+  const bool attach = targetHeadroom > 0.0;
+  if (attach) {
+    CIccCreateHdrXformHint* h = new (std::nothrow) CIccCreateHdrXformHint();
+    if (!h) { delete p; throw std::runtime_error("Out of memory creating the HDR hint."); }
+    h->m_targetHeadroom = (icFloatNumber)targetHeadroom;
+    h->m_nPolicy = (icHdrToneMapPolicy)policy;
+    if (!hint.AddHint(h)) { delete h; delete p; throw std::runtime_error("Could not attach the HDR hint."); }
+  }
+  // On failure AddXform frees p (its ownership contract), so it is never deleted after this.
+  icStatusCMM stat = cmm->AddXform(p, (icRenderingIntent)intent, icInterpTetrahedral, NULL,
+                                   icXformLutColor, true, attach ? &hint : NULL);
+  if (stat)
+    throw std::runtime_error(std::string("Cannot use this profile: ") + CIccCmm::GetStatusText(stat));
+  stat = cmm->Begin();
+  if (stat)
+    throw std::runtime_error(std::string("The profile could not be started: ") + CIccCmm::GetStatusText(stat));
+
+  const int nSrc = (int)icGetSpaceSamples(cmm->GetSourceSpace());
+  if (nSrc != 3)
+    throw std::runtime_error("Assigning a profile to an image here needs an RGB profile; this one takes "
+                             + std::to_string(nSrc) + " channel(s).");
+  const icColorSpaceSignature dst = cmm->GetDestSpace();
+  bool lab = false;
+  if (dst == icSigLabData || dst == icSigLabPcsData) lab = true;
+  else if (!(dst == icSigXYZData || dst == icSigXYZPcsData))
+    throw std::runtime_error("The profile's PCS is neither XYZ nor Lab.");
+
+  // What the CMM actually engaged: "the HDR path was used" and "the gain curve changed any
+  // value" are different claims, and the UI reports both.
+  const CIccXform* x = cmm->GetFirstXform();
+  const int xformType = x ? (int)x->GetXformType() : -1;
+  const bool hdrPath = xformType == (int)icXformTypeMatrixTrcHdr;
+  const bool toneMapping = hdrPath && static_cast<const CIccXformMatrixTrcHdr*>(x)->IsToneMapping();
+
+  g_hdrCmm = std::move(cmm);
+  g_hdrLabPcs = lab;
+
+  emscripten::val r = emscripten::val::object();
+  r.set("ok", true);
+  r.set("nSrc", nSrc);
+  r.set("pcs", std::string(lab ? "Lab" : "XYZ"));
+  r.set("hintAttached", attach);
+  r.set("xformType", xformType);
+  r.set("hdrPath", hdrPath);
+  r.set("toneMapping", toneMapping);
+  r.set("hdrInfo", haveInfo);
+  r.set("hasCicp", haveInfo && info.bHasCicp);
+  r.set("transfer", haveInfo && info.bHasCicp ? (int)info.nTransferCharacteristics : -1);
+  r.set("transferIsHdr", haveInfo && info.bTransferIsHdr);
+  r.set("hasHagc", haveInfo && info.bHasHagc);
+  r.set("hasAToB0", haveInfo && info.bHasAToB0);
+  r.set("referenceWhite", haveInfo ? (double)info.contentReferenceWhite : 0.0);
+  r.set("displayHeadroom", haveInfo ? (double)info.displayHeadroom : 0.0);
+  return r;
+#endif
+}
+
+emscripten::val hdrApplyBegin(std::string profBytes, double targetHeadroom, int policy, int intent) {
+  try {
+    return hdrApplyBeginImpl(profBytes, targetHeadroom, policy, intent);
+  } catch (const std::runtime_error&) {
+    throw;
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("HDR profile apply failed: ") + e.what());
+  } catch (...) {
+    throw std::runtime_error("HDR profile apply failed with an unknown error");
+  }
+}
+
+// One chunk: raw bytes of a Float32Array, nPixels × 3 device RGB in [0,1] → { xyz: Float32Array
+// nPixels × 3 }, PCS XYZ (D50) with Y = 1 at the profile's HDR reference white.
+emscripten::val hdrApplyChunkImpl(std::string srcBytes) {
+  if (!g_hdrCmm) throw std::runtime_error("No HDR apply session is active.");
+  if (srcBytes.size() % 12 != 0) throw std::runtime_error("Malformed pixel chunk.");
+  const std::size_t nPix = srcBytes.size() / 12;
+  if (nPix > 8000000ULL) throw std::runtime_error("Image chunk too large.");
+  const float* src = reinterpret_cast<const float*>(srcBytes.data());
+  std::vector<float> dst(nPix * 3);
+  for (std::size_t px = 0; px < nPix; ++px) {
+    icFloatNumber* d = &dst[px * 3];
+    g_hdrCmm->Apply(d, &src[px * 3]);
+    if (g_hdrLabPcs) { icLabFromPcs(d); icLabtoXYZ(d); }
+    else icXyzFromPcs(d);
+  }
+  emscripten::val r = emscripten::val::object();
+  r.set("xyz", makeFloat32Array(dst.data(), dst.size()));
+  return r;
+}
+
+emscripten::val hdrApplyChunk(std::string srcBytes) {
+  try {
+    return hdrApplyChunkImpl(srcBytes);
+  } catch (const std::runtime_error&) {
+    throw;
+  } catch (const std::exception& e) {
+    throw std::runtime_error(std::string("HDR profile apply failed: ") + e.what());
+  } catch (...) {
+    throw std::runtime_error("HDR profile apply failed with an unknown error");
+  }
+}
+
+void hdrApplyEnd() { g_hdrCmm.reset(); g_hdrLabPcs = false; }
+
 // ── applyValues — run a colour LIST through the chain (Transform Data) ─────────
 // The point-data analogue of applyImage (this is profiletool's iccApplyNamedCmm
 // equivalent). Where applyImage assumes pixels are already normalized to the CMM's
@@ -1396,6 +1542,9 @@ EMSCRIPTEN_BINDINGS(iccconstruct) {
   emscripten::function("imageApplyBegin", &imageApplyBegin);
   emscripten::function("imageApplyChunk", &imageApplyChunk);
   emscripten::function("imageApplyEnd", &imageApplyEnd);
+  emscripten::function("hdrApplyBegin", &hdrApplyBegin);
+  emscripten::function("hdrApplyChunk", &hdrApplyChunk);
+  emscripten::function("hdrApplyEnd", &hdrApplyEnd);
   emscripten::function("applyValues", &applyValues);
   emscripten::function("spectralToXYZ", &spectralToXYZ);
   emscripten::function("searchInfo", &searchInfo);

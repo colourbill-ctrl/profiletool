@@ -27,7 +27,7 @@
 const WASM_DIR = import.meta.env.BASE_URL + 'wasm/'
 let modulePromise = null
 
-async function loadConstruct() {
+export async function loadConstruct() {
   if (!modulePromise) {
     modulePromise = (async () => {
       const res = await fetch(WASM_DIR + 'iccconstruct.mjs')
@@ -48,7 +48,7 @@ async function loadConstruct() {
 
 // Unwrap an embind exception to the engine's specific rejection ("Cannot link
 // profile 2: …", "The chain does not connect: …").
-function toError(mod, e) {
+export function toError(mod, e) {
   if (mod.getExceptionMessage) {
     try {
       const msg = mod.getExceptionMessage(e)

@@ -102,6 +102,51 @@ export function toSrgbLinearMatrix(primaries) {
   return mul3(inv3(dst), adapted)
 }
 
+// ── decoded samples and the ICC PCS ──────────────────────────────────────────
+const D50 = [0.3457, 0.3585]
+
+/**
+ * PCS XYZ (D50, as an ICC CMM outputs it) → linear sRGB/Rec.709 (D65): XYZ→sRGB after a
+ * Bradford D50→D65 adaptation. Returned row-major, for use with applyMatrix3.
+ */
+export function xyzD50ToSrgbLinearMatrix() {
+  return mul3(inv3(rgbToXyzMatrix(REC709)), bradford(D50, D65))
+}
+
+/** Apply a 3×3 row-major matrix to interleaved RGB/XYZ triplets, in place. */
+export function applyMatrix3(buf, m) {
+  for (let i = 0; i + 2 < buf.length; i += 3) {
+    const a = buf[i], b = buf[i + 1], c = buf[i + 2]
+    buf[i] = m[0] * a + m[1] * b + m[2] * c
+    buf[i + 1] = m[3] * a + m[4] * b + m[5] * c
+    buf[i + 2] = m[6] * a + m[7] * b + m[8] * c
+  }
+  return buf
+}
+
+/**
+ * A decodeImage() result → Float32Array of device values in [0, 1], interleaved.
+ * 8-bit ÷255, 16-bit (little-endian, as the WASM codec returns it) ÷65535, float samples
+ * passed through unchanged — an OpenEXR buffer is linear light, not a code value, and the
+ * caller must only send it through a profile whose transfer is Linear.
+ */
+export function samplesToUnitFloat(img) {
+  const raw = img.samples
+  if (img.sampleFormat === 'float') {
+    return new Float32Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength))
+  }
+  if (img.bitDepth === 16) {
+    const n = raw.byteLength >> 1
+    const out = new Float32Array(n)
+    for (let i = 0; i < n; i++) out[i] = (raw[2 * i] | (raw[2 * i + 1] << 8)) / 65535
+    return out
+  }
+  if (img.bitDepth !== 8) throw new Error(`unsupported sample depth: ${img.bitDepth}-bit`)
+  const out = new Float32Array(raw.byteLength)
+  for (let i = 0; i < raw.byteLength; i++) out[i] = raw[i] / 255
+  return out
+}
+
 // ── the range operator ───────────────────────────────────────────────────────
 /**
  * Soft ceiling on luminance: identity up to 80% of the ceiling, then an exponential
