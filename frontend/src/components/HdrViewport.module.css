@@ -1,0 +1,22 @@
+/* (c) 2026 William Li */
+.wrap { margin-top: 6px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 0.8rem; }
+.zbtn { min-width: 26px; font-size: 0.9rem; line-height: 1.2; padding: 0 6px; cursor: pointer; }
+.tbtn { font-size: 0.78rem; padding: 2px 8px; cursor: pointer; }
+.tbtn[aria-pressed='true'] { background: var(--accent, #4a90e2); color: #fff; border: 1px solid var(--accent, #4a90e2); border-radius: 3px; }
+.pct { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted, #6b7280); font-size: 0.74rem; }
+
+/* Black surround in every theme: a light page colour around an HDR image changes how bright
+   its whites read. overflow: hidden — the transform, not scrolling, frames the image. */
+.viewport {
+  position: relative; overflow: hidden; max-width: 100%; background: #000; border-radius: 6px;
+  cursor: grab; touch-action: none; user-select: none;
+}
+.viewport:active { cursor: grabbing; }
+.viewport:focus-visible { outline: 2px solid var(--accent, #4a90e2); outline-offset: 2px; }
+
+.grip {
+  position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; z-index: 3; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 55%, rgba(255, 255, 255, 0.35) 55%);
+}

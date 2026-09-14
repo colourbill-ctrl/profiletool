@@ -568,9 +568,14 @@ HDR section; it remains the one we may freely mutate.
        - **Known test-data limit:** the corpus fixtures' AToB0 tables are identity curves, so
          the *baked fallback* policy produces PQ code values, not a real SDR rendering. A
          fixture with a fallback baked by `iccHdrFallback` is still to add.
-     - **Still to do:** confirm the WebGPU backend specifically; zoom/resize for the HDR image
-       (below); an `iccHdrFallback`-baked test fixture.
-     - **TODO (user request, 2026-09-13): resize and zoom the displayed HDR image.** Both routes
+     - **Still to do:** confirm the WebGPU backend specifically; an `iccHdrFallback`-baked test
+       fixture.
+     - **DONE 2026-09-13 — `components/HdrViewport.jsx`.** Zoom (absolute; opens at 1:1 or
+       shrunk to fit, never enlarged), pan, Fit image / 1:1, Ctrl+wheel, keys, corner grip
+       (`profiletool.hdrViewSize`); the SDR white patch is an overlay outside the transform.
+       Same day: **Image details** fold (`profiletool.hdrDetailsOpen`) and **Fit to display**
+       always shown, disabled with a reason (browser route / SDR output / peak unknown).
+     - *(was)* **TODO (user request, 2026-09-13): resize and zoom the displayed HDR image.** Both routes
        (the `<img>` and the HdrSurface canvas) should get zoom in/out, pan, reset-to-fit and a
        resizable viewport. `components/viz/RasterCanvas.jsx` already does this for CLUT images
        as a pure CSS transform on the element (native-size bitmap, zoom 25%–6400%, Ctrl/⌘+wheel

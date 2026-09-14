@@ -421,6 +421,26 @@ On the slider, 0% is the SDR rendering and 100% is no limit. Values in between c
 - **Fit to display** sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.
 - An **SDR white patch** — plain white — sits against the image's right edge, for comparison by eye. **Drag** it anywhere over the viewer (or focus it and use the arrow keys; Shift for bigger steps), and **double-click** it to put it back beside the image. The **SDR white patch** button above the image turns it on and off. Its position and on/off state are remembered. On an HDR display with real HDR output, highlights look brighter than the patch; at the SDR end the brightest pixels sit just below it, because the SDR rendering eases highlights in under white. If highlights never look brighter, the output is being clamped.
 
+**When Fit to display is available.** The button is always shown. When it cannot work it is greyed out, with the reason beside it:
+
+| The panel shows… | Fit to display | Why |
+|---|---|---|
+| **Shown by: the browser** (AVIF, JPEG, PNG, HEIC) | not available | The browser renders the image, and CSS can only show it at the SDR end, the HDR end, or a blend of the two. It has no setting for "cap at this display's peak". |
+| **Shown by: profiletool**, **Output: SDR canvas** | not available | This output cannot show anything above SDR white, so there is nothing to fit. The Dynamic range slider is hidden too. |
+| **Shown by: profiletool**, **Display peak: not known** | not available | There is no peak to fit to. Click **Identify displays** in the **Display peak** row. |
+| **Shown by: profiletool**, an HDR output and a known peak | available | Sets the limit to the display's peak. |
+
+The **Fit to display** beside **Target headroom**, when a profile is assigned, needs only a known display peak.
+
+**Image details.** Click **Image details** to fold away the facts from **Embedded ICC profile** down to **HDR reference white**, including **Assign profile**, and leave more room for the image. Click again to unfold. The choice is remembered.
+
+**Zoom, pan and resize.** The image opens at actual size (100%), or shrunk to fit if it is larger than the view. Zooming is a display transform only: the pixel values sent to the display do not change.
+- **+** and **−** zoom, as does **Ctrl** (⌘ on a Mac) with the mouse wheel, toward the pointer. The percentage is the scale: 100% is one image pixel per CSS pixel. Above 200%, pixels show as sharp squares.
+- **Fit image** fills the view with the image; **1:1** returns to actual pixels. **Double-click** the image to go back to the opening view.
+- **Drag** the image to pan. With the view focused, the arrow keys pan, and **+**, **−**, **0** (opening view) and **1** (1:1) work too.
+- Drag the **corner grip** at the bottom right to resize the view; double-click the grip for the default size. The size is remembered.
+- The **SDR white patch** is not zoomed: it stays the same size wherever the image moves, and a docked patch follows the image's right edge.
+
 **Assigning an HDR profile.** For TIFF, PNG, JPEG, OpenEXR and Radiance HDR, **Assign profile** chooses a profile to interpret the image's pixel values:
 - the image's **embedded profile**;
 - any **HDR Profile in the pool** (load one in the Profiles pane first);

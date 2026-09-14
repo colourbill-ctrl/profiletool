@@ -7,6 +7,7 @@ import { readDisplay } from '../lib/displayWatcher.js'
 import { capabilityFor, hdrPathway, FORMATS, reasonText } from '../lib/capabilities.js'
 import { decodeImage, findEmbeddedProfileFromFile, gainMapInfo } from '../lib/imageCodec.js'
 import { decodeRadiance } from '../lib/radianceHdr.js'
+import HdrViewport from './HdrViewport.jsx'
 import { renderFloatRgba, toSrgbLinearMatrix, normalizeChromaticities, drlValue, MAX_LIMIT_STOPS, displayPeakInfo, fitShare, clipsBeyondDisplay, samplesToUnitFloat } from '../lib/hdrPixels.js'
 import { useLiveDisplay } from './useLiveDisplay.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
@@ -35,6 +36,8 @@ const ASSIGNABLE = new Set(['tiff', 'png', 'jpeg', 'exr', 'hdr'])
 // Formats whose samples are linear light rather than code values: no ICC profile slot, the
 // 'pixels' route, and only Linear-transfer HDR Profiles may interpret them.
 const LINEAR_LIGHT = new Set(['exr', 'hdr'])
+// Whether the Image details section (embedded profile … HDR reference white) is unfolded.
+const DETAILS_KEY = 'profiletool.hdrDetailsOpen'
 
 export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   const t = useT()
@@ -49,6 +52,9 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
   const [gain, setGain] = useState(null)
   const [error, setError] = useState(null)
   const [over, setOver] = useState(false)
+  // The semi-static facts fold away to give the image more room; remembered across images.
+  const [detailsOpen, setDetailsOpenState] = useState(() => store.get(DETAILS_KEY) !== '0')
+  const setDetailsOpen = (v) => { setDetailsOpenState(v); store.set(DETAILS_KEY, v ? '1' : '0') }
   const inputRef = useRef(null)
   const loadToken = useRef(0)
 
@@ -143,13 +149,23 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
 
       {file && info && (
         <>
-          <ProfileRow t={t} info={info} profile={profile} onOpen={() => onOpenInProfile?.(file)} />
-          {info.kind === FileKind.IMAGE && ASSIGNABLE.has(info.format) && (
-            <AssignRow t={t} value={assign ? assignSel : 'none'} onChange={setAssignSel} profile={profile} hdrProfiles={hdrProfiles}
-                       linearOnly={LINEAR_LIGHT.has(info.format)} formatLabel={FORMATS[info.format]?.label || info.format} />
+          <button type="button" className={styles.disclosure} aria-expanded={detailsOpen} data-hdr-details-toggle=""
+                  onClick={() => setDetailsOpen(!detailsOpen)}>
+            <span aria-hidden="true">{detailsOpen ? '▾' : '▸'}</span> {t('hdr_details') || 'Image details'}
+          </button>
+          {/* Profile, assignment and gain map here; the route's own facts follow inside
+              RouteBody and fold with them, so the section reads as one block. */}
+          {detailsOpen && (
+            <>
+              <ProfileRow t={t} info={info} profile={profile} onOpen={() => onOpenInProfile?.(file)} />
+              {info.kind === FileKind.IMAGE && ASSIGNABLE.has(info.format) && (
+                <AssignRow t={t} value={assign ? assignSel : 'none'} onChange={setAssignSel} profile={profile} hdrProfiles={hdrProfiles}
+                           linearOnly={LINEAR_LIGHT.has(info.format)} formatLabel={FORMATS[info.format]?.label || info.format} />
+              )}
+              {gain?.present && <GainRow t={t} gain={gain} />}
+            </>
           )}
-          {gain?.present && <GainRow t={t} gain={gain} />}
-          <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} live={live} assign={assign} />
+          <RouteBody key={`${file.name}:${file.size}:${file.lastModified}`} t={t} file={file} info={info} profile={profile} gain={gain} live={live} assign={assign} detailsOpen={detailsOpen} />
         </>
       )}
     </div>
@@ -210,12 +226,12 @@ function GainRow({ t, gain }) {
   )
 }
 
-function RouteBody({ t, file, info, profile, gain, live, assign }) {
+function RouteBody({ t, file, info, profile, gain, live, assign, detailsOpen }) {
   const env = info.env
   // An assigned profile takes over interpretation of the pixels, so the file goes through
   // profiletool's own decode and the CMM whatever the browser could have done with it.
   if (assign && info.kind === FileKind.IMAGE && ASSIGNABLE.has(info.format)) {
-    return <PixelRoute key={`assign:${assign.key}`} t={t} file={file} info={info} env={env} live={live} assign={assign} />
+    return <PixelRoute key={`assign:${assign.key}`} t={t} file={file} info={info} env={env} live={live} assign={assign} detailsOpen={detailsOpen} />
   }
   if (info.route === 'notImage') {
     return <p className={styles.note}>{t('hdr_not_image') || 'That is not an image. Load profiles through the Profiles pane.'}</p>
@@ -239,8 +255,8 @@ function RouteBody({ t, file, info, profile, gain, live, assign }) {
       </p>
     )
   }
-  if (info.route === 'img') return <ImgRoute t={t} file={file} info={info} env={env} profile={profile} gain={gain} live={live} />
-  return <PixelRoute t={t} file={file} info={info} env={env} live={live} />
+  if (info.route === 'img') return <ImgRoute t={t} file={file} info={info} env={env} profile={profile} gain={gain} live={live} detailsOpen={detailsOpen} />
+  return <PixelRoute t={t} file={file} info={info} env={env} live={live} detailsOpen={detailsOpen} />
 }
 
 // ── route 'img' ──────────────────────────────────────────────────────────────
@@ -253,15 +269,15 @@ function cssSupport() {
   } catch { return { drl: false, mix: false } }
 }
 
-function ImgRoute({ t, file, info, env, profile, gain, live }) {
+function ImgRoute({ t, file, info, env, profile, gain, live, detailsOpen }) {
   // Merge the LIVE display into the page's capabilities, so the HDR verdict follows the
   // window. NO_HDR_DISPLAY is left to the display-specific notes below, which say more.
   const envLive = useMemo(() => ({ ...env, display: { ...env.display, ...live.display } }), [env, live.display])
   const hdrCap = capabilityFor(info.format, envLive).hdr
   const hdrWhy = hdrCap.ok || hdrCap.code === 'NO_HDR_DISPLAY' ? null : hdrCap
   const dpk = displayPeakInfo({ hdr: envLive.display.hdr, headroomStops: live.screen?.headroom })
-  const viewerRef = useRef(null)
   const refPref = useRefWhitePref()
+  const [nat, setNat] = useState(null)          // the image's natural size, once loaded
   const [url, setUrl] = useState(null)
   const [failed, setFailed] = useState(false)
   const [share, setShare] = useState(1)
@@ -287,41 +303,57 @@ function ImgRoute({ t, file, info, env, profile, gain, live }) {
 
   return (
     <>
-      <Facts t={t} env={env} rows={[
+      {detailsOpen && <Facts t={t} env={env} rows={[
         [t('hdr_route') || 'Shown by', t('hdr_route_img') || 'the browser'],
         [t('hdr_display') || 'HDR display', tri(envLive.display.hdr, t)],
         [t('hdr_display_peak') || 'Display peak', <DisplayPeak t={t} dpk={dpk} live={live} />],
-      ]} />
+      ]} />}
       {hdrWhy && <p className={styles.note}>{reasonText(hdrWhy, t)}.</p>}
       {envLive.display.hdr === false && support.drl && (
         <p className={styles.note}>{t('hdr_sdr_display_img') || 'This display reports no HDR, so the browser shows this image in SDR at either end.'}</p>
       )}
       {iccOnly && <p className={styles.note}>{t('hdr_icc_only') || 'Browsers ignore HDR that is signalled only by an embedded ICC profile, so this image may look dim and flat.'}</p>}
+      {/* Fit to display is shown but unavailable on this route: CSS dynamic-range-limit offers
+          the SDR end, the HDR end and a blend, but no "cap at N× SDR white". */}
       {support.drl
-        ? <RangeControl t={t} share={share} setShare={setShare} blend={support.mix} />
-        : <p className={styles.note}>{t('hdr_no_drl') || 'This browser cannot switch an image between SDR and HDR, so it is shown as the browser renders it.'}</p>}
-      <RefWhiteBar t={t} pref={refPref} />
-      <div className={styles.viewer} ref={viewerRef}>
-        {url && !failed && (
-          <img ref={imgRef} src={url} alt={file.name} className={styles.image}
-               onError={() => setFailed(true)} />
+        ? <RangeControl t={t} share={share} setShare={setShare} blend={support.mix} fitReason={fitOffImg(t)} />
+        : (
+          <>
+            <p className={styles.note}>{t('hdr_no_drl') || 'This browser cannot switch an image between SDR and HDR, so it is shown as the browser renders it.'}</p>
+            <div className={styles.range}>
+              <span className={styles.rangeLabel}>{t('hdr_range') || 'Dynamic range'}</span>
+              <FitButton t={t} reason={fitOffImg(t)} />
+            </div>
+          </>
         )}
-        {failed && <p className={styles.error}>{t('hdr_img_failed') || 'The browser could not decode this image.'}</p>}
-        <RefWhitePatch t={t} viewerRef={viewerRef} targetRef={imgRef} pref={refPref} />
-      </div>
+      <RefWhiteBar t={t} pref={refPref} />
+      {failed
+        ? <p className={styles.error}>{t('hdr_img_failed') || 'The browser could not decode this image.'}</p>
+        : (
+          <HdrViewport t={t} contentW={nat?.w} contentH={nat?.h}
+                       overlay={({ viewportRef, tick }) => <RefWhitePatch t={t} viewerRef={viewportRef} targetRef={imgRef} pref={refPref} tick={tick} />}>
+            {(style) => url && (
+              <img ref={imgRef} src={url} alt={file.name} className={styles.image} style={style} draggable={false}
+                   onLoad={(e) => setNat({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+                   onError={() => setFailed(true)} />
+            )}
+          </HdrViewport>
+        )}
     </>
   )
 }
 
+const fitOffImg = (t) => t('hdr_fit_off_img') || 'not available — the browser renders this image and cannot cap it at a set peak'
+const fitOffPeak = (t) => t('hdr_fit_off_peak') || 'not available — this display’s peak is not known'
+
 // ── route 'pixels' ───────────────────────────────────────────────────────────
-function PixelRoute({ t, file, info, env, live, assign }) {
+function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
   // Merge the LIVE display into the page's capabilities, so the HDR verdict follows the
   // window. NO_HDR_DISPLAY is left to the display-specific notes below, which say more.
   const envLive = useMemo(() => ({ ...env, display: { ...env.display, ...live.display } }), [env, live.display])
   const hdrCap = capabilityFor(info.format, envLive).hdr
   const hdrWhy = hdrCap.ok || hdrCap.code === 'NO_HDR_DISPLAY' ? null : hdrCap
   const dpk = displayPeakInfo({ hdr: envLive.display.hdr, headroomStops: live.screen?.headroom })
-  const viewerRef = useRef(null)
   const refPref = useRefWhitePref()
   const [decoded, setDecoded] = useState(null)
   const [error, setError] = useState(null)
@@ -463,7 +495,7 @@ function PixelRoute({ t, file, info, env, live, assign }) {
   const p = decoded.primaries
   return (
     <>
-      <Facts t={t} env={env} rows={[
+      {detailsOpen && <Facts t={t} env={env} rows={[
         [t('hdr_route') || 'Shown by', t('hdr_route_pixels') || 'profiletool'],
         [t('hdr_surface') || 'Output', surface ? surfaceLabel[surface.kind] : (t('hdr_checking') || 'checking…')],
         [t('hdr_display') || 'HDR display', tri(envLive.display.hdr, t)],
@@ -473,7 +505,7 @@ function PixelRoute({ t, file, info, env, live, assign }) {
         ...(assign ? assignFacts(t, assign, cmmInfo) : [[t('hdr_chromaticities') || 'Chromaticities',
           p ? `R ${p.red.join(', ')} · G ${p.green.join(', ')} · B ${p.blue.join(', ')} · W ${p.white.join(', ')}${decoded.matrix ? '' : ' (Rec. 709)'}`
             : (t('hdr_chroma_default') || 'not stated — Rec. 709 assumed')]]),
-      ]} />
+      ]} />}
       {hdrWhy && <p className={styles.note}>{reasonText(hdrWhy, t)}.</p>}
       {fallbacks.map((f, i) => (
         <p key={i} className={styles.note}>{(t('hdr_fallback') || '{from} was not available here ({why}); using the next output.').replace('{from}', surfaceLabel[f.from] || f.from).replace('{why}', f.why)}</p>
@@ -504,7 +536,16 @@ function PixelRoute({ t, file, info, env, live, assign }) {
         {surface?.hdr && (
           <RangeControl t={t} share={share} setShare={setShare} blend readout={readout}
                         onFit={fit != null ? () => setShare(fit) : null}
-                        fitActive={fit != null && Math.abs(share - fit) < 0.005} />
+                        fitActive={fit != null && Math.abs(share - fit) < 0.005}
+                        fitReason={fitOffPeak(t)} />
+        )}
+        {/* An SDR output has no range to limit, so no slider — but Fit to display stays in
+            view, unavailable, so its absence is explained rather than silent. */}
+        {surface && !surface.hdr && (
+          <div className={styles.range}>
+            <span className={styles.rangeLabel}>{t('hdr_range') || 'Dynamic range'}</span>
+            <FitButton t={t} reason={t('hdr_fit_off_sdr') || 'not available — this output shows nothing above SDR white'} />
+          </div>
         )}
         <label className={styles.slider}>
           <span>{t('hdr_exposure') || 'Exposure'}</span>
@@ -515,16 +556,32 @@ function PixelRoute({ t, file, info, env, live, assign }) {
       </div>
 
       <RefWhiteBar t={t} pref={refPref} />
-      <div className={styles.viewer} ref={viewerRef}>
-        <canvas key={kind} ref={canvasRef} className={styles.image} data-surface={surface?.kind || ''} />
-        <RefWhitePatch t={t} viewerRef={viewerRef} targetRef={canvasRef} pref={refPref} />
-      </div>
+      <HdrViewport t={t} contentW={decoded.w} contentH={decoded.h}
+                   overlay={({ viewportRef, tick }) => <RefWhitePatch t={t} viewerRef={viewportRef} targetRef={canvasRef} pref={refPref} tick={tick} />}>
+        {(style) => <canvas key={kind} ref={canvasRef} className={styles.image} style={style} data-surface={surface?.kind || ''} />}
+      </HdrViewport>
+    </>
+  )
+}
+
+// Fit to display, always in view. With no `onFit` it is disabled and `reason` says why, next
+// to it — a disabled button's tooltip does not show in every browser.
+function FitButton({ t, onFit, active, reason }) {
+  const off = !onFit
+  return (
+    <>
+      <button type="button" className={active && !off ? styles.fitOn : styles.btn} aria-pressed={!off && !!active}
+              disabled={off} onClick={onFit || undefined} data-fit-state={off ? 'off' : 'on'}
+              title={off ? reason : (t('hdr_fit_help') || 'Caps brightness at the peak this display reports. On Windows that figure can lag behind brightness changes.')}>
+        {t('hdr_fit') || 'Fit to display'}
+      </button>
+      {off && reason && <span className={styles.muted} data-fit-reason="">{reason}</span>}
     </>
   )
 }
 
 // SDR | HDR buttons plus, where a blend exists, a slider between them. `share` 0 = SDR.
-function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive }) {
+function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive, fitReason }) {
   return (
     <div className={styles.range}>
       <span className={styles.rangeLabel}>{t('hdr_range') || 'Dynamic range'}</span>
@@ -537,12 +594,7 @@ function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive }) 
                  onChange={(e) => setShare(Number(e.target.value) / 100)} aria-label={t('hdr_range') || 'Dynamic range'} />
         : <span className={styles.muted}>{t('hdr_no_mix') || 'This browser offers only the two ends, not a blend.'}</span>}
       {readout && <span className={styles.sliderValue}>{readout}</span>}
-      {onFit && (
-        <button type="button" className={fitActive ? styles.fitOn : styles.btn} aria-pressed={!!fitActive} onClick={onFit}
-                title={t('hdr_fit_help') || 'Caps brightness at the peak this display reports. On Windows that figure can lag behind brightness changes.'}>
-          {t('hdr_fit') || 'Fit to display'}
-        </button>
-      )}
+      {(onFit || fitReason) && <FitButton t={t} onFit={onFit} active={fitActive} reason={fitReason} />}
     </div>
   )
 }
@@ -617,12 +669,7 @@ function TargetControl({ t, stops, setStops, policy, setPolicy, displayStops, ap
         <span className={styles.sliderValue}>
           {(t('hdr_target_value') || '{r}× reference white ({n} stops)').replace('{r}', (2 ** stops).toFixed(2)).replace('{n}', stops.toFixed(2))}
         </span>
-        {displayStops != null && (
-          <button type="button" className={fitActive ? styles.fitOn : styles.btn} aria-pressed={fitActive}
-                  onClick={() => setStops(displayStops)} title={t('hdr_fit_help') || ''}>
-            {t('hdr_fit') || 'Fit to display'}
-          </button>
-        )}
+        <FitButton t={t} onFit={displayStops != null ? () => setStops(displayStops) : null} active={fitActive} reason={fitOffPeak(t)} />
         {applying && <span className={styles.muted}>{t('hdr_applying') || 'Applying the profile…'}</span>}
       </div>
       <label className={styles.slider}>
@@ -698,7 +745,9 @@ function RefWhiteBar({ t, pref }) {
   )
 }
 
-function RefWhitePatch({ t, viewerRef, targetRef, pref }) {
+// `tick` changes when the image is zoomed, panned or the view resized — none of which a
+// ResizeObserver sees (a transform does not change layout size) — so a docked patch follows.
+function RefWhitePatch({ t, viewerRef, targetRef, pref, tick }) {
   const [box, setBox] = useState(null)       // { left, top } in viewer content px
   const drag = useRef(null)
 
@@ -707,8 +756,10 @@ function RefWhitePatch({ t, viewerRef, targetRef, pref }) {
   const place = useCallback(() => {
     const vp = viewerRef.current
     if (!vp) return
-    const freeW = Math.max(0, vp.scrollWidth - PATCH)
-    const freeH = Math.max(0, vp.scrollHeight - PATCH - 16)
+    // clientWidth, not scrollWidth: the view does not scroll, and a zoomed image's transformed
+    // box would otherwise count as scrollable overflow and push the patch out of sight.
+    const freeW = Math.max(0, vp.clientWidth - PATCH)
+    const freeH = Math.max(0, vp.clientHeight - PATCH - 16)
     if (pref.pos) {
       setBox({ left: pref.pos.fx * freeW, top: pref.pos.fy * freeH })
       return
@@ -733,13 +784,15 @@ function RefWhitePatch({ t, viewerRef, targetRef, pref }) {
     return () => { ro.disconnect(); img?.removeEventListener?.('load', place) }
   }, [pref.on, place, viewerRef, targetRef])
 
+  useEffect(() => { if (pref.on) place() }, [tick, pref.on, place])
+
   if (!pref.on || !box) return null
 
   const commit = (left, top) => {
     const vp = viewerRef.current
     if (!vp) return
-    const freeW = Math.max(1, vp.scrollWidth - PATCH)
-    const freeH = Math.max(1, vp.scrollHeight - PATCH - 16)
+    const freeW = Math.max(1, vp.clientWidth - PATCH)
+    const freeH = Math.max(1, vp.clientHeight - PATCH - 16)
     const l = Math.min(Math.max(0, left), freeW), tp = Math.min(Math.max(0, top), freeH)
     setBox({ left: l, top: tp })
     return { fx: l / freeW, fy: tp / freeH }
