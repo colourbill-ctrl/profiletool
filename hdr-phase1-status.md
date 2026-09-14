@@ -2,10 +2,17 @@
 
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
-**Date:** 2026-09-13. **Built against:** `hdr-profiles` @ **`ac264764`**
-(`ac2647649a87549f230cc1541a5aaafd5b74f58d`). It is the published head on `origin`, owner-approved,
-and a fast-forward from the CI-green `0b41d664`; CI had not yet run on `ac264764` itself. Library
-reports `2.3.2.3`.
+**Date:** 2026-09-13. **Built against:** `hdr-profiles` @ **`80a162c2`**
+(`80a162c2f136a1e2bbbbb96e285b315e190c19b5`), the published head on `origin` and a fast-forward
+from `ac264764`. CI had not yet run on it; the last CI-green commit is `0b41d664`.
+
+> **Re-pin 2026-09-13: `ac264764` → `80a162c2`.** Three compiled files changed:
+> `IccHdrToneMap.{h,cpp}` (comments only — every changed line checked) and
+> `IccXML/IccLibXML/IccTagXml.cpp` (master #2552 / iccDEV #2548: an XML colorantTable channel
+> must be a whole, finite number; before, `atof()` read "not-a-number" as 0 and "50abc" as 50).
+> Clean rebuild: **only `iccxml.wasm` changed**; the other five iccDEV-linked modules,
+> `iccimage` and every `.mjs` loader are byte-identical. New `scripts/check-xml-colorant.mjs`
+> failed 4/9 on the old `iccxml` and passes 9/9 on the new one.
 
 > **Re-pin 2026-09-13: `6bf5c5ea` → `ac264764`**, 23 commits. What it brings:
 > - master hardening merges: parametric curves no longer return NaN, colorant/chromaticity
