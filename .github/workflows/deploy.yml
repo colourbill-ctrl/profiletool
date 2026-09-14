@@ -65,10 +65,16 @@ jobs:
 
       - name: Build SPA
         working-directory: frontend
+        # vite.config.js takes `base` from PROFILETOOL_BASE (the beta deploy sets it). Cleared
+        # here so production can never inherit it, and the result is checked: a bundle built for
+        # another base would 404 on every asset once rsync --delete replaced the live site.
+        env:
+          PROFILETOOL_BASE: ''
         run: |
           npm ci
           npm run build
           test -f dist/index.html
+          grep -q '/profiletool/assets/' dist/index.html
 
       - name: Load deploy key
         uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555  # v0.10.0
@@ -81,16 +87,25 @@ jobs:
         # to per-run keyscan (trust-on-first-use) only if that secret is unset,
         # so deploys keep working until the secret is added. Add the secret to
         # close the TOFU/MITM window on the rsync target.
+        #
+        # Secrets reach the shell as environment variables, never spliced into the script text:
+        # an expression expanded inside `run:` becomes shell source, so a value containing a quote
+        # or $(…) would execute.
+        env:
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
           mkdir -p ~/.ssh
-          if [ -n "${{ secrets.SSH_KNOWN_HOSTS }}" ]; then
-            printf '%s\n' "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
           else
             echo "::warning::SSH_KNOWN_HOSTS secret not set — falling back to ssh-keyscan (TOFU). Set it to pin the host key."
-            ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+            ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
           fi
 
       - name: Rsync dist to Lightsail
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
         run: |
-          rsync -avz --delete frontend/dist/ \
-            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/var/www/profiletool/"
+          rsync -avz --delete frontend/dist/ "$SSH_USER@$SSH_HOST:/var/www/profiletool/"
