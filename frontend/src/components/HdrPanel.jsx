@@ -145,7 +145,7 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
       </p>
 
       <input ref={inputRef} type="file" hidden
-             accept=".exr,.hdr,.pic,.rgbe,.avif,.heic,.heif,.jpg,.jpeg,.png,.tif,.tiff,image/*"
+             accept=".exr,.hdr,.pic,.rgbe,.avif,.heic,.heif,.jxl,.jpg,.jpeg,.png,.tif,.tiff,image/*"
              onChange={(e) => { load(e.target.files?.[0]); e.target.value = '' }} />
 
       {!file ? (

@@ -412,7 +412,7 @@ Drop **one** image on the **HDR** tab, or click the drop area to choose one. A n
 
 | File | Shown by | SDR ↔ HDR control |
 |---|---|---|
-| **AVIF**, **JPEG** (including gain-map JPEG), **PNG** (including cICP-tagged), **HEIC** on Safari | the browser | **SDR** / **HDR** buttons, plus a **Dynamic range** slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only. |
+| **AVIF**, **JPEG** (including gain-map JPEG), **PNG** (including cICP-tagged), **HEIC** and **JPEG XL** on Safari | the browser | **SDR** / **HDR** buttons, plus a **Dynamic range** slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only. |
 | **OpenEXR**, **Radiance HDR** (`.hdr`, RGBE) | profiletool | the same buttons and slider, plus **Exposure** |
 | **TIFF** | profiletool, once a profile is assigned (a TIFF's own embedded profile is assigned automatically); a TIFF with no profile shows a note | the same buttons and slider, plus **Exposure** |
 
@@ -437,7 +437,7 @@ On the slider, 0% is the SDR rendering and 100% is no limit. Values in between c
 
 | The panel shows… | Fit to display | Why |
 |---|---|---|
-| **Shown by: the browser** (AVIF, JPEG, PNG, HEIC) | not available | The browser renders the image, and CSS can only show it at the SDR end, the HDR end, or a blend of the two. It has no setting for "cap at this display's peak". |
+| **Shown by: the browser** (AVIF, JPEG, PNG, HEIC, JPEG XL) | not available | The browser renders the image, and CSS can only show it at the SDR end, the HDR end, or a blend of the two. It has no setting for "cap at this display's peak". |
 | **Shown by: profiletool**, **Output: SDR canvas** | not available | This output cannot show anything above SDR white, so there is nothing to fit. The Dynamic range slider is hidden too. |
 | **Shown by: profiletool**, **Display peak: not known** | not available | There is no peak to fit to. Click **Identify displays** in the **Display peak** row. |
 | **Shown by: profiletool**, an HDR output and a known peak | available | Sets the limit to the display's peak. |
