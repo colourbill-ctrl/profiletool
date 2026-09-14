@@ -606,9 +606,9 @@ HDR section; it remains the one we may freely mutate.
        element, not the pixels, it works for float16/WebGPU canvases and `<img>` alike, and
        never re-renders the HDR buffer. The SDR white strip must stay outside the zoomed
        viewport.
-  4. **Gain-map awareness** — ISO 21496-1:2025 metadata (and Ultra HDR's MPF variant) shown
-     next to the profile's own adaptive gain curve. HEIC being first makes test material
-     free: any recent iPhone produces exactly this file.
+  4. ~~**Gain-map awareness**~~ — **DEFERRED 2026-09-14** (see *Deferred: gain maps* below):
+     gain maps are not part of the ICC HDR Profiles specification, so there is no reason to
+     implement them now.
   **⚠ Naming discrepancy to resolve before a HAGC display module is designed:** ICC added
   **`ADGC` / `adaptiveGainCurveType` (`'adgc'`)** to ICC.1 on **17 April 2025**, normatively
   referencing ISO 21496-1. Our branch implements the same functional object as
@@ -654,16 +654,36 @@ HDR section; it remains the one we may freely mutate.
 
   | # | Deferred | Reason | Reopens when |
   |---|---|---|---|
-  | 4.1 | **HEIC display outside Safari** | libheif is LGPL-3.0 (relinking obligation on a public static WASM bundle, forever, for one format); writing our own needs grid-tile composition, ~48 HEVC tiles per iPhone photo | A permissively licensed HEVC still decoder appears, or HEIC display off Safari becomes a requirement worth the obligation — `DL-HDRENV1` |
+  | 4.1 | **HEIC display outside Safari** | libheif is LGPL-3.0 (relinking obligation on a public static WASM bundle, forever, for one format); writing our own needs grid-tile composition, ~48 HEVC tiles per iPhone photo. **Ruling 2026-09-14 (H2 → route b):** never ship an HEVC decoder (copyright AND HEVC patent exposure). profiletool parses the HEIF container itself and decodes tiles with the **platform** decoder via WebCodecs `VideoDecoder`, so it receives pixels only. Coverage depends on the platform having HEVC. Probe 2026-09-14: headless Linux Chromium 149 has `VideoDecoder` but reports no HEVC support, so real decoding must be verified on Windows/macOS Chrome | Route (b) implementation is scheduled; still open are H4 (HEIF container patents), H5 (profiletool vs iccDEV), H6 (commercial positioning) and H7 (CC0 HEIC test images) — `DL-HDRENV1` |
   | 4.2 | **JPEG XL** | libjxl's WASM build is awkward, and JXL's ICC profile is Brotli-deconstructed so even *reading* it needs the library. Apache-2.0, so not a licence problem — a cost one | JXL demand appears, or the WASM build becomes routine — `DL-HDRIMG1` |
   | 4.3 | **16-bit TIFF HDR encoding** (scale/offset vs half-float) | Demoted from Phase-2 gate to backlog: AVIF/HEIC/EXR all express HDR natively, so TIFF was never the necessary vehicle | TIFF becomes the required HDR container. Wants its own decision note first — constraints already measured, do not re-derive |
   | 4.4 | **EXR DWAA/DWAB** | tinyexr does not implement them (verified against v3.2.0). Refused **by name**, not silently | Real DWA files turn up: swap tinyexr for OpenEXR behind the same entry points |
-  | 4.5 | **ISO 21496-1 gain-map field parsing** | Binary layout is paywalled. Detected and reported *present, not decoded* rather than guessed | The layout becomes available |
+  | 4.5 | **ISO 21496-1 gain-map field parsing** | Binary layout is paywalled. Detected and reported *present, not decoded* rather than guessed. **Folded into *Deferred: gain maps* (2026-09-14)** | See that list |
   | 4.6 | **ADGC tag parsing** | Published header table is self-contradictory AND unreconstructable (its only normative reference was unpublished at ratification) | ICC corrects the table, or ISO 21496-1 publishes — iccDEV register item ADGC-01 |
   | 4.7 | **`validation.messages[]` rendering** | Predates HDR: IccProfLib's validation output is invisible for *every* profile. Still profiletool's call | Independent of HDR; take it whenever |
   | 4.8 | **Firefox HDR rendering** | Firefox renders no HDR images and reads no gain maps — not ours to fix. Treated as an SDR-only target | Gecko ships HDR image support (bug 1539685) |
-  | 4.9 | **`LICENSE` file** | Repository states no terms of its own while deploying publicly and vendoring BSD-3 source. Not HDR at all | Needs an owner decision, and is worth closing regardless |
+  | 4.9 | ~~**`LICENSE` file**~~ **DONE 2026-09-14** | MIT on `main` (`fc2cf75`) and `beta` (`581acef`), with generated `THIRD-PARTY-NOTICES.txt` | — |
 
   4.1–4.6 share one shape and it is worth naming: each is a case where the honest output is
   *"present, not decoded"* or *"refused by name"*, and the alternative would be a **confident
   wrong answer nothing downstream can detect**.
+
+  **Deferred: gain maps (owner ruling 2026-09-14).** Gain maps (ISO 21496-1, Ultra HDR, Apple
+  HDRGainMap) are **not part of the ICC HDR Profiles specification**: ISO 21496-1 appears only in
+  clause 8.10's bibliography, and no 8.10.3 descriptor names a gain map. So there is no reason to
+  implement gain-map support now. What already exists stays as it is: the Ultra HDR `hdrgm` field
+  readout in the HDR tab, `tmap` detection in the iccimage WASM, and whatever the browser renders
+  on the `<img>` route. Deferred until reopened:
+
+  | # | Deferred gain-map item |
+  |---|---|
+  | G1 | ISO 21496-1 metadata parser (AVIF `tmap` item; JPEG APP2 via MPF; common and per-field denominators) |
+  | G2 | Gain-map detection for AVIF/HEIC in the HDR tab (WASM detects `tmap`; the tab scans only JPEG) |
+  | G3 | Parsed gain-map fields in the HDR tab, or shown informatively beside the HAGC view |
+  | G4 | Applying gain maps in profiletool (rendering base image + map) |
+  | G5 | Apple `HDRGainMap` XMP and auxiliary gain-map image detection |
+  | G6 | Former 4.5: ISO 21496-1 field parsing |
+  | G7 | A JPEG test file with an ISO 21496-1 APP2 block |
+  | G8 | ISO patent declarations for ISO 21496-1 |
+  | G9 | Gain-map auxiliary images in HEIC: the route-(b) HEIC work decodes the primary image only |
+  | G10 | libultrahdr / libavif / Skia disagreement on metadata flag bits 3 and 2 (research note only) |
