@@ -61,7 +61,12 @@ const ALLOWED_TAGS = new Set([
 // Only these URL schemes may appear in an href. Blocks javascript:, data:, vbscript:.
 function safeHref(v) {
   const s = String(v).trim()
-  if (s.startsWith('#') || s.startsWith('/')) return s          // in-page / site-relative
+  // in-page / site-relative; '//' is protocol-relative (another host), so not site-relative
+  if (s.startsWith('#') || (s.startsWith('/') && !s.startsWith('//'))) return s
+  // Document-relative (e.g. "THIRD-PARTY-NOTICES.txt", resolved against the app's own base path):
+  // allowed only with NO scheme — no ':' before the first '/', '?' or '#' — and not
+  // protocol-relative, so it can only name a file served beside the app.
+  if (!s.startsWith('//') && /^[^:/?#]+(?:[/?#]|$)/.test(s) && !/^[^/?#]*:/.test(s)) return s
   return /^https?:\/\//i.test(s) ? s : null
 }
 

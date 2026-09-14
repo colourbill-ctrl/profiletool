@@ -15,6 +15,7 @@ profiletool is a web-based ICC profile validation tool that wraps the [iccDEV](h
 | `frontend/` | Vite + React SPA (port 5173 in dev). Loads the WASM module from `public/wasm/` and runs `validateProfile(bytes) → JSON` in the browser. |
 | `validator-wasm/` | Emscripten project: `wrapper.cpp` + a standalone `CMakeLists.txt` that compiles IccProfLib sources directly (bypassing iccDEV's top-level CMake). Produces `iccprofiledump.{mjs,wasm}`. |
 | `scripts/build-wasm.sh` | Rebuilds the WASM, copies artifacts into `frontend/public/wasm/`, refreshes `SHA256SUMS`. Pass `--verify` to check the committed artifacts still match source. |
+| `LICENSE` + `scripts/generate-notices.mjs` | profiletool is MIT. The generator writes `frontend/public/THIRD-PARTY-NOTICES.txt` (served with the app) from the build's real inputs: iccDEV + libtiff, Emscripten's zlib/libpng/libjpeg ports, the libxml2 FetchContent checkout, nlohmann-json, tinyexr where present, the Emscripten runtime, and the npm production dependency graph. Re-run it after adding or bumping a dependency; `--check` reports a stale file. |
 | `MANUAL.md` + `scripts/generate-help.js` | User-facing help source + generator. Produces `frontend/public/help.html` (served at `/help.html` in dev, `/profiletool/help.html` in prod). Edit `MANUAL.md`, run `node scripts/generate-help.js`. |
 | `hooks/pre-commit` | Auto-regenerates `help.html` when `MANUAL.md` or the generator is staged; rejects hand edits to `help.html`. Activate with `git config core.hooksPath hooks` after a fresh clone. |
 
