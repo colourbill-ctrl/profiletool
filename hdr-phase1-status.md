@@ -2,8 +2,32 @@
 
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
-**Date:** 2026-09-12. **Built against:** `hdr-profiles` @ **`6bf5c5ea`** — the published head
-on `origin`, and a merge of `origin/master` into the HDR branch. Library reports `2.3.2.3`.
+**Date:** 2026-09-13. **Built against:** `hdr-profiles` @ **`ac264764`**
+(`ac2647649a87549f230cc1541a5aaafd5b74f58d`). It is the published head on `origin`, owner-approved,
+and a fast-forward from the CI-green `0b41d664`; CI had not yet run on `ac264764` itself. Library
+reports `2.3.2.3`.
+
+> **Re-pin 2026-09-13: `6bf5c5ea` → `ac264764`**, 23 commits. What it brings:
+> - master hardening merges: parametric curves no longer return NaN, colorant/chromaticity
+>   counts are bounded, named-colour lookups checked, JSON curve parameters enforced;
+> - best-effort HDR `BToA0` baking (`InvertApproximate`, `CanBuildBtoA`);
+> - an illegal HAGC pad is skipped; header-only HDR membership validation;
+> - the Linear TRC-curve path removed; HAGC XML/JSON null checks.
+>
+> 15 compiled files changed. Results of the clean rebuild and checks:
+> - **Rebuild:** clean, from an empty build directory. The six IccProfLib-linked modules
+>   changed; `iccimage` and every `.mjs` loader are byte-identical.
+> - **Corpus:** 43 upstream fixtures; new `HdrLinearHagcCrwlDisagree`, where the HAGC white
+>   (300) and CRWL (203) disagree.
+> - **Header-only regeneration:** the `BT2100*` binaries regenerate with only a new creation
+>   timestamp and profile ID, since their XML carries no date, so the committed copies are
+>   kept.
+> - **Main validation corpus:** output identical between old and new WASM.
+> - **HDR checks:** corpus 46/46; headroom 92/92; classification vs PAWG 46 agree; HAGC
+>   evaluator 34.
+> - **Other suites:** capabilities 30; pixels 54; display watcher 63; ISOBMFF 12; EXR 4;
+>   gain map 6; plot corpus pass.
+> - **Browser:** HDR tab 38; display peak 14; SDR patch 12; drop frame 4.
 
 > **Pin history, because the SHAs in our older commit messages will not all resolve:**
 > `505b9c6d` → `589cfb3e` (corpus text only, no rebuild — proved with `--verify`) →

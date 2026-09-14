@@ -1,24 +1,26 @@
 # HDR test corpus
 
-**42 fixtures mirrored from iccDEV `Testing/HDR/` @ `5dd3ab4b` (branch `hdr-profiles`),
-plus 1 of our own.** Refreshed 2026-09-10.
+**43 fixtures mirrored from iccDEV `Testing/HDR/` @ `ac264764` (branch `hdr-profiles`),
+plus 3 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
+from the previous refresh: their XML carries no creation date, so regenerating them changes
+only the header timestamp and profile ID.
 
 ## How this directory relates to upstream
 
 Upstream is **XML-only**: it stopped committing `.icc` files and builds them with
 `Testing/HDR/mkprofiles.sh` / `.bat`, which is the single source of its build list. We cannot
 run that here, so the `.icc` files in this directory are **generated from the committed XML
-through our own iccxml WASM** (`xmlToIcc`). All 42 reproduce their manifest classification.
+through our own iccxml WASM** (`xmlToIcc`). All 43 reproduce their manifest classification.
 
 **What that agreement does and does not prove.** It is a **cross-build check, not an
 independent one.** `xmlToIcc` links the same IccXML library that `mkprofiles.sh` drives as
 `iccFromXml`, and the classification is read back through `icGetHdrProfileInfo()` — the very
 function upstream's `iccdev.hdr-corpus-manifest` CTest asserts against, and the function the
 manifest's own numbers came from. A bug in either the XML parse or the 8.10.1 classification
-would reproduce identically on both sides and still read 42/42.
+would reproduce identically on both sides and still read 43/43.
 
 What it *does* establish is worth having and nothing upstream covers it: the **Emscripten
-build** of IccProfLib + IccXML classifies all 42 fixtures identically to the native build.
+build** of IccProfLib + IccXML classifies all 43 fixtures identically to the native build.
 That is a cross-toolchain, cross-ABI agreement — the shape that catches float-width,
 struct-packing and endianness assumptions — and it confirms PAWG's three-way H1 mapping agrees
 with the manifest on every row across a second ABI.

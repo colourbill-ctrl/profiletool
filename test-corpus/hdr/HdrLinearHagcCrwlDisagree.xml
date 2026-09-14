@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  A conforming RGB HDR Display profile whose cicpTag declares the Linear (8)
-  transfer characteristic, written for the content-headroom priority order that
-  clause 8.10.4 states for Linear and for Linear only.
+  A conforming RGB HDR Display profile, Linear (8), that carries BOTH carriers
+  of the content HDR reference white and makes them disagree:
 
-  Why Linear needs an order at all: PQ carries a 10 000 cd/m2 peak in the
-  transfer function itself and HLG a nominal one, so for those two the content
-  peak is already established. Linear establishes nothing, so without an
-  assumed peak the tone-mapping operator of 8.10.2 has no scale to work in and
-  8.10.4 supplies one:
+    HAGC HDRReferenceWhite 300, metadataTag CRWL 203, CLL.max 600,
+    DCV.max 1500 with no DRWL and no DERH
 
-    a) CLL present               ->  Hcontent = CLL.max / CRWL
-    b) CLL absent, MDCV present  ->  Hcontent = MDCV.max / CRWL
-    c) neither present           ->  Hcontent = 1000 cd/m2 / CRWL
+  It exists because nothing else in this corpus asserts the PRECEDENCE between
+  the two carriers.  Every other fixture carries at most one of them, so a
+  reader that resolves the CRWL entry first and one that resolves the HAGC tag
+  first agree on every row: an independent checker built on the inverted order
+  matched this manifest on all 84 values before this fixture existed.
 
-  There are no TRC tags. Clause 8.10.1 prohibits them in an HDR Profile, and
-  the cicpTag's TransferCharacteristics (8, Linear) conveys the transfer
-  instead. In this directory only HdrTrcTagsPresent and HdrInvalidTransfer
-  still carry TRC tags, both deliberately, as negatives.
+  8.10.3 ranks the HAGC tag highest, and 8.10.4 a) divides by "the value
+  derived above", so the HAGC white governs (HDR-10, ruled 2026-09-11).  Both
+  headroom axes divide by that one resolved white:
 
-  THIS FIXTURE exercises rule b): MDCV is present, CLL is not.
+    content, 8.10.4 a):  600 / 300  = 2,0     (CRWL first: 600 / 203  = 2,956)
+    display, 8.10.5 c):  1500 / 300 = 5,0     (CRWL first: 1500 / 203 = 7,389)
 
-    CRWL 100, MDCV.max 4000  ->  4000/100 = 40,0
+  PROPOSAL-ISSUE HDR-10: 8.10.5 c) names the CRWL ENTRY for the display axis.
+  iccDEV divides both axes by the same resolved white, so a profile's two
+  headrooms are in the same units; this fixture is what pins that choice.
 
-  The CRWL is deliberately NOT 203. Every branch of the order divides by the
-  content reference white, and 203 is also its default, so a fixture that used
-  the default could not distinguish "divided by the CRWL entry" from "divided
-  by the default" - the arithmetic would be identical.
+  DCV stands without DRWL or DERH, so rule c) is the one that fires: rule a)
+  needs DERH and rule b) needs DRWL.  iccPawgReport's H7 reports the two
+  carriers as disagreeing for this profile, and no other fixture reaches that
+  branch.
 -->
 <IccProfile>
   <Header>
@@ -45,9 +45,9 @@
     <ProfileCreator>ICCD</ProfileCreator>
   </Header>
   <Tags>
-    <!-- The same sRGB/BT.709 colorants and chad every other fixture in this
-         directory carries, so that the only thing distinguishing these four from
-         one another is the metadata the content-headroom order reads. -->
+    <!-- The same sRGB/BT.709 colorants, chad and HAGC tag as HdrLinearHagcWhite,
+         so that the only thing distinguishing the two is the metadataTag: a CRWL
+         entry that disagrees with the tag, and a DCV entry for the display axis. -->
     <redColorantTag> <XYZArrayType>
       <XYZNumber X="0.436004638672" Y="0.222503662109" Z="0.013900756836"/>
     </XYZArrayType> </redColorantTag>
@@ -76,9 +76,27 @@
       <cicpFields ColorPrimaries="1" TransferCharacteristics="8" MatrixCoefficients="0" VideoFullRangeFlag="1"/>
     </cicpType> </cicpTag>
 
+    <headroomAdaptiveGainCurveTag> <headroomAdaptiveGainCurveType>
+      <HagcMetadata ApplicationVersion="3" MinApplicationVersion="1"
+                    HDRReferenceWhite="300.0000"
+                    BaselineHeadroom="3.0000" HeadroomAdaptiveToneMap="true"
+                    ChromaticitiesMode="0" CommonComponentMixing="false" CommonCurveParameters="false">
+       <AlternateImage Headroom="0.0000" ComponentMixingType="3" PchipSlope="false">
+        <Coefficients kRed="0.250000" kGreen="0.500000" kBlue="0.000000" kMax="0.250000" kMin="0.000000" kComponent="0.000000"/>
+        <ControlPoints>
+         <ControlPoint X="0.2500" Y="-0.10000" M="-0.400000"/>
+         <ControlPoint X="0.5000" Y="-0.20000" M="-0.300000"/>
+         <ControlPoint X="0.7500" Y="-0.30000" M="-0.200000"/>
+         <ControlPoint X="1.0000" Y="-0.40000" M="-0.100000"/>
+        </ControlPoints>
+       </AlternateImage>
+      </HagcMetadata>
+    </headroomAdaptiveGainCurveType> </headroomAdaptiveGainCurveTag>
+
     <metaDataTag> <dictType>
-      <DictEntry Name="CRWL" Value="100.0"/>
-      <DictEntry Name="MDCV" Value="4000.0 0.005 9"/>
+      <DictEntry Name="CRWL" Value="203.0"/>
+      <DictEntry Name="CLL" Value="600.0 300.0 9"/>
+      <DictEntry Name="DCV" Value="1500.0 0.005 1"/>
     </dictType> </metaDataTag>
 
     <!-- Clause 8.10.1 of the 29-08-2026 revision: "the redTRCTag, greenTRCTag
@@ -112,7 +130,7 @@
     </lutBtoAType> </BToA0Tag>
 
     <profileDescriptionTag> <multiLocalizedUnicodeType>
-      <LocalizedText LanguageCountry="enUS"><![CDATA[iccDEV Linear HDR profile: content headroom from MDCV (clause 8.10.4 b)]]></LocalizedText>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[iccDEV Linear HDR profile: HAGC reference white and CRWL entry disagree (clauses 8.10.4 and 8.10.5)]]></LocalizedText>
     </multiLocalizedUnicodeType> </profileDescriptionTag>
 
     <copyrightTag> <multiLocalizedUnicodeType>
