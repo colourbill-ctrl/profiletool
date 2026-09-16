@@ -260,23 +260,19 @@ export default function App() {
 
   // Producer — build an ICC DeviceLink from .cube text (Group B / iccFromCube).
   // The wasm module is lazy-imported so users who never open the producer don't
-  // pay for it. On success we both add the result to the pool (via the same
-  // ingest path as a loaded profile, so it validates + opens in Profile) and
-  // download the .icc. Errors propagate to the modal, which shows the engine's
-  // specific reason ("LUT too large to process", …) inline.
+  // pay for it. On success the result is added to the pool (via the same ingest path
+  // as a loaded profile, so it validates + opens in Profile). It is NOT downloaded:
+  // saving is the user's explicit Save ICC profile click. An automatic download made
+  // the browser run its download checks (Chromium Safe Browsing posts a report naming
+  // the page, file and blob URL) on an action that looks purely local, so the only
+  // outbound traffic a proxy saw during a .cube conversion was ours to avoid.
+  // Errors propagate to the modal, which shows the engine's specific reason
+  // ("LUT too large to process", …) inline.
   const createFromCube = useCallback(async (cubeText, filename) => {
     const { fromCube } = await import('./lib/cubeConverter.js')
     const bytes = await fromCube(cubeText, filename)          // throws with a readable message
     const stem = (filename || 'devicelink').replace(/\.cube$/i, '').replace(/[^\w.-]+/g, '_') || 'devicelink'
     const outName = `${stem}.icc`
-
-    // Download the generated profile.
-    const blob = new Blob([bytes], { type: 'application/vnd.iccprofile' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = outName
-    document.body.appendChild(a); a.click(); a.remove()
-    URL.revokeObjectURL(url)
 
     // Add to the pool + open in Profile (reuses the validate/dedup ingest path).
     await ingestSingle(outName, bytes)

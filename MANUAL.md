@@ -63,7 +63,7 @@ Load files in either of two ways:
 - Click **Load Profiles** at the top of the Profiles pane and pick one or more files, or
 - **Drag and drop** files onto the Profiles pane.
 
-You can load `.icc` / `.icm` profiles *and* images — drop a TIFF, PNG or JPEG and the tool extracts its **embedded ICC profile** (reading only the file's metadata, never the pixels) and adds that to the pool. A **＋ New from .cube** button builds a DeviceLink from a `.cube` LUT.
+You can load `.icc` / `.icm` profiles *and* images — drop a TIFF, PNG or JPEG and the tool extracts its **embedded ICC profile** (reading only the file's metadata, never the pixels) and adds that to the pool. A **＋ New from .cube** button builds a DeviceLink from a `.cube` LUT. The result is added to the pool and opened in the **Profile** tab; nothing is downloaded until you click **Save ICC profile**.
 
 A profile is accepted if its first 36 bytes contain the `acsp` signature and it parses through IccProfLib's `ValidateIccProfile`. Files that fail are listed in a rejection summary with the specific reason; their bytes are not retained.
 
