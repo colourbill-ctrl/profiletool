@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useT } from '../i18n.jsx'
 import { formatSize } from '../lib/pool.js'
 import styles from './PoolPane.module.css'
+import { acceptFor } from '../lib/filePicker.js'
 
 // Custom drag MIME so tab drop-targets can tell a pool-row drag from an OS file.
 export const POOL_DND_MIME = 'application/x-profiletool-pool-ids'
@@ -204,7 +205,7 @@ export default function PoolPane({ entries, selectedIds, onSelect, onLoadFiles, 
         {/* Images are accepted too: the loader extracts their embedded ICC
             profile (TIFF/PNG/JPEG). Drag-drop bypasses this filter regardless. */}
         <input ref={inputRef} type="file"
-               accept=".icc,.icm,.tif,.tiff,.png,.jpg,.jpeg,image/tiff,image/png,image/jpeg"
+               accept={acceptFor('.icc,.icm,.tif,.tiff,.png,.jpg,.jpeg,image/tiff,image/png,image/jpeg')}
                multiple className={styles.hidden} onChange={handlePick} />
         {/* Producer: build a DeviceLink from a .cube 3D-LUT (Group B). */}
         {onNewFromCube && (

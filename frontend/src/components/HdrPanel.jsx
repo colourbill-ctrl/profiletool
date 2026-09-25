@@ -13,6 +13,7 @@ import { useLiveDisplay } from './useLiveDisplay.js'
 import { createHdrSurface, FALLBACK } from '../lib/hdrSurface.js'
 import { hdrTransformPixels, HDR_POLICY } from '../lib/hdrProfileTransform.js'
 import styles from './HdrPanel.module.css'
+import { acceptFor } from '../lib/filePicker.js'
 
 /**
  * HDR tab — show ONE image on this display, in HDR where the environment allows
@@ -145,7 +146,7 @@ export default function HdrPanel({ onOpenInProfile, hdrProfiles = [] }) {
       </p>
 
       <input ref={inputRef} type="file" hidden
-             accept=".exr,.hdr,.pic,.rgbe,.avif,.heic,.heif,.jxl,.jpg,.jpeg,.png,.tif,.tiff,image/*"
+             accept={acceptFor('.exr,.hdr,.pic,.rgbe,.avif,.heic,.heif,.jxl,.jpg,.jpeg,.png,.tif,.tiff,image/*')}
              onChange={(e) => { load(e.target.files?.[0]); e.target.value = '' }} />
 
       {!file ? (

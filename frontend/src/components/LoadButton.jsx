@@ -1,6 +1,7 @@
 // (c) 2026 William Li
 import { useRef } from 'react'
 import { useT } from '../i18n.jsx'
+import { acceptFor } from '../lib/filePicker.js'
 
 export default function LoadButton({ onFile, disabled, label }) {
   const inputRef = useRef(null)
@@ -26,7 +27,7 @@ export default function LoadButton({ onFile, disabled, label }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".icc,.icm"
+        accept={acceptFor('.icc,.icm')}
         style={{ display: 'none' }}
         onChange={handleChange}
         disabled={disabled}

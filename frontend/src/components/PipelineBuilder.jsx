@@ -31,6 +31,7 @@ import DataResultModal from './DataResultModal.jsx'
 import { useT } from '../i18n.jsx'
 import styles from './PipelineBuilder.module.css'
 import { classifyHdrProfile } from '../lib/hdrProfile.js'
+import { acceptFor } from '../lib/filePicker.js'
 
 // Cap on the image we'll transform (matches the WASM applyImage 64 MP guard). Checked
 // from the streaming probe's dimensions — no pixels loaded.
@@ -750,7 +751,7 @@ export default function PipelineBuilder({ getEntry, onBuildLink, onApplyImages, 
             </div>
           )}
           <input ref={dataInputRef} type="file" className={styles.hidden}
-                 accept=".txt,.csv,.cgats,.it8,.cxf,.xml,.json,text/plain,text/csv,application/json"
+                 accept={acceptFor('.txt,.csv,.cgats,.it8,.cxf,.xml,.json,text/plain,text/csv,application/json')}
                  onChange={(e) => { const f = e.target.files?.[0]; if (f) acceptData(f); e.target.value = '' }} />
         </div>
       </div>
