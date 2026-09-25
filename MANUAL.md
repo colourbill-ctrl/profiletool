@@ -572,6 +572,7 @@ On screens narrower than 700 px:
 - A **✉** button opens the contact form in a new browser tab.
 - Tapping the dimmed backdrop closes the open drawer.
 - The tag table reflows from a wide grid into stacked cards so every column stays readable without horizontal scrolling; a tag still expands in place.
+- **Touch replaces drag and drop.** iOS has no drag and drop, so dragging a profile from the pool onto a tab cannot work there. Instead **tap the profiles to select them, then tap the tab** you want them on — the same result as the drag. The pool shows this reminder while a touch screen is in use.
 - **On iPhone and iPad the file pickers list every file.** iOS matches a file-type filter against types it knows, and it has none for `.icc`, `.icm`, `.cube` or `.exr`, so filtering would grey out exactly the files you came to open. Pick the profile by name; anything that is not a profile is still refused with a reason after loading.
 
 All features are available; the layout adapts to the smaller screen.

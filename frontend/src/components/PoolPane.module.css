@@ -141,3 +141,11 @@
 /* HDR Profiles sub-sections (by transfer): indented, lighter heads. */
 .subgroup { margin-left: 10px; }
 .subHead { font-size: 0.92em; opacity: 0.9; }
+
+/* Touch-only hint under the load row: the tap replacement for drag and drop. */
+.tapHint {
+  margin: 0 10px 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted, #6b7280);
+}

@@ -10,6 +10,7 @@ import { useT } from '../i18n.jsx'
 import { formatSize } from '../lib/pool.js'
 import styles from './PoolPane.module.css'
 import { acceptFor } from '../lib/filePicker.js'
+import { isTouchPrimary } from '../lib/touchInput.js'
 
 // Custom drag MIME so tab drop-targets can tell a pool-row drag from an OS file.
 export const POOL_DND_MIME = 'application/x-profiletool-pool-ids'
@@ -27,6 +28,8 @@ const SORT_GLYPH = { none: '↕', asc: '↑', desc: '↓' }
 
 export default function PoolPane({ entries, selectedIds, onSelect, onLoadFiles, onRemove, onNewFromCube }) {
   const t = useT()
+  // Fixed for the session: a pointer does not change kind under the user.
+  const touch = useMemo(() => isTouchPrimary(), [])
   const inputRef = useRef(null)
   const [dragOver, setDragOver] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1')
@@ -214,6 +217,13 @@ export default function PoolPane({ entries, selectedIds, onSelect, onLoadFiles, 
           </button>
         )}
       </div>
+
+      {/* Touch has no drag and drop (iOS has none at all), so the tap path needs saying once:
+          select rows, then tap the tab you would have dragged them to. Hidden on a mouse, where
+          dragging works and the line would be noise. */}
+      {touch && entries.length > 0 && (
+        <p className={styles.tapHint}>{t('pool_tap_send') || 'Tap to select, then tap a tab to send.'}</p>
+      )}
 
       <div
         className={`${styles.body} ${dragOver ? styles.bodyDrag : ''}`}
