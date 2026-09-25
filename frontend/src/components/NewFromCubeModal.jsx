@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useT } from '../i18n.jsx'
 import styles from './NewFromCubeModal.module.css'
+import { acceptFor } from '../lib/filePicker.js'
 
 export default function NewFromCubeModal({ open, onClose, onCreate }) {
   const t = useT()
@@ -82,7 +83,7 @@ export default function NewFromCubeModal({ open, onClose, onCreate }) {
             {t('cube_pick') || 'Choose .cube file'}
           </button>
           <span className={styles.dropHint}>{t('cube_drop') || 'or drop it here, or paste below'}</span>
-          <input ref={inputRef} type="file" accept=".cube" className={styles.hidden} onChange={onPick} />
+          <input ref={inputRef} type="file" accept={acceptFor('.cube')} className={styles.hidden} onChange={onPick} />
         </div>
 
         {filename && <div className={styles.fileTag}>{filename}</div>}

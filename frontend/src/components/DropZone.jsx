@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import { useT } from '../i18n.jsx'
 import styles from './DropZone.module.css'
+import { acceptFor } from '../lib/filePicker.js'
 
 export default function DropZone({ onFile, disabled }) {
   const inputRef = useRef(null)
@@ -56,7 +57,7 @@ export default function DropZone({ onFile, disabled }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".icc,.icm"
+        accept={acceptFor('.icc,.icm')}
         className={styles.hidden}
         onChange={handleChange}
         disabled={disabled}
