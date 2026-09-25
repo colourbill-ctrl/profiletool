@@ -137,3 +137,11 @@
   font-size: 10px; font-weight: 700; color: #fff; background: var(--accent);
   border-radius: 9px; padding: 1px 5px;
 }
+
+/* Touch-only hint under the load row: the tap replacement for drag and drop. */
+.tapHint {
+  margin: 0 10px 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--muted, #6b7280);
+}

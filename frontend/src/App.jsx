@@ -23,6 +23,7 @@ import { classifyFile, ACCEPTED_KINDS, FileKind, rejectReason } from './lib/file
 import { findEmbeddedProfile, findEmbeddedProfileFromFile } from './lib/imageCodec.js'
 import { useT } from './i18n.jsx'
 import styles from './App.module.css'
+import { isTouchPrimary } from './lib/touchInput.js'
 
 // Defence against a hostile postMessage opener (or accidental huge drop) that
 // could OOM the tab by handing us a multi-GB Uint8Array.
@@ -202,9 +203,13 @@ export default function App() {
   // Compare/Link accumulate (dedup). Dropping switches to that tab.
   const dropOnTab = useCallback((tab, ids) => {
     if (!ids || !ids.length) return
-    setAccum((a) => tab === 'Profile'
-      ? { ...a, Profile: ids[ids.length - 1] }
-      : { ...a, [tab]: uniq([...a[tab], ...ids]) })
+    setAccum((a) => {
+      if (tab === 'Profile') return { ...a, Profile: ids[ids.length - 1] }
+      // HDR keeps no accumulator — it holds one IMAGE and reads HDR profiles from the pool — so a
+      // profile dropped on its tab button only switches there. Spreading a[tab] would throw.
+      if (!Array.isArray(a[tab])) return a
+      return { ...a, [tab]: uniq([...a[tab], ...ids]) }
+    })
     setActiveTab(tab)
   }, [])
 
@@ -347,6 +352,20 @@ export default function App() {
     downloadBytes(out.bytes, out.filename)
     return files.length
   }, [])
+
+  // TAB TAP = DRAG, on touch. iOS has no HTML5 drag and drop, so dragging pool rows onto a tab —
+  // the only way to reach Compare, Combine or Spectral — is impossible there. chardata answered the
+  // same problem by giving each draggable card a click that does the drag's job; here the two steps
+  // the pool already has do it: select rows, then tap the destination tab. The selection is cleared
+  // afterwards so the next tab tap is an ordinary switch, and nothing changes for a mouse.
+  const activateTab = useCallback((tab) => {
+    if (isTouchPrimary() && selectedIds.size) {
+      dropOnTab(tab, [...selectedIds])
+      setSelectedIds(new Set())
+      return
+    }
+    setActiveTab(tab)
+  }, [dropOnTab, selectedIds])
 
   // Pool-row selection: plain = single, ctrl/meta = toggle, shift = range.
   const onSelectRow = useCallback((id, e) => {
@@ -542,7 +561,7 @@ export default function App() {
 
           <MainCanvas
             activeTab={activeTab}
-            onActivate={setActiveTab}
+            onActivate={activateTab}
             accum={accum}
             getEntry={getEntry}
             onDropOnTab={dropOnTab}
