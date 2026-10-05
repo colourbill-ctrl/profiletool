@@ -8,7 +8,8 @@
 > (8.7)**, and profiletool was rebuilt against `hdr-profiles` @ **`1d5d32e20`** on
 > **2026-09-26** to follow, then re-pinned the same day to **`7150a6e79`**, where upstream
 > remodelled `Testing/HDR` on ColorSpace-class usage only (owner ruling: zero compatibility
-> with the Display-class shape). Fixture names below such as `HagcDisplay`,
+> with the Display-class shape), and on **2026-10-04** to **`356fddd77`** (comment-only HDR
+> fixes + a 21-commit iccDEV master merge; corpus and manifests unchanged). Fixture names below such as `HagcDisplay`,
 > `HdrDisplayMetadata` and `HdrInputDisplayMeta` are that history: they are now
 > `HagcColorSpace`, `HdrClassDisplayNegative` and `HdrClassInputNegative`. This document is kept as the record of how Phase 1 was reasoned
 > and measured; it is **not** a current description of the clause. Read the clause numbers and
