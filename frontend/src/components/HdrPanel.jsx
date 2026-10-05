@@ -705,10 +705,12 @@ function AssignRow({ t, value, onChange, profile, hdrProfiles, linearOnly, forma
   const linear = hdrProfiles.filter((p) => p.transfer === 'Linear')
   const nonLinear = hdrProfiles.filter((p) => p.transfer !== 'Linear')
   // A member declaring ColourPrimaries 2 (Unspecified): its HDR path needs the cicpType
-  // chromaticity extension of clause 10.3, which this build cannot read, so the Auto and
-  // Gain-curve policies refuse it. MARKED, NOT HIDDEN: the baked SDR fallback and Off still
-  // render it through its AToB0Tag, so hiding it would remove choices that work. The engine's
-  // error names the remedy when the HDR path is tried anyway.
+  // chromaticity extension of clause 10.3, which this build cannot read, so no policy can give
+  // it an HDR rendering. Since iccDEV hdr-profiles 81d80b806 (a TEMPORARY upstream measure,
+  // pending the WG on HDR-23) Auto and Gain curve fall back to its AToB0Tag — the same SDR
+  // rendering as Baked SDR fallback and Off — and assignFacts() then reports "Baked AToB0 — not
+  // the HDR path". MARKED, NOT HIDDEN: every policy renders it, so the marker's job is to say
+  // up front that none of them will be HDR.
   const cp2 = (p) => (p.primariesNeedExtension
     ? ` \u2014 ${t('hdr_assign_cp2') || 'Unspecified primaries: no HDR path in this build'}` : '')
   return (

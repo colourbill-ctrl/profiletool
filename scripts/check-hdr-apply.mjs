@@ -112,25 +112,35 @@ const REF = {
 }
 {
   // ColourPrimaries 2 (Unspecified) on a CONFORMING member. Clause 8.7.1.1 routes it to the
-  // cicpType chromaticity extension of 10.3, which no build here can read, so IccProfLib's
-  // HDR transform refuses to Begin(). The engine must (a) say WHY — the library's own status
-  // text is the bare "Invalid profile", which blames a defect the profile does not have —
-  // and (b) NOT block the policies that never need the matrix: the baked SDR fallback and
-  // Off render it through the AToB0Tag as usual. (b) is why the HDR tab marks such a profile
-  // rather than hiding it; if either of these stops holding, that UI decision is wrong.
+  // cicpType chromaticity extension of 10.3, which no build here can read, so the RGB-to-PCSXYZ
+  // matrix that 8.7.1.3 descriptors a) (HAGC) and b) (a CMM operator) both need cannot be built.
+  //
+  // TEMPORARY UPSTREAM BEHAVIOUR (iccDEV hdr-profiles 81d80b806): with an HDR hint attached, the
+  // CMM no longer fails Begin() here — icUseHdrToneMapPath() declines the HDR route and renders
+  // through the AToB0Tag, descriptor c), which needs no matrix. So EVERY policy now renders this
+  // profile, and Auto / Gain curve give exactly what Baked SDR fallback, Off and no-headroom give.
+  // Upstream marks this TEMPORARY, to be revisited when the WG settles HDR-23: it may revert to a
+  // hard failure (construct-wrapper.cpp keeps a dormant, specific message for that case) or stop
+  // firing because the matrix becomes buildable. Either way these assertions fail first, which
+  // is the point — the HDR tab's "Unspecified primaries" marker and MANUAL text depend on it.
+  //
+  // The cost upstream names: a caller that asked for HDR silently gets the SDR rendering. Here
+  // that is NOT silent — hdrApplyBegin reports hdrPath false, asserted below.
   const tryRun = (h, pol) => { try { return { r: run('HdrCicpUnspecified.icc', h, pol) } } catch (e) { return { err: errText(e) } } }
-  for (const [label, pol] of [['auto', 0], ['gain curve', 1]]) {
-    const { r, err } = tryRun(8, pol)
-    check(`HdrCicpUnspecified, policy ${label}: refused with the 10.3 reason, not "Invalid profile"`,
-      !r && /ColourPrimaries 2/.test(err || '') && /10\.3/.test(err || '') && !/Invalid profile/.test(err || ''), err ?? r?.info)
-  }
-  const { err: remedy } = tryRun(8, 0)
-  check('HdrCicpUnspecified: the refusal names the policies that still work', /Baked SDR fallback/.test(remedy || '') && /\bOff\b/.test(remedy || ''), remedy)
-  for (const [label, h, pol] of [['baked SDR fallback', 8, 2], ['off', 8, 3], ['no headroom', 0, 0]]) {
+  const sdr = tryRun(0, 0)   // no hint at all: the plain AToB0Tag rendering everything is compared to
+  check('HdrCicpUnspecified, no headroom: renders through the AToB0Tag', !!sdr.r && sdr.r.info.hdrPath === false &&
+    sdr.r.xyz.every(Number.isFinite), sdr.err ?? sdr.r?.info)
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i])
+  for (const [label, h, pol] of [['auto, headroom 8', 8, 0], ['gain curve, headroom 8', 8, 1],
+                                 ['baked SDR fallback', 8, 2], ['off', 8, 3]]) {
     const { r, err } = tryRun(h, pol)
-    check(`HdrCicpUnspecified, ${label}: still renders through the AToB0Tag (no HDR path)`,
-      !!r && r.info.hdrPath === false && r.xyz.every(Number.isFinite), err ?? r?.info)
+    check(`HdrCicpUnspecified, ${label}: renders, no HDR path, identical to the no-hint AToB0 rendering`,
+      !!r && !!sdr.r && r.info.hdrPath === false && r.info.toneMapping === false && same(r.xyz, sdr.r.xyz), err ?? r?.info)
   }
+  // Control: the same conditions on a ColourPrimaries 1 member still take the HDR chain, so the
+  // fallback above is specific to the unbuildable matrix, not a general loss of the HDR path.
+  const ctl = run('HdrColorSpaceClass.icc', 8)
+  check('control: HdrColorSpaceClass (ColourPrimaries 1), headroom 8 → HDR path engaged', ctl.info.hdrPath === true, ctl.info)
 }
 {
   let msg = ''

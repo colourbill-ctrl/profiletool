@@ -44,7 +44,8 @@ export const HDR_TRANSFERS = { 8: 'Linear', 16: 'PQ', 18: 'HLG' }
 // primaries from the cicpType custom chromaticity extension of 10.3 — a ColorSpace profile has
 // no matrix column tag to fall back on. That extension's wire format is in a document (CICP
 // Unspecified Primaries v2) no build here has, so IccProfLib cannot resolve the primaries and
-// the HDR path refuses. Mirrors icCicpPrimariesUnspecified.
+// there is no HDR path: the CMM falls back to the AToB0Tag (a TEMPORARY iccDEV measure since
+// hdr-profiles 81d80b806; it used to refuse). Mirrors icCicpPrimariesUnspecified.
 const CICP_PRIMARIES_UNSPECIFIED = 2
 
 // profileVersionField below 5.0.0.0 (icHdrIsVersion4). The header renders as e.g. "4.50",
@@ -106,8 +107,8 @@ export function classifyHdrProfile(data, bytes) {
     isHdr,
     transfer: transferIsHdr ? HDR_TRANSFERS[transferCode] : null,
     // A member whose HDR path is blocked on the 10.3 extension (PAWG H5 fails on exactly
-    // these). Only the HDR path: the baked SDR fallback and Off still render it through the
-    // AToB0Tag, so the HDR tab marks such a profile rather than hiding it.
+    // these). Every policy still renders it — through the AToB0Tag — so the HDR tab marks such
+    // a profile rather than hiding it.
     primariesNeedExtension: isHdr && primariesCode === CICP_PRIMARIES_UNSPECIFIED,
     hasBakedLut: tags.includes('A2B0'),
     hasGainCurve: tags.includes('HAGC'),

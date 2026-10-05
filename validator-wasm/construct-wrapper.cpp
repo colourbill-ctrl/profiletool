@@ -1032,8 +1032,15 @@ emscripten::val hdrApplyBeginImpl(std::string profBytes, double targetHeadroom, 
     // wire format lives in a document (CICP Unspecified Primaries v2) no build here has, so
     // IccProfLib cannot resolve the primaries and CIccXformMatrixTrcHdr::Begin() refuses —
     // which GetStatusText reports as the bare "Invalid profile", pointing at a defect the
-    // profile does not have. Only the HDR PATH is blocked: without the hint (baked SDR
-    // fallback, Off, or no headroom) the AToB0Tag serves as usual, so the message says so.
+    // profile does not have.
+    //
+    // DORMANT SINCE iccDEV hdr-profiles 81d80b806. A TEMPORARY upstream measure makes
+    // icUseHdrToneMapPath() decline the HDR route for exactly this case, so the CMM renders
+    // through the AToB0Tag (8.7.1.3 descriptor c), which needs no matrix) and Begin() no
+    // longer fails here. Kept, not deleted, because upstream will revisit it once the WG
+    // settles HDR-23: if ColourPrimaries 2 is disallowed the hard failure may come back, and
+    // this message is then what the user reads. check-hdr-apply asserts the fallback, so a
+    // revert shows up there first.
     //
     // Scoped exactly: a conforming member, a hint attached, ColourPrimaries 2, primaries
     // unresolved. Any other Begin() failure keeps the library's own status text, so this
