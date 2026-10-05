@@ -20,7 +20,7 @@ const SWEEP_SAMPLES = 257
  * Every number here comes from IccProfLib's CIccHagcEvaluator via
  * IccVizModel::EvaluateHagc — PCHIP slopes, derived reference-white tone maps, headroom
  * blending — so this view cannot disagree with the transform. H_target is never in the
- * profile (clause 8.10.2 NOTE 5): the slider IS the consumer's choice, and nothing here
+ * profile (clause 8.7.1.2 NOTE 5): the slider IS the consumer's choice, and nothing here
  * takes it from the display silently.
  */
 export default function HagcEvaluated({ bytes }) {
@@ -103,7 +103,7 @@ export default function HagcEvaluated({ bytes }) {
   if (!data.supported) {
     return (
       <p className={styles.note}>
-        {(t('hagc_unsupported') || 'IccProfLib declines to apply this gain curve: {why}. A CMM falls back to the next tone-mapping descriptor (clause 8.10.3).').replace('{why}', data.unsupportedReason)}
+        {(t('hagc_unsupported') || 'IccProfLib declines to apply this gain curve: {why}. A CMM falls back to the next tone-mapping descriptor (clause 8.7.1.3).').replace('{why}', data.unsupportedReason)}
       </p>
     )
   }

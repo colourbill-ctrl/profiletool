@@ -1,8 +1,19 @@
 #!/usr/bin/env node
 // (c) 2026 William Li
 //
-// Check the headroom columns of iccDEV's hdr-corpus-manifest.tsv by recomputing
-// them from each fixture's XML — WITHOUT calling IccProfLib.
+// Check the content_headroom column of iccDEV's hdr-corpus-manifest.tsv (and of our
+// profiletool-fixtures.tsv) by recomputing it from each fixture's XML — WITHOUT
+// calling IccProfLib.
+//
+// CONTENT AXIS ONLY, SINCE 2026-09-26. The 23-09-2026 revision deleted clause 8.10.5
+// (display headroom — DERH, DCV/DRWL, DCV/CRWL) outright, so the manifest lost its
+// display_headroom and headroom_source columns and this file lost its display half.
+// It was briefly deleted whole on the strength of "no subject left", which was wrong:
+// the CONTENT axis (clause 8.7.1.4, the Linear CLL -> MDCV -> 1000 cd/m^2 precedence
+// over a HAGC-first reference white) survived the retarget unchanged, and this is the
+// only check anywhere that asserts it independently of the classifier — including
+// ProfiletoolHdrRefWhiteConflict's 600/300 = 2, which upstream's CTest never sees
+// because it does not read our profiletool-fixtures.tsv.
 //
 // WHY THIS IS SEPARATE FROM check-hdr-corpus.mjs. That script reads
 // classification back through icGetHdrProfileInfo(), which is the same function
@@ -11,19 +22,19 @@
 // deliberately imports no WASM and links no ICC code at all; its only imports are
 // from node:fs and node:path, which is checkable at a glance from the import
 // block below. It reads the metadata entries straight out of the XML
-// and does the clause-8.10.4 / 8.10.5 arithmetic here, so a disagreement is real
+// and does the clause-8.7.1.4 arithmetic here, so a disagreement is real
 // news rather than the same bug seen twice.
 //
 // WHAT IT DOES AND DOES NOT ESTABLISH. It verifies the manifest's NUMBERS against
 // the fixtures' metadata, given the rule the manifest's `source` column names. It
-// does NOT independently decide WHICH rule applies — that precedence (8.10.5 a-d,
-// 8.10.4 a-c) is taken from the manifest. So it catches a wrong value, a fixture
+// does NOT independently decide WHICH rule applies — that precedence (8.7.1.4 a-c)
+// is taken from the manifest. So it catches a wrong value, a fixture
 // whose metadata drifted from its expected headroom, and a transcription error;
 // it does not catch a wrong rule SELECTION. Checking that too would mean
 // implementing the precedence from the clause text, which is unpublished.
 //
-// Headroom here is a RATIO, not log2 stops: DERH is taken directly, and every
-// other rule divides a luminance by a reference white.
+// Headroom here is a RATIO, not log2 stops: every rule divides a luminance by the
+// resolved content reference white.
 //
 // Usage:  node scripts/check-hdr-headroom.mjs [--dir <path>] [--manifest <path>]
 
@@ -37,10 +48,10 @@ const argOf = (f, d) => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1]
 const CORPUS   = argOf('--dir', join(ROOT, 'test-corpus/hdr'))
 const MANIFEST = argOf('--manifest', join(CORPUS, 'hdr-corpus-manifest.tsv'))
 
-// The 203 cd/m^2 default content reference white of clause 8.10.4, used when the
+// The 203 cd/m^2 default content reference white of clause 8.7.1.4, used when the
 // profile states none. Named rather than inlined because it appears twice.
 const DEFAULT_REFERENCE_WHITE = 203.0
-// Clause 8.10.4's default peak, the "default-1000" source.
+// Clause 8.7.1.4's default peak, the "default-1000" source.
 const DEFAULT_PEAK = 1000.0
 // The manifest compares floats to a relative tolerance of 1e-5, because these are
 // icFloatNumber (float, not double) upstream — match that exactly rather than
@@ -67,7 +78,8 @@ function readXml(path) {
 //   CLL   max, AVERAGE, primaries           (MaxCLL / MaxFALL)
 //   MDCV  max, min, primaries
 //   CCV   max, average, min, primaries      (FOUR values)
-//   DCV   max, min, primaries               (HDR Display registration)
+//   DCV   max, min, primaries               (HDR Display registration — its only reader,
+//                                            8.10.5, is gone; see STALE_ENTRIES below)
 //
 // An earlier version of this comment called every entry "maxLum minLum n". That
 // shorthand came from an iccDEV description that was itself corrected against the
@@ -85,7 +97,7 @@ const EXPECTED_ARITY = { CLL: 3, MDCV: 3, CCV: 4, DCV: 3 }
 // 0.0 IS "UNKNOWN", NOT A PEAK. The CLL, MDCV and CCV registry entries and the DCV
 // registration all say "Value of 0.0 means that the respective value is unknown".
 // So an unknown maximum supplies no peak at all, and resolution falls through to
-// the next rule (8.10.4 a -> b -> the 1000 default; 8.10.5 b/c -> d). Treating it
+// the next rule (8.7.1.4 a -> b -> the 1000 default). Treating it
 // as a real 0 would compute 0/white = 0, which is below every target and — in
 // IccProfLib before 88672a2e — also switched the target-volume clamp off. If the
 // manifest ever names a rule whose entry is unknown, that is a manifest/spec
@@ -103,34 +115,34 @@ function peakOf(key, v) {
 // one, else the metadataTag CRWL entry, else the 203 default.
 //
 // THIS ORDERING IS DERIVED FROM THE CLAUSE for the axis this function feeds.
-// 8.10.4's default paragraph fires only when there is NO HAGC tag *and* no CRWL
+// 8.7.1.4's default paragraph fires only when there is NO HAGC tag *and* no CRWL
 // entry — a condition that is only coherent if the HAGC tag supplies the white
-// when it is present — and 8.10.4 a) then divides CLL.max by "the value derived
+// when it is present — and 8.7.1.4 a) then divides CLL.max by "the value derived
 // above", i.e. by that same HAGC-aware derivation. That is normative text, so
-// HAGC-first is what the clause says for content headroom, not a house rule.
-// (8.10.3 ranks the HAGC tag highest among tone-mapping descriptors and has it
-// applied as its own Annex 1 defines, which agrees — but 8.10.3 is explicitly
-// INFORMATIVE and ranks descriptors rather than metadata values, so it supports
-// the reading without carrying it. 8.10.4 a) is the load-bearing half.)
+// HAGC-first is what the clause says for content headroom, not a house rule. (The
+// wording survived the 23-09-2026 retarget unchanged; only the number moved, from
+// 8.10.4.)
+// (8.7.1.3 ranks the HAGC tag highest among tone-mapping descriptors, which agrees
+// — but 8.7.1.3 is explicitly INFORMATIVE ("recommended ranking") and ranks
+// descriptors rather than metadata values, so it supports the reading without
+// carrying it. 8.7.1.4 a) is the load-bearing half.)
 //
 // An earlier version of this comment called the ordering iccDEV's ruling rather
 // than a derivation. That was accurate when written and is not now: iccDEV
-// re-examined 8.10.3/8.10.4 and reclassified it. Recorded because the distinction
-// decides what happens if the register item moves — a ruling could be reversed,
-// a clause reading changes only if the clause does.
+// re-examined 8.10.3/8.10.4 (now 8.7.1.3/8.7.1.4) and reclassified it. Recorded
+// because the distinction decides what happens if the register item moves — a
+// ruling could be reversed, a clause reading changes only if the clause does.
 //
-// WHERE IT REMAINS A RULING: 8.10.5 c), which this file's `dcv-crwl` rule feeds.
-// That clause literally names the ENTRY — CRWL "taken from the HDR Image metadata
-// of 8.10.4", defaulting "when no CRWL entry is present", a condition that never
-// mentions the HAGC tag. Dividing the display axis by the HAGC-first value is
-// therefore a decision that one named quantity has one value, taken against
-// 8.10.5 c)'s literal words. Our cross-axis check pins that CHOICE, not a defect.
+// The one place this ordering USED to be a ruling rather than a reading was clause
+// 8.10.5 c), whose display-headroom rule literally named the CRWL entry. That clause
+// is deleted, so the ordering is now a reading of normative text everywhere it applies.
 //
 // This file first shipped with the order INVERTED (CRWL first) and still scored
-// 84/84, because no fixture in the upstream corpus carries both a HAGC reference
-// white and a CRWL entry. iccDEV found that by comparing the two orders. The
-// coverage report at the end of this file exists so that gap can never again be
-// invisible behind a green run.
+// 84/84, because at the time no fixture in the upstream corpus carried both a HAGC
+// reference white and a differing CRWL entry. iccDEV found that by comparing the
+// two orders. The coverage report at the end of this file exists so that gap can
+// never again be invisible behind a green run. (Upstream's HdrLinearHagcCrwlDisagree
+// now carries both too, alongside our ProfiletoolHdrRefWhiteConflict.)
 function referenceWhite({ entries, hagcWhite }) {
   if (hagcWhite != null) return hagcWhite
   if (entries.CRWL != null) return parseFloat(entries.CRWL)
@@ -145,17 +157,6 @@ function referenceWhite({ entries, hagcWhite }) {
 // reader hunting for a data error that is really a parser limitation.
 const div = (n, d) => (n == null || d == null || !Number.isFinite(d) || d === 0 ? null : n / d)
 const num = (v) => { const n = v == null ? NaN : parseFloat(v); return Number.isFinite(n) ? n : null }
-
-function expectedDisplay(src, x) {
-  const { entries } = x
-  switch (src) {
-    case '-':        return 0
-    case 'derh':     return num(entries.DERH)
-    case 'dcv-drwl': return div(peakOf('DCV', entries.DCV), num(entries.DRWL))
-    case 'dcv-crwl': return div(peakOf('DCV', entries.DCV), referenceWhite(x))
-    default:         return null
-  }
-}
 
 function expectedContent(src, x) {
   const { entries } = x
@@ -173,10 +174,7 @@ function expectedContent(src, x) {
 // was wrong for the case that matters most — an entry that is present and well
 // formed but carries 0.0, which the registry defines as unknown — and a wrong
 // reason sends the reader to look in the wrong place.
-const READS = {
-  'dcv-drwl': ['DCV', 'DRWL'], 'dcv-crwl': ['DCV'], derh: ['DERH'],
-  cll: ['CLL'], mdcv: ['MDCV'], 'default-1000': [],
-}
+const READS = { cll: ['CLL'], mdcv: ['MDCV'], 'default-1000': [] }
 function whyUnchecked(src, x) {
   if (!(src in READS)) return `rule '${src}' is not implemented here`
   for (const key of READS[src]) {
@@ -208,19 +206,28 @@ function loadRows(path) {
     .map((l) => l.split('\t'))
 }
 const LOCAL = argOf('--local', join(CORPUS, 'profiletool-fixtures.tsv'))
-const rows = [...loadRows(MANIFEST), ...loadRows(LOCAL)].filter((c) => c.length > 5)
+// Five columns since the retarget: fixture, class, content_headroom, content_source,
+// purpose. A seven-column row means a manifest from before 23-09-2026 — refuse it
+// rather than read display_headroom as content_headroom.
+const allRows = [...loadRows(MANIFEST), ...loadRows(LOCAL)]
+const stale = allRows.filter((c) => c.length > 5)
+if (stale.length) {
+  console.error(`${stale.length} row(s) have ${stale[0].length} columns — a pre-8.7.1 manifest ` +
+                `(display_headroom/headroom_source were dropped). First: ${stale[0][0]}`)
+  process.exit(2)
+}
+const rows = allRows.filter((c) => c.length > 3)
 
 let checked = 0, agree = 0, unchecked = 0
 const problems = []
 
 for (const c of rows) {
-  const [fixture, , dispStr, dispSrc, contStr, contSrc] = c.map((v) => v.trim())
+  const [fixture, , contStr, contSrc] = c.map((v) => v.trim())
   const xmlPath = join(CORPUS, `${fixture}.xml`)
   if (!existsSync(xmlPath)) { problems.push(`MISSING XML  ${fixture}.xml`); continue }
   const x = readXml(xmlPath)
 
   for (const [axis, src, stated, fn] of [
-    ['display', dispSrc, parseFloat(dispStr.replace(',', '.')), expectedDisplay],
     ['content', contSrc, parseFloat(contStr.replace(',', '.')), expectedContent],
   ]) {
     const ours = fn(src, x)
@@ -239,19 +246,22 @@ console.log(`hdr headroom: ${rows.length} rows, ${checked} values recomputed fro
             `${agree} agree, ${checked - agree} disagree, ${unchecked} unchecked`)
 for (const p of problems) console.log('  ' + p)
 
-// NO CROSS-AXIS CHECK HERE, deliberately. An earlier version of this file
-// reported that 8.10.4 and 8.10.5 c) divide by different reference whites on any
-// fixture whose XML carried both carriers with different values. That was a
-// statement about IccProfLib's BEHAVIOUR made by a file that links no ICC code and
-// so cannot observe it: it detected the precondition from XML shape and then
-// asserted what the implementation did. When iccDEV fixed the divergence
-// (88672a2e), it would have gone on reporting it — a status claim with no evidence
-// behind it, pointing at a bug that no longer existed.
-//
-// An invariant about what the implementation DOES belongs where the implementation
-// is observed: check-hdr-corpus.mjs now reads H7's resolved content reference white
-// and H8's rule-c divisor out of the real PAWG report and flags them only if they
-// differ. This file keeps to what it can actually establish from the XML.
+// STALE HDR DISPLAY ENTRIES. DERH, DRWL and DCV were read only by clause 8.10.5,
+// which the 23-09-2026 revision deleted. Upstream stripped them from every fixture;
+// ours carried them until the retarget. One reappearing means a fixture was copied
+// from a pre-retarget source — it would still classify and still pass everything
+// else, because nothing reads the entries any more. That silence is the reason to
+// fail on it here rather than let it sit.
+const STALE_ENTRIES = ['DERH', 'DRWL', 'DCV']
+let staleEntries = false
+for (const f of readdirSync(CORPUS).filter((f) => f.endsWith('.xml')).sort()) {
+  const xml = readFileSync(join(CORPUS, f), 'utf8')
+  const found = STALE_ENTRIES.filter((k) => new RegExp(`<DictEntry\\s+Name="${k}"`).test(xml))
+  if (found.length) {
+    staleEntries = true
+    console.log(`  STALE       ${f} carries ${found.join(', ')} — clause 8.10.5 entries, deleted by the 23-09-2026 revision`)
+  }
+}
 
 // ENTRY-ARITY AUDIT. Every reader of these dictType entries -- ours, IccProfLib's,
 // anyone's -- reads them POSITIONALLY, so a key that appears with two different
@@ -310,5 +320,5 @@ console.log(discriminating.length
 // UNCHECKED fails the run as well. A value that could not be verified is not a
 // verified value, and the exit status is the only part a CI gate reads — a count of
 // "1 unchecked" printed above an exit 0 is a pass to anything automated.
-process.exit(checked - agree || unchecked || arityProblem ||
+process.exit(checked - agree || unchecked || arityProblem || staleEntries ||
              problems.some((p) => p.startsWith('MISSING')) ? 1 : 0)

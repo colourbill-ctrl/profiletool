@@ -126,7 +126,7 @@ export default function PoolPane({ entries, selectedIds, onSelect, onLoadFiles, 
     e.dataTransfer.effectAllowed = 'copy'
   }, [selectedIds])
 
-  // One section's rows — shared by class sections and the HDR Profiles sub-sections.
+  // One section's rows — shared by class sections and the HDR ColorSpace Profiles sub-sections.
   const renderList = (items) => (
     <ul className={styles.list}>
       {items.map((e) => (
@@ -306,8 +306,8 @@ const CLASS_SECTIONS = {
 // sorted, each section's sub-list inherits that order — so the sort button orders
 // within every type independently. Unknown classes fall to the end, labelled by sig.
 //
-// ICC.1 clause 8.10 HDR Profiles get their own section, first, split by transfer: an
-// HDR Profile is a Display or Input profile, but what it can be USED for depends on its
+// ICC.1 clause 8.7.1 HDR ColorSpace Profiles get their own section, first, split by transfer: an
+// HDR ColorSpace Profile is a ColorSpace ('spac') profile, but what it can be USED for depends on its
 // cicp transfer — only a Linear one can interpret OpenEXR's linear light (the HDR tab
 // offers only those), so the pane shows the same split the HDR tab applies. The test is
 // lib/hdrProfile.js's classifier, the same one the HDR tab uses, so they cannot disagree.
@@ -331,7 +331,7 @@ function groupByClass(entries, t = () => '') {
       return { key, items, order: def ? def.order : 99, label: def ? def.label : (key.trim() || 'Other') }
     })
     .concat(hdrLinear.length || hdrNonLinear.length ? [{
-      key: 'hdr', order: 0, label: t('pool_hdr') || 'HDR Profiles',
+      key: 'hdr', order: 0, label: t('pool_hdr') || 'HDR ColorSpace Profiles',
       items: [...hdrLinear, ...hdrNonLinear],
       sub: [
         { key: 'hdr:linear', label: t('pool_hdr_linear') || 'Linear transfer', items: hdrLinear },

@@ -65,8 +65,8 @@ export default function ComparePanel({ ids, getEntry, t }) {
     () => ids.map((id, i) => {
       const e = getEntry(id)
       if (!e) return null
-      // Classify here so the view can say WHAT it is drawing for an HDR Profile. See the
-      // caveat below: the mesh is real, but for an HDR Profile it describes the baked SDR
+      // Classify here so the view can say WHAT it is drawing for an HDR ColorSpace Profile. See the
+      // caveat below: the mesh is real, but for an HDR ColorSpace Profile it describes the baked SDR
       // fallback rather than the profile's HDR behaviour.
       const hdr = classifyHdrProfile(e.parsed, e.currentBytes)
       return { id, name: e.filename, bytes: e.currentBytes, hdr, color: PALETTE[i % PALETTE.length] }
@@ -133,8 +133,9 @@ export default function ComparePanel({ ids, getEntry, t }) {
         {loading && <span className={styles.loading}>{t('gamut_loading') || 'Building gamut…'}</span>}
       </div>
 
-      {/* PHASE 3. An HDR Profile carries no TRC tags — clause 8.10.1 prohibits them — so a
-          CMM building a transform from it must use the AToB0Tag, which 8.10.6 defines as
+      {/* PHASE 3. An HDR ColorSpace Profile carries no TRC tags — clause 8.7 defines none for a
+          ColorSpace profile — so a
+          CMM building a transform from it must use the AToB0Tag, which 8.7.1.5 defines as
           the fallback for consumers that implement NO HDR processing: a baked SDR
           rendering. The mesh therefore builds without error and looks entirely plausible
           while describing the fallback, not the profile's HDR behaviour.
@@ -148,7 +149,7 @@ export default function ComparePanel({ ids, getEntry, t }) {
         <div className={styles.hdrNote} role="note">
           <strong>{t('gamut_hdr_title') || 'Showing the SDR fallback'}</strong>{' '}
           {t('gamut_hdr_body') ||
-            'These are HDR Profiles, which carry no TRC tags, so the gamut is built from the AToB0Tag — the baked SDR rendering clause 8.10.6 requires for consumers without HDR processing. It is not the profile\u2019s HDR gamut, which cannot be drawn in a bounded PCS.'}
+            'These are HDR ColorSpace Profiles, which carry no TRC tags, so the gamut is built from the AToB0Tag — the baked SDR rendering clause 8.7.1.5 requires for consumers without HDR processing. It is not the profile\u2019s HDR gamut, which cannot be drawn in a bounded PCS.'}
           <span className={styles.hdrWhich}>
             {hdrProfiles.map((p) => `${p.name} (${p.hdr.transfer})`).join(', ')}
           </span>

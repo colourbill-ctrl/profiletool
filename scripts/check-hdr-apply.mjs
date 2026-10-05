@@ -7,12 +7,18 @@
 //
 // Reference (iccApplyNamedCmm at hdr-profiles ac264764 lineage, intent 1, float XYZ out):
 // grey PQ code values for 0, 100, 203, 300, 600, 1000, 4000 cd/m² through
-//   HagcDisplay.icc        -HDR 8     Y = 0 0.333332 0.676667 1.000001 1.999998 3.333330 13.333281
+//   HagcColorSpace.icc        -HDR 8     Y = 0 0.333332 0.676667 1.000001 1.999998 3.333330 13.333281
 //                          -HDR 2.23  Y = 0 0.314686 0.601517 0.843391 1.101869 1.341816 2.290318
 //                          -HDR 1     Y = 0 0.303517 0.558662 0.757858 0.757858 0.757858 0.757858
 //                          lut / off / no -HDR: 0.000002 1.016140 1.161360 1.243707 1.392567 1.503631 1.805116
-//   HdrDisplayMetadata.icc any -HDR   Y = 0 0.492619 1.000022 1.477866 2.955726 4.926208 19.704777
-// (HagcDisplay's HDR reference white is its HAGC tag's 300 cd/m²; HdrDisplayMetadata has no
+//   HdrColorSpaceClass.icc any -HDR   Y = 0 0.492619 1.000022 1.477866 2.955726 4.926208 19.704777
+// (These numbers were first measured, before the 23-09-2026 retarget, on the Display-class
+//  fixture that HdrColorSpaceClass.icc is the 'spac' form of - identical cicpTag,
+//  mediaWhitePointTag, chad, metadataTag and LUT pair, minus the colorant trio a ColorSpace
+//  profile does not have. They carry over exactly rather than by assumption, because the
+//  forward matrix is built from cicpTag.ColourPrimaries via H.273 Table 2 and the adopted
+//  white - never from colorant tags, on either side of the retarget.)
+// (HagcColorSpace's HDR reference white is its HAGC tag's 300 cd/m²; HdrColorSpaceClass has no
 // HAGC and uses the 203 default, and with no gain curve tone-maps nothing.)
 //
 // Usage: node scripts/check-hdr-apply.mjs
@@ -66,30 +72,65 @@ const REF = {
 }
 
 {
-  const a = run('HagcDisplay.icc', 8)
-  check('HagcDisplay headroom 8 (baseline): Y matches native CLI — values above 1 survive', matches(Ys(a.xyz), REF.hagc8), Ys(a.xyz))
-  check('HagcDisplay: reports HDR path, transfer 16 (PQ), reference white 300', a.info.hdrPath === true && a.info.transfer === 16 && Math.abs(a.info.referenceWhite - 300) < 1e-3, a.info)
-  check('HagcDisplay: reports PCS XYZ, 3 source channels, HAGC present', a.info.pcs === 'XYZ' && a.info.nSrc === 3 && a.info.hasHagc === true, a.info)
-  const b = run('HagcDisplay.icc', 2.23)
-  check('HagcDisplay headroom 2.23: Y matches native CLI (tone-mapped)', matches(Ys(b.xyz), REF.hagc223), Ys(b.xyz))
-  check('HagcDisplay headroom 2.23: gain curve engaged (toneMapping)', b.info.toneMapping === true, b.info)
-  const c = run('HagcDisplay.icc', 1)
-  check('HagcDisplay headroom 1 (SDR): Y matches native CLI (clips at 2^-0.4)', matches(Ys(c.xyz), REF.hagc1), Ys(c.xyz))
-  const lut = run('HagcDisplay.icc', 8, 2)
-  check('HagcDisplay policy lut: baked AToB0 path, matches CLI', matches(Ys(lut.xyz), REF.legacy) && lut.info.hdrPath === false, { y: Ys(lut.xyz), info: lut.info })
-  const off = run('HagcDisplay.icc', 8, 3)
-  check('HagcDisplay policy off: same as a pre-amendment CMM', matches(Ys(off.xyz), REF.legacy) && off.info.hdrPath === false, Ys(off.xyz))
-  const none = run('HagcDisplay.icc', 0)
-  check('HagcDisplay no headroom (0): no hint attached → legacy path', matches(Ys(none.xyz), REF.legacy) && none.info.hintAttached === false, none.info)
+  const a = run('HagcColorSpace.icc', 8)
+  check('HagcColorSpace headroom 8 (baseline): Y matches native CLI — values above 1 survive', matches(Ys(a.xyz), REF.hagc8), Ys(a.xyz))
+  check('HagcColorSpace: reports HDR path, transfer 16 (PQ), reference white 300', a.info.hdrPath === true && a.info.transfer === 16 && Math.abs(a.info.referenceWhite - 300) < 1e-3, a.info)
+  check('HagcColorSpace: reports PCS XYZ, 3 source channels, HAGC present', a.info.pcs === 'XYZ' && a.info.nSrc === 3 && a.info.hasHagc === true, a.info)
+  const b = run('HagcColorSpace.icc', 2.23)
+  check('HagcColorSpace headroom 2.23: Y matches native CLI (tone-mapped)', matches(Ys(b.xyz), REF.hagc223), Ys(b.xyz))
+  check('HagcColorSpace headroom 2.23: gain curve engaged (toneMapping)', b.info.toneMapping === true, b.info)
+  const c = run('HagcColorSpace.icc', 1)
+  check('HagcColorSpace headroom 1 (SDR): Y matches native CLI (clips at 2^-0.4)', matches(Ys(c.xyz), REF.hagc1), Ys(c.xyz))
+  const lut = run('HagcColorSpace.icc', 8, 2)
+  check('HagcColorSpace policy lut: baked AToB0 path, matches CLI', matches(Ys(lut.xyz), REF.legacy) && lut.info.hdrPath === false, { y: Ys(lut.xyz), info: lut.info })
+  const off = run('HagcColorSpace.icc', 8, 3)
+  check('HagcColorSpace policy off: same as a pre-amendment CMM', matches(Ys(off.xyz), REF.legacy) && off.info.hdrPath === false, Ys(off.xyz))
+  const none = run('HagcColorSpace.icc', 0)
+  check('HagcColorSpace no headroom (0): no hint attached → legacy path', matches(Ys(none.xyz), REF.legacy) && none.info.hintAttached === false, none.info)
   check('neutral grey stays neutral in PCS (X/Y and Z/Y at D50 white ratios)',
     Math.abs(a.xyz[3 * 3] / a.xyz[3 * 3 + 1] - 0.9642) < 2e-3 && Math.abs(a.xyz[3 * 3 + 2] / a.xyz[3 * 3 + 1] - 0.8249) < 2e-3, a.xyz.slice(9, 12))
 }
 {
-  const m8 = run('HdrDisplayMetadata.icc', 8)
-  const m1 = run('HdrDisplayMetadata.icc', 1)
-  check('HdrDisplayMetadata (no HAGC): Y matches native CLI, 1.0 at 203 cd/m²', matches(Ys(m8.xyz), REF.meta), Ys(m8.xyz))
-  check('HdrDisplayMetadata: same output at any headroom (no gain curve; NOTE 6 identity)', matches(Ys(m1.xyz), REF.meta) && m1.info.toneMapping === false, m1.info)
-  check('HdrDisplayMetadata: reference white 203 (default), HDR path engaged', Math.abs(m8.info.referenceWhite - 203) < 1e-3 && m8.info.hdrPath === true, m8.info)
+  const m8 = run('HdrColorSpaceClass.icc', 8)
+  const m1 = run('HdrColorSpaceClass.icc', 1)
+  check('HdrColorSpaceClass (no HAGC): Y matches native CLI, 1.0 at 203 cd/m²', matches(Ys(m8.xyz), REF.meta), Ys(m8.xyz))
+  check('HdrColorSpaceClass: same output at any headroom (no gain curve; NOTE 6 identity)', matches(Ys(m1.xyz), REF.meta) && m1.info.toneMapping === false, m1.info)
+  check('HdrColorSpaceClass: reference white 203 (default), HDR path engaged', Math.abs(m8.info.referenceWhite - 203) < 1e-3 && m8.info.hdrPath === true, m8.info)
+  // The header membership terms, asserted at the CMM rather than only at the classifier. Each
+  // fixture below is HdrColorSpaceClass with ONE header attribute changed, so each fails
+  // exactly one 8.7.1.1 condition. A hint is attached (headroom 8) and the CMM must still
+  // decline the 8.7.1.2 chain - icUseHdrToneMapPath() admits only a conforming member - and
+  // fall back to the ordinary AToB0Tag path. check-hdr-profile-class.mjs proves the
+  // CLASSIFIER rejects them; this proves the rejection reaches the transform that renders.
+  for (const [f, term] of [['HdrClassDisplayNegative.icc', "class 'mntr'"], ['HdrClassInputNegative.icc', "class 'scnr'"],
+                           ['HdrVersion5.icc', 'version 5.0'], ['HdrPcsLab.icc', "PCS 'Lab '"]]) {
+    let neg, err
+    try { neg = run(f, 8) } catch (e) { err = errText(e) }
+    check(`${f.replace('.icc', '')} (${term}, otherwise HdrColorSpaceClass): not a member, so no HDR path`,
+      !!neg && neg.info.hdrPath === false && neg.info.toneMapping === false && neg.xyz.every(Number.isFinite), err ?? neg?.info)
+  }
+}
+{
+  // ColourPrimaries 2 (Unspecified) on a CONFORMING member. Clause 8.7.1.1 routes it to the
+  // cicpType chromaticity extension of 10.3, which no build here can read, so IccProfLib's
+  // HDR transform refuses to Begin(). The engine must (a) say WHY — the library's own status
+  // text is the bare "Invalid profile", which blames a defect the profile does not have —
+  // and (b) NOT block the policies that never need the matrix: the baked SDR fallback and
+  // Off render it through the AToB0Tag as usual. (b) is why the HDR tab marks such a profile
+  // rather than hiding it; if either of these stops holding, that UI decision is wrong.
+  const tryRun = (h, pol) => { try { return { r: run('HdrCicpUnspecified.icc', h, pol) } } catch (e) { return { err: errText(e) } } }
+  for (const [label, pol] of [['auto', 0], ['gain curve', 1]]) {
+    const { r, err } = tryRun(8, pol)
+    check(`HdrCicpUnspecified, policy ${label}: refused with the 10.3 reason, not "Invalid profile"`,
+      !r && /ColourPrimaries 2/.test(err || '') && /10\.3/.test(err || '') && !/Invalid profile/.test(err || ''), err ?? r?.info)
+  }
+  const { err: remedy } = tryRun(8, 0)
+  check('HdrCicpUnspecified: the refusal names the policies that still work', /Baked SDR fallback/.test(remedy || '') && /\bOff\b/.test(remedy || ''), remedy)
+  for (const [label, h, pol] of [['baked SDR fallback', 8, 2], ['off', 8, 3], ['no headroom', 0, 0]]) {
+    const { r, err } = tryRun(h, pol)
+    check(`HdrCicpUnspecified, ${label}: still renders through the AToB0Tag (no HDR path)`,
+      !!r && r.info.hdrPath === false && r.xyz.every(Number.isFinite), err ?? r?.info)
+  }
 }
 {
   let msg = ''
@@ -98,7 +139,7 @@ const REF = {
   msg = ''
   try { mod.hdrApplyBegin(new Uint8Array([1, 2, 3, 4]), 8, 0, 1) } catch (e) { msg = errText(e) }
   check('garbage profile bytes → a clear error', /could not be read|profile/i.test(msg), msg)
-  const bytes = new Uint8Array(readFileSync(join(HDR, 'HagcDisplay.icc')))
+  const bytes = new Uint8Array(readFileSync(join(HDR, 'HagcColorSpace.icc')))
   mod.hdrApplyBegin(bytes, 8, 0, 1)
   msg = ''
   try { mod.hdrApplyChunk(new Uint8Array(new Float32Array(4).buffer)) } catch (e) { msg = errText(e) }

@@ -260,7 +260,7 @@
 .error { margin: 0; font-size: 0.84rem; color: var(--error); }
 .notice { margin: 0; font-size: 0.84rem; color: var(--accent); }
 
-/* Phase 3: an HDR Profile in the chain contributes its baked SDR fallback (8.10.6), not
+/* Phase 3: an HDR ColorSpace Profile in the chain contributes its baked SDR fallback (8.7.1.5), not
    HDR behaviour. A note, not a warning — the chain is valid, it just means something
    other than it appears to. */
 .hdrNote {

@@ -969,8 +969,8 @@ emscripten::val imageApplyChunk(std::string srcBytes) {
 // Release the active session (frees the CMM). Safe to call with no session.
 void imageApplyEnd() { g_imgCmm.reset(); g_imgNSrc = g_imgNDst = 0; }
 
-// ── HDR Profile apply — the HDR tab's "Assign profile" ─────────────────────────
-// Push decoded image pixels through ONE ICC.1 clause 8.10 HDR Profile, device → PCS, the
+// ── HDR ColorSpace Profile apply — the HDR tab's "Assign profile" ─────────────────────────
+// Push decoded image pixels through ONE ICC.1 clause 8.7.1 HDR ColorSpace Profile, device → PCS, the
 // way iccApplyNamedCmm does with -HDR/-HDRMAP: a CIccCreateHdrXformHint is attached ONLY
 // when a target headroom is given (> 0), exactly as IccConnect does, so without one the
 // profile runs as in a pre-amendment CMM. The hint engages CIccXformMatrixTrcHdr: the
@@ -989,7 +989,7 @@ emscripten::val hdrApplyBeginImpl(std::string profBytes, double targetHeadroom, 
   g_hdrCmm.reset(); g_hdrLabPcs = false;
 #ifndef PROFILETOOL_HAS_HDR
   (void)profBytes; (void)targetHeadroom; (void)policy; (void)intent;
-  throw std::runtime_error("This build has no HDR Profile support.");
+  throw std::runtime_error("This build has no HDR ColorSpace Profile support.");
 #else
   if (profBytes.empty() || profBytes.size() > kMaxIccBytes)
     throw std::runtime_error("The profile is empty or too large.");
@@ -1026,8 +1026,27 @@ emscripten::val hdrApplyBeginImpl(std::string profBytes, double targetHeadroom, 
   if (stat)
     throw std::runtime_error(std::string("Cannot use this profile: ") + CIccCmm::GetStatusText(stat));
   stat = cmm->Begin();
-  if (stat)
+  if (stat) {
+    // ColourPrimaries 2 (Unspecified) on a conforming member is the one refusal worth naming.
+    // Clause 8.7.1.1 routes it to the cicpType custom chromaticity extension of 10.3, whose
+    // wire format lives in a document (CICP Unspecified Primaries v2) no build here has, so
+    // IccProfLib cannot resolve the primaries and CIccXformMatrixTrcHdr::Begin() refuses —
+    // which GetStatusText reports as the bare "Invalid profile", pointing at a defect the
+    // profile does not have. Only the HDR PATH is blocked: without the hint (baked SDR
+    // fallback, Off, or no headroom) the AToB0Tag serves as usual, so the message says so.
+    //
+    // Scoped exactly: a conforming member, a hint attached, ColourPrimaries 2, primaries
+    // unresolved. Any other Begin() failure keeps the library's own status text, so this
+    // can never relabel an unrelated fault as the 10.3 limitation.
+    if (haveInfo && attach && info.nClass == icHdrProfileConforming && info.bHasCicp &&
+        info.nColourPrimaries == icCicpPrimariesUnspecified && !info.bPrimariesResolved)
+      throw std::runtime_error(
+        "This HDR ColorSpace Profile declares ColourPrimaries 2 (Unspecified). Clause 8.7.1.1 "
+        "then takes the primaries from the cicpType chromaticity extension of clause 10.3, "
+        "which this build cannot read yet, so the HDR path cannot build its matrix. Choose "
+        "Baked SDR fallback or Off to render through the profile's AToB0Tag instead.");
     throw std::runtime_error(std::string("The profile could not be started: ") + CIccCmm::GetStatusText(stat));
+  }
 
   const int nSrc = (int)icGetSpaceSamples(cmm->GetSourceSpace());
   if (nSrc != 3)
@@ -1064,7 +1083,9 @@ emscripten::val hdrApplyBeginImpl(std::string profBytes, double targetHeadroom, 
   r.set("hasHagc", haveInfo && info.bHasHagc);
   r.set("hasAToB0", haveInfo && info.bHasAToB0);
   r.set("referenceWhite", haveInfo ? (double)info.contentReferenceWhite : 0.0);
-  r.set("displayHeadroom", haveInfo ? (double)info.displayHeadroom : 0.0);
+  // No displayHeadroom: clause 8.10.5 was deleted by the 23-09-2026 revision (physical
+  // display characterization is out of scope for an HDR ColorSpace Profile), and
+  // icHdrProfileInfo lost the field with it. Nothing in the JS ever read it.
   return r;
 #endif
 }

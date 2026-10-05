@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  profiletool's OWN HDR ColorSpace Profile fixture — a CONFORMING member of the
+  HDR ColorSpace Profile sub-class of ICC.1 clause 8.7.1.
+
+  Why this exists — AND HOW THAT CHANGED. It was written when every fixture copied
+  from iccDEV:Testing/HDR/ carried the redTRCTag/greenTRCTag/blueTRCTag trio, which
+  the then-current clause 8.10.1 said "shall not be present"; all of them therefore
+  classified as icHdrProfileHdrContent, PAWG emitted H1 as N/A and suppressed the
+  rest of the section, and no upstream fixture could exercise section H past its
+  first item. The 23-09-2026 revision removed that prohibition along with the
+  matrix/TRC parent class, and upstream's corpus now holds 25 conforming members.
+  SO THE ORIGINAL JUSTIFICATION HAS LAPSED, and saying so is the honest thing to
+  record rather than quietly restating a reason that no longer holds.
+
+  What still earns its keep is the H7 AGREE branch (see the two values below) and
+  that this is ours to mutate for new cases without touching anything copied from
+  upstream. Its sibling ProfiletoolHdrRefWhiteConflict holds the disagree branch.
+
+  It satisfies every membership condition of 8.7.1.1 / 8.7.1.5:
+
+    RGB data colour space                    (8.7.1.5 first sentence)
+    ColorSpace class ('spac')                (8.7.1.5 second sentence)
+    ProfileVersion 4.50, below 5.0.0.0       (icHdrIsVersion4 — a ruling, not a
+                                              condition of the amendment; 4.7
+                                              withdrew the old 4.5.0.0 floor)
+    PCSXYZ                                   (the 8.7.1.2 chain ends in XYZ)
+    cicpTag, TransferCharacteristics = 16    (8.7.1.1, PQ is one of 8/16/18)
+
+  Deliberately a HAPPY PATH, not a torture test. The upstream fixtures cover the
+  deformities (HdrInvalidTransfer, HdrMissingBToA0, HagcInvalidXOrder).
+
+  Two values are set so they AGREE, which is the point of a happy path:
+    - HAGC HDRReferenceWhite = 203.0 and metadata CRWL = 203.0. H7 asks whether
+      those two carriers of the same quantity disagree; here they must not.
+      (HagcColorSpace.icc uses 300.0 with no CRWL, so it cannot answer H7 either.)
+    - ColourPrimaries = 9 (BT.2020). Under 8.7.1.1 the cicpTag is the ONLY carrier
+      of the primaries — a ColorSpace profile has no matrix column tag — so the
+      former redColorantTag/greenColorantTag/blueColorantTag trio is gone from this
+      fixture. It was never required by the HDR clause; it was required of the
+      matrix-based display profile that used to be the parent class.
+
+  REGISTRY CAVEAT (inherited): the ICC dictType Metadata Registry that defines the
+  CRWL/CLL/MDCV entry names and value syntax is unpublished, so those keys are
+  reconstructions — see the ASSUMED markers in IccProfLib/IccHdrProfile.cpp. If the
+  registry contradicts them, this fixture changes with the parser. The DERH/DRWL/DCV
+  entries this fixture used to carry are gone with clause 8.10.5, which the
+  23-09-2026 revision deleted: physical display characterization is out of scope for
+  an HDR ColorSpace Profile.
+
+  Generated through the iccxml WASM path (xmlToIcc), not by hand.
+-->
+<IccProfile>
+  <Header>
+    <PreferredCMMType>ICCD</PreferredCMMType>
+    <ProfileVersion>4.50</ProfileVersion>
+    <ProfileDeviceClass>spac</ProfileDeviceClass>
+    <DataColourSpace>RGB </DataColourSpace>
+    <PCS>XYZ </PCS>
+    <CreationDateTime>2026-09-10T00:00:00</CreationDateTime>
+    <ProfileFlags EmbeddedInFile="true" UseWithEmbeddedDataOnly="true"/>
+    <DeviceAttributes ReflectiveOrTransparency="reflective" GlossyOrMatte="glossy" MediaPolarity="positive" MediaColour="colour"/>
+    <RenderingIntent>Relative Colorimetric</RenderingIntent>
+    <PCSIlluminant>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </PCSIlluminant>
+    <ProfileCreator>ICCD</ProfileCreator>
+  </Header>
+  <Tags>
+    <!-- No TRC tags and no matrix column tags: clause 8.7 defines neither for a
+         ColorSpace profile, so the cicpTag is the sole carrier of both the
+         transfer function and the primaries (8.7.1.1). -->
+
+    <mediaWhitePointTag> <XYZArrayType>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </XYZArrayType> </mediaWhitePointTag>
+
+    <cicpTag> <cicpType>
+      <cicpFields ColorPrimaries="9" TransferCharacteristics="16" MatrixCoefficients="0" VideoFullRangeFlag="1"/>
+    </cicpType> </cicpTag>
+
+    <!-- Clause 8.7 requires the AToB0Tag/BToA0Tag pair of EVERY ColorSpace
+         profile, and 8.7.1.5 constrains what the AToB0Tag must contain in an HDR
+         ColorSpace Profile: an HDR->SDR rendering at target headroom 1.0, for a
+         consumer that implements no HDR processing at all. The pair is the defect
+         HdrMissingBToA0.icc isolates — critically now, since 8.7 owns it. Identity
+         B-curve LUTs, exactly as HdrBakedLut.icc uses: what this fixture proves
+         is that the pair is present and complete, not what it contains. -->
+    <AToB0Tag> <lutAtoBType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutAtoBType> </AToB0Tag>
+
+    <BToA0Tag> <lutBtoAType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutBtoAType> </BToA0Tag>
+
+    <!-- A deliberately SIMPLE gain curve compared with HagcColorSpace's: one
+         alternate, the fixed mixing type 2, PCHIP-derived slopes, and no custom
+         chromaticities. The complex layout is already covered upstream; this one
+         is here to be readable and to be mutated. HDRReferenceWhite is the
+         203.0 default stated explicitly so it can be seen to agree with CRWL. -->
+    <headroomAdaptiveGainCurveTag> <headroomAdaptiveGainCurveType>
+      <HagcMetadata ApplicationVersion="1" MinApplicationVersion="1"
+                    HDRReferenceWhite="203.0000"
+                    BaselineHeadroom="2.0000" HeadroomAdaptiveToneMap="true"
+                    ChromaticitiesMode="1" CommonComponentMixing="false" CommonCurveParameters="false">
+       <AlternateImage Headroom="0.0000" ComponentMixingType="2" PchipSlope="true">
+        <ControlPoints>
+         <ControlPoint X="0.2500" Y="-0.05000"/>
+         <ControlPoint X="0.5000" Y="-0.12000"/>
+         <ControlPoint X="0.7500" Y="-0.20000"/>
+         <ControlPoint X="1.0000" Y="-0.30000"/>
+        </ControlPoints>
+       </AlternateImage>
+      </HagcMetadata>
+    </headroomAdaptiveGainCurveType> </headroomAdaptiveGainCurveTag>
+
+    <!-- CRWL matches the HAGC tag's HDRReferenceWhite above, which is what puts
+         H7 on its AGREE branch (8.7.1.4). -->
+    <metaDataTag> <dictType>
+      <DictEntry Name="CRWL" Value="203.0"/>
+    </dictType> </metaDataTag>
+
+    <profileDescriptionTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[profiletool conforming HDR ColorSpace Profile (BT.2020 PQ, HAGC)]]></LocalizedText>
+    </multiLocalizedUnicodeType> </profileDescriptionTag>
+
+    <copyrightTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[Copyright (C) 2026 William Li. Generated fixture, no measured data.]]></LocalizedText>
+    </multiLocalizedUnicodeType> </copyrightTag>
+  </Tags>
+</IccProfile>

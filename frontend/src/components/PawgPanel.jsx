@@ -16,7 +16,7 @@ const VERDICT = {
 
 // Display order mirrors the order iccPawgReport emits the items in. `hdr` is
 // last because AddHdrItems() is appended last upstream, and it is ABSENT (not
-// NotRun) for any profile that is not of ICC.1 clause 8.10's HDR Profile
+// NotRun) for any profile that is not of ICC.1 clause 8.7.1's HDR ColorSpace Profile
 // sub-class — so for an SDR profile this section simply has no items and the
 // render below skips it, exactly as it did before the section existed.
 const SECTIONS = [

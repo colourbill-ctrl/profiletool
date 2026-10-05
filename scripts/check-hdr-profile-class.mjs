@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // (c) 2026 William Li
 //
-// Tests frontend/src/lib/hdrProfile.js — the client-side 8.10.1 membership test that
+// Tests frontend/src/lib/hdrProfile.js — the client-side 8.7.1.1 membership test that
 // Compare and Link use to decide whether to explain what they are showing.
 //
 // CROSS-CHECKED AGAINST PAWG, which is the point. PAWG's H1 item is the authoritative
@@ -24,6 +24,8 @@ const createPawg = (await import(join(ROOT, 'frontend/public/wasm/iccpawg.mjs'))
 const dump = await createDump(), pawg = await createPawg()
 
 let agree = 0, disagree = 0, skipped = 0
+let cp2Agree = 0, cp2Disagree = 0
+const cp2Seen = []
 const rows = []
 for (const f of readdirSync(CORPUS).filter((f) => f.endsWith('.icc')).sort()) {
   const bytes = new Uint8Array(readFileSync(join(CORPUS, f)))
@@ -34,16 +36,27 @@ for (const f of readdirSync(CORPUS).filter((f) => f.endsWith('.icc')).sort()) {
   const ours = classifyHdrProfile(data, bytes)
 
   // PAWG's verdict: H1 == OK means a conforming member of the sub-class.
-  let theirs = null
+  let theirs = null, theirsCp2 = false
   try {
     const r = JSON.parse(pawg.pawgReport(bytes))
     const h1 = r.items.find((i) => i.id === 'H1')
     theirs = h1 ? h1.verdict === 'OK' : false
+    // H5 FAILs a member whose ColourPrimaries is 2 (Unspecified): 8.7.1.1 then needs the
+    // cicpType chromaticity extension of 10.3, which this build cannot read. Keyed on the
+    // detail naming ColourPrimaries 2 so an unrelated H5 failure cannot satisfy it.
+    const h5 = r.items.find((i) => i.id === 'H5')
+    theirsCp2 = !!h5 && h5.verdict === 'FAIL' && /ColourPrimaries is 2/.test(h5.detail || '')
   } catch { skipped++; continue }
 
   const ok = ours.isHdr === theirs
   ok ? agree++ : disagree++
   rows.push([ok, f, ours.isHdr, theirs, ours.transfer, ours.reasons[0] || ''])
+
+  // SECOND AXIS: primariesNeedExtension, which the HDR tab uses to mark a member whose HDR
+  // path is blocked. Checked row for row against H5, the same way isHdr is against H1.
+  if (ours.primariesNeedExtension === theirsCp2) cp2Agree++
+  else { cp2Disagree++; console.log(`FAIL  ${f.padEnd(30)} primariesNeedExtension=${ours.primariesNeedExtension} pawg H5 (ColourPrimaries 2)=${theirsCp2}`) }
+  if (theirsCp2) cp2Seen.push(f.replace('.icc', ''))
 }
 
 for (const [ok, f, o, t, tr, why] of rows) {
@@ -53,7 +66,7 @@ console.log(`\nagreement with PAWG H1 across the corpus: ${agree} agree, ${disag
 
 // Show the members, so a reader can see the classifier is not trivially returning false.
 const members = rows.filter((r) => r[2]).map((r) => `${r[1].replace('.icc','')}(${r[4]})`)
-console.log(`conforming HDR Profiles found: ${members.length}`)
+console.log(`conforming HDR ColorSpace Profiles found: ${members.length}`)
 console.log('  ' + members.join(', '))
 
 // A classifier that says "no" to everything would agree with PAWG on SDR profiles and
@@ -62,4 +75,9 @@ const transfers = new Set(rows.filter((r) => r[2]).map((r) => r[4]))
 const enough = members.length >= 5 && transfers.size >= 2
 console.log(`${enough ? 'pass' : 'FAIL'}  identifies members across ${transfers.size} transfer characteristic(s): ${[...transfers].join(', ')}`)
 
-process.exit(disagree === 0 && enough ? 0 : 1)
+// Same trap as above for the second axis: a flag that is never true agrees with PAWG on every
+// row that lacks the condition. Require at least one row that actually exercises it.
+console.log(`primariesNeedExtension vs PAWG H5 (ColourPrimaries 2): ${cp2Agree} agree, ${cp2Disagree} disagree` +
+            (cp2Seen.length ? `; exercised by ${cp2Seen.join(', ')}` : ' — NOT EXERCISED'))
+
+process.exit(disagree === 0 && enough && cp2Disagree === 0 && cp2Seen.length > 0 ? 0 : 1)

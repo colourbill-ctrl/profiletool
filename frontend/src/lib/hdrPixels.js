@@ -146,7 +146,7 @@ export function applyMatrix3(buf, m) {
 /**
  * Every sample multiplied by `factor`, into a new buffer — the HDR tab's "file 1.0 = HDR
  * reference white" choice for float images under a Linear-transfer profile, whose EOTF reads
- * an encoded 1.0 as 1 cd/m² (ICC.1 clause 8.10.2 a). A non-positive or non-finite factor
+ * an encoded 1.0 as 1 cd/m² (ICC.1 clause 8.7.1.2 a). A non-positive or non-finite factor
  * leaves the values unscaled rather than zeroing or poisoning a whole image.
  */
 export function scaleSamples(src, factor) {

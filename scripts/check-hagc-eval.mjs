@@ -2,7 +2,7 @@
 // (c) 2026 William Li
 //
 // Tests the HAGC EVALUATED view — iccplot's hagcEvaluate(), i.e. IccVizModel::EvaluateHagc
-// over IccProfLib's CIccHagcEvaluator — against what HagcDisplay.icc AUTHORS.
+// over IccProfLib's CIccHagcEvaluator — against what HagcColorSpace.icc AUTHORS.
 //
 // The expectations are read off the fixture's XML, not off the evaluator: the piecewise
 // cubic must pass through every authored control point, the baseline must be identity,
@@ -35,15 +35,15 @@ const idx = (r, xv) => r.x.findIndex((v) => Math.abs(v - xv) < 1e-6)
 
 check('module exports hagcEvaluate', typeof mod.hagcEvaluate === 'function')
 
-// ── HagcDisplay: baseline 3 stops; alternate at 0 (explicit slopes), alternate at 5 (PCHIP) ──
-const hd = bytesOf('HagcDisplay.icc')
+// ── HagcColorSpace: baseline 3 stops; alternate at 0 (explicit slopes), alternate at 5 (PCHIP) ──
+const hd = bytesOf('HagcColorSpace.icc')
 {
   const r = evalAt(hd, 3)
-  check('HagcDisplay: supported, baseline 3, reference white 300 cd/m²', r.supported && near(r.baselineHeadroom, 3) && near(r.referenceWhite, 300), r)
-  check('HagcDisplay: curves ordered by headroom 0, 3, 5; baseline is identity',
+  check('HagcColorSpace: supported, baseline 3, reference white 300 cd/m²', r.supported && near(r.baselineHeadroom, 3) && near(r.referenceWhite, 300), r)
+  check('HagcColorSpace: curves ordered by headroom 0, 3, 5; baseline is identity',
     r.curves.length === 3 && near(r.curves[0].headroom, 0) && near(r.curves[1].headroom, 3) && near(r.curves[2].headroom, 5) && r.curves[1].identity && !r.curves[0].identity,
     r.curves.map((c) => [c.headroom, c.identity]))
-  check('HagcDisplay: 129 samples on a grid that contains every control-point x',
+  check('HagcColorSpace: 129 samples on a grid that contains every control-point x',
     r.x.length === 129 && [0.25, 0.5, 0.75, 1, 1.5].every((xv) => idx(r, xv) >= 0), { n: r.x.length, xmax: r.x[128] })
   check('at the baseline headroom the grey tone curve is identity', r.neutralOut.every((o, i) => near(o, r.x[i], 1e-5)))
   check('at the baseline headroom the blended gain is 0 throughout', r.blendGain.every((g) => near(g, 0, 1e-6)))
@@ -86,7 +86,7 @@ const hd = bytesOf('HagcDisplay.icc')
   check('sample count is clamped to [16, 1024]', evalAt(hd, 3, 2).x.length === 16 && evalAt(hd, 3, 99999).x.length === 1024 && evalAt(hd, 3, 0).x.length === 129)
   const bad = JSON.parse(mod.hagcEvaluate(hd, NaN, 129))
   check('NaN target → error, not a silently stale curve', typeof bad.error === 'string' && /not a number/.test(bad.error), bad)
-  const none = JSON.parse(mod.hagcEvaluate(bytesOf('HdrDisplayMetadata.icc'), 3, 129))
+  const none = JSON.parse(mod.hagcEvaluate(bytesOf('HdrColorSpaceClass.icc'), 3, 129))
   check('profile without a HAGC tag → error "not found"', typeof none.error === 'string' && /not found/.test(none.error), none)
 }
 {

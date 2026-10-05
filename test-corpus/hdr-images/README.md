@@ -1,11 +1,20 @@
 <!-- (c) 2026 William Li -->
 
-# HDR test images — an HDR Profile embedded in ordinary image files
+# HDR test images — an HDR ColorSpace Profile embedded in ordinary image files
 
-Three copies of one picture, each with **`test-corpus/hdr/HagcDisplay.icc` embedded**. That
-profile is an ICC.1 clause 8.10 conforming HDR Display profile: PQ transfer via `cicpTag`, no
-TRC tags, an `AToB0Tag`/`BToA0Tag` pair, and a `headroomAdaptiveGainCurveTag` (HAGC) with two
-alternate images.
+Three copies of one picture, each with **`test-corpus/hdr/HagcColorSpace.icc` embedded**. That
+profile is an ICC.1 clause 8.7.1 conforming **HDR ColorSpace Profile** (class `'spac'`, PCSXYZ):
+PQ transfer and BT.2020 primaries via `cicpTag`, no TRC or matrix column tags, an
+`AToB0Tag`/`BToA0Tag` pair, and a `headroomAdaptiveGainCurveTag` (HAGC) with two alternate
+images.
+
+**The images must track that profile byte for byte.** They were last regenerated on 2026-09-26,
+when the corpus moved to ColorSpace-class usage (upstream renamed the fixture from `HagcColorSpace`
+at the same time). An image still embedding a Display-class profile is not an HDR ColorSpace
+Profile, so **Assign &rarr; embedded profile** would silently fall back to the identity
+`AToB0Tag` and render the ramp flat. Whenever `HagcColorSpace.icc` changes, re-run
+`make-hdr-images.mjs`: the three ICC-carrying images change with it, and the EXR and cICP PNG
+(which carry no profile) regenerate byte-identically.
 
 | File | Container | Samples | Codec path exercised |
 |---|---|---|---|
@@ -60,7 +69,7 @@ reference white) at the centre**, 1000 cd/m² at the right.
 
 Drop one on the **Profile** tab (or pick it with the file dialog). profiletool extracts the
 embedded profile without decoding the pixels and loads it as `…(embedded)`:
-- **PAWG report** — section H present; H1 reports a conforming HDR Profile.
+- **PAWG report** — section H present; H1 reports a conforming HDR ColorSpace Profile.
 - **Tags → `headroomAdaptiveGainCurveTag`** — the gain curve graph.
 - **Compare / Combine** — the "showing the SDR fallback" note.
 
@@ -76,7 +85,7 @@ node test-corpus/hdr-images/make-hdr-images.mjs
 ```
 
 The generator encodes with profiletool's own iccimage WASM, then checks every file before
-passing: `findProfile` must return exactly the 956 bytes of `HagcDisplay.icc` (SHA-256 prefix
-`59adffe166990370`), and the ramp must decode back exactly (TIFF, PNG) or within ±4 code values
-(JPEG). A refreshed `HagcDisplay.icc` changes the embedded bytes, so re-run it after a corpus
+passing: `findProfile` must return exactly the 868 bytes of `HagcColorSpace.icc` (SHA-256 prefix
+`9186e794774bf7b1`), and the ramp must decode back exactly (TIFF, PNG) or within ±4 code values
+(JPEG). A refreshed `HagcColorSpace.icc` changes the embedded bytes, so re-run it after a corpus
 refresh.

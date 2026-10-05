@@ -1,6 +1,6 @@
 // (c) 2026 William Li
 //
-// Apply an ASSIGNED ICC.1 clause 8.10 HDR Profile to decoded image pixels, through
+// Apply an ASSIGNED ICC.1 clause 8.7.1 HDR ColorSpace Profile to decoded image pixels, through
 // IccProfLib's own HDR CMM path (iccconstruct: hdrApplyBegin / hdrApplyChunk / hdrApplyEnd).
 //
 // WHAT THE CMM DOES (measured with iccApplyNamedCmm at iccDEV ac264764, and the same code path

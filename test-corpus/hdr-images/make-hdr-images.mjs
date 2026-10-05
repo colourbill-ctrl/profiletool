@@ -2,13 +2,19 @@
 // (c) 2026 William Li
 //
 // Builds the HDR test images in this folder: a PQ luminance ramp, encoded as TIFF, PNG and
-// JPEG, each carrying an EMBEDDED HDR Profile (test-corpus/hdr/HagcDisplay.icc — an ICC.1
-// clause 8.10 conforming Display profile with a headroomAdaptiveGainCurveTag, PQ transfer).
+// JPEG, each carrying an EMBEDDED HDR ColorSpace Profile (test-corpus/hdr/HagcColorSpace.icc —
+// an ICC.1 clause 8.7.1 conforming 'spac' profile with a headroomAdaptiveGainCurveTag, PQ
+// transfer; upstream's HagcColorSpace until the corpus was remodelled on ColorSpace-class usage).
+//
+// RE-RUN WHENEVER HagcColorSpace.icc CHANGES. The images embed its exact bytes, and the check
+// below fails on any mismatch — which is how the 2026-09-26 retarget was caught: the images
+// still carried the old 'mntr' profile, which is no longer a member, so the HDR tab's
+// "Assign: embedded profile" silently stopped engaging the HDR path on them.
 //
 // WHY: dropping one of these on the Profile tab exercises the image → embedded-profile →
 // HDR report path end to end (ingestFile → findEmbeddedProfileFromFile → addIccEntry →
 // PAWG section H, Tags → HAGC gain curve). Before these existed the only way to see an HDR
-// Profile in the app was to load the .icc directly.
+// ColorSpace Profile in the app was to load the .icc directly.
 //
 // WHAT THE PIXELS ARE. Horizontal ramp, grey (R=G=B), PQ code values:
 //   x = 0          → 0 cd/m²
@@ -16,7 +22,7 @@
 //   x = W−1        → 1000 cd/m²
 // The encoder is iccDEV-independent (our iccimage WASM: libtiff/libpng/libjpeg), and the
 // script DECODES each file back and re-extracts the profile, failing on any mismatch — so a
-// committed image is known to carry exactly HagcDisplay.icc's bytes.
+// committed image is known to carry exactly HagcColorSpace.icc's bytes.
 //
 // Profiletool does not yet DISPLAY HDR pixels (DL-HDRDISP1); today these files show their
 // profile. No browser will render them as HDR either: TIFF/PNG/JPEG signal HDR through the
@@ -35,7 +41,7 @@ const ROOT = join(HERE, '..', '..')
 const createIccImageModule = (await import(join(ROOT, 'frontend/public/wasm/iccimage.mjs'))).default
 const mod = await createIccImageModule()
 
-const PROFILE_NAME = 'HagcDisplay.icc'
+const PROFILE_NAME = 'HagcColorSpace.icc'
 const profile = new Uint8Array(readFileSync(join(ROOT, 'test-corpus/hdr', PROFILE_NAME)))
 const sha = (b) => createHash('sha256').update(b).digest('hex').slice(0, 16)
 

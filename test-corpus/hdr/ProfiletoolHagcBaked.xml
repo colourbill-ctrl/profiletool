@@ -3,9 +3,9 @@
   profiletool BAKED-FALLBACK fixture — ProfiletoolHagcFamily with its placeholder identity
   AToB0/BToA0 pair replaced by the SDR rendering iccDEV actually bakes from the gain curve.
 
-  Why this exists. Every other HDR Profile in the corpus carries an identity AToB0/BToA0
+  Why this exists. Every other HDR ColorSpace Profile in the corpus carries an identity AToB0/BToA0
   pair: structurally valid, but meaningless as a fallback. Under the HDR tab tone-mapping
-  policy "Baked SDR fallback (AToB0)", or in any CMM that does not implement clause 8.10,
+  policy "Baked SDR fallback (AToB0)", or in any CMM that does not implement clause 8.7.1,
   those profiles pass raw PQ code values through. This one carries the pair a real HDR
   Profile would ship, so that path shows (and tests) a genuine SDR rendering.
 
@@ -27,14 +27,14 @@
               leave a channel above 1.0, a lutAToBType table cannot, so the table clips each
               channel at the peak (e.g. green at 1000 cd/m²: Y 0.92 on the curve, 0.67 baked).
 
-  Otherwise the ProfiletoolHagcFamily shell: conforming RGB Display v4.50, BT.2020 PQ,
-  HDR reference white 203 = CRWL, DERH 3.0 = the baseline, four alternates.
+  Otherwise the ProfiletoolHagcFamily shell: conforming RGB ColorSpace v4.50, BT.2020 PQ,
+  HDR reference white 203 = CRWL, baseline headroom 3.0, four alternates.
 -->
 <IccProfile>
   <Header>
     <PreferredCMMType>ICCD</PreferredCMMType>
     <ProfileVersion>4.50</ProfileVersion>
-    <ProfileDeviceClass>mntr</ProfileDeviceClass>
+    <ProfileDeviceClass>spac</ProfileDeviceClass>
     <DataColourSpace>RGB </DataColourSpace>
     <PCS>XYZ </PCS>
     <CreationDateTime>2026-09-14T00:00:00</CreationDateTime>
@@ -48,18 +48,6 @@
     <ProfileID>C73B5060ED992604533E9AB9D27CFF5C</ProfileID>
   </Header>
   <Tags>
-    <redColorantTag> <XYZArrayType>
-      <XYZNumber X="0.636962890625" Y="0.262695312500" Z="0.000000000000"/>
-    </XYZArrayType> </redColorantTag>
-
-    <greenColorantTag> <XYZArrayType>
-      <XYZNumber X="0.144622802734" Y="0.677978515625" Z="0.028076171875"/>
-    </XYZArrayType> </greenColorantTag>
-
-    <blueColorantTag> <XYZArrayType>
-      <XYZNumber X="0.168869018555" Y="0.059326171875" Z="1.060989379883"/>
-    </XYZArrayType> </blueColorantTag>
-
     <mediaWhitePointTag> <XYZArrayType>
       <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
     </XYZArrayType> </mediaWhitePointTag>
@@ -109,9 +97,6 @@
 
     <metaDataTag> <dictType>
        <DictEntry Name="CRWL" Value="203.0"/>
-       <DictEntry Name="DERH" Value="3.0"/>
-       <DictEntry Name="DRWL" Value="203.0"/>
-       <DictEntry Name="DCV" Value="1624.0 0.005 1"/>
     </dictType> </metaDataTag>
 
     <profileDescriptionTag> <multiLocalizedUnicodeType>

@@ -35,7 +35,7 @@ import { acceptFor } from '../lib/filePicker.js'
 // Formats that can be decoded by profiletool and so can have a profile assigned to their pixels.
 const ASSIGNABLE = new Set(['tiff', 'png', 'jpeg', 'exr', 'hdr'])
 // Formats whose samples are linear light rather than code values: no ICC profile slot, the
-// 'pixels' route, and only Linear-transfer HDR Profiles may interpret them.
+// 'pixels' route, and only Linear-transfer HDR ColorSpace Profiles may interpret them.
 const LINEAR_LIGHT = new Set(['exr', 'hdr'])
 // Whether the Image details section (embedded profile … HDR reference white) is unfolded.
 const DETAILS_KEY = 'profiletool.hdrDetailsOpen'
@@ -408,7 +408,7 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
   const [applying, setApplying] = useState(false)
   // Float images under a Linear-transfer profile: what a file value of 1.0 means. 'refwhite'
   // (default) = the profile's HDR reference white, the OpenEXR / Radiance convention that 1.0
-  // is SDR white; 'nits' = 1 cd/m², as ICC.1 clause 8.10.2 a) reads a Linear value.
+  // is SDR white; 'nits' = 1 cd/m², as ICC.1 clause 8.7.1.2 a) reads a Linear value.
   const [linearScale, setLinearScaleState] = useState(() => (store.get(LINEAR_SCALE_KEY) === 'nits' ? 'nits' : 'refwhite'))
   const setLinearScale = (v) => { setLinearScaleState(v); store.set(LINEAR_SCALE_KEY, v) }
 
@@ -623,7 +623,7 @@ function PixelRoute({ t, file, info, env, live, assign, detailsOpen }) {
               <select className={styles.select} value={linearScale} onChange={(e) => setLinearScale(e.target.value)}
                       aria-label={t('hdr_linear_scale') || 'Linear values'}>
                 <option value="refwhite">{t('hdr_linear_refwhite') || 'File 1.0 = HDR reference white'}</option>
-                <option value="nits">{t('hdr_linear_nits') || 'File 1.0 = 1 cd/m² (ICC.1 clause 8.10.2 a)'}</option>
+                <option value="nits">{t('hdr_linear_nits') || 'File 1.0 = 1 cd/m² (ICC.1 clause 8.7.1.2 a)'}</option>
               </select>
             </label>
             <p className={styles.note}>{t('hdr_linear_help') || 'OpenEXR and Radiance HDR files conventionally put SDR white at 1.0, while an ICC Linear transfer reads 1.0 as 1 cd/m². The default scales the file so its 1.0 lands on the profile’s HDR reference white.'}</p>
@@ -699,11 +699,18 @@ function RangeControl({ t, share, setShare, blend, readout, onFit, fitActive, fi
 
 // ── assigned profile ─────────────────────────────────────────────────────────
 function AssignRow({ t, value, onChange, profile, hdrProfiles, linearOnly, formatLabel }) {
-  // Pooled HDR Profiles, split by transfer exactly as the Profiles pane groups them.
+  // Pooled HDR ColorSpace Profiles, split by transfer exactly as the Profiles pane groups them.
   // OpenEXR and Radiance HDR store linear light, so they are offered only the Linear group; the note says why
   // the rest are missing and where they are, instead of leaving a silently shorter list.
   const linear = hdrProfiles.filter((p) => p.transfer === 'Linear')
   const nonLinear = hdrProfiles.filter((p) => p.transfer !== 'Linear')
+  // A member declaring ColourPrimaries 2 (Unspecified): its HDR path needs the cicpType
+  // chromaticity extension of clause 10.3, which this build cannot read, so the Auto and
+  // Gain-curve policies refuse it. MARKED, NOT HIDDEN: the baked SDR fallback and Off still
+  // render it through its AToB0Tag, so hiding it would remove choices that work. The engine's
+  // error names the remedy when the HDR path is tried anyway.
+  const cp2 = (p) => (p.primariesNeedExtension
+    ? ` \u2014 ${t('hdr_assign_cp2') || 'Unspecified primaries: no HDR path in this build'}` : '')
   return (
     <>
       <div className={styles.fact}>
@@ -715,24 +722,24 @@ function AssignRow({ t, value, onChange, profile, hdrProfiles, linearOnly, forma
             <option value="embedded">{(t('hdr_assign_embedded') || 'Embedded profile ({n} B)').replace('{n}', profile.size.toLocaleString())}</option>
           )}
           {linear.length > 0 && (
-            <optgroup label={t('hdr_assign_pool_linear') || 'HDR Profiles — Linear transfer'}>
-              {linear.map((p) => <option key={p.id} value={p.id}>{p.filename}</option>)}
+            <optgroup label={t('hdr_assign_pool_linear') || 'HDR ColorSpace Profiles — Linear transfer'}>
+              {linear.map((p) => <option key={p.id} value={p.id}>{p.filename}{cp2(p)}</option>)}
             </optgroup>
           )}
           {!linearOnly && nonLinear.length > 0 && (
-            <optgroup label={t('hdr_assign_pool_nonlinear') || 'HDR Profiles — PQ / HLG transfer'}>
-              {nonLinear.map((p) => <option key={p.id} value={p.id}>{`${p.filename} (${p.transfer})`}</option>)}
+            <optgroup label={t('hdr_assign_pool_nonlinear') || 'HDR ColorSpace Profiles — PQ / HLG transfer'}>
+              {nonLinear.map((p) => <option key={p.id} value={p.id}>{`${p.filename} (${p.transfer})`}{cp2(p)}</option>)}
             </optgroup>
           )}
         </select>
       </div>
       {linearOnly && (
         <p className={styles.note} data-assign-note="exr">
-          {(t('hdr_assign_exr_only') || '{format} holds linear light, so only HDR Profiles with a Linear transfer can be assigned.').replace('{format}', formatLabel)}{' '}
+          {(t('hdr_assign_exr_only') || '{format} holds linear light, so only HDR ColorSpace Profiles with a Linear transfer can be assigned.').replace('{format}', formatLabel)}{' '}
           {nonLinear.length > 0
-            ? (t('hdr_assign_exr_hidden') || '{n} PQ/HLG HDR Profile(s) in the pool are not offered — the Profiles pane lists them under HDR Profiles › Non-linear transfer.').replace('{n}', String(nonLinear.length))
+            ? (t('hdr_assign_exr_hidden') || '{n} PQ/HLG HDR ColorSpace Profile(s) in the pool are not offered — the Profiles pane lists them under HDR ColorSpace Profiles › Non-linear transfer.').replace('{n}', String(nonLinear.length))
             : linear.length === 0
-              ? (t('hdr_assign_exr_none') || 'There is no Linear-transfer HDR Profile in the pool yet; the Profiles pane groups HDR Profiles by transfer.')
+              ? (t('hdr_assign_exr_none') || 'There is no Linear-transfer HDR ColorSpace Profile in the pool yet; the Profiles pane groups HDR ColorSpace Profiles by transfer.')
               : ''}
         </p>
       )}
@@ -782,7 +789,7 @@ function TargetControl({ t, stops, setStops, policy, setPolicy, displayStops, ap
         <span>{t('hdr_policy') || 'Tone mapping'}</span>
         <select className={styles.select} value={policy} onChange={(e) => setPolicy(Number(e.target.value))}
                 aria-label={t('hdr_policy') || 'Tone mapping'}>
-          <option value={HDR_POLICY.auto}>{t('hdr_policy_auto') || 'Auto (clause 8.10.3 ranking)'}</option>
+          <option value={HDR_POLICY.auto}>{t('hdr_policy_auto') || 'Auto (clause 8.7.1.3 ranking)'}</option>
           <option value={HDR_POLICY.hagc}>{t('hdr_policy_hagc') || 'Gain curve (HAGC)'}</option>
           <option value={HDR_POLICY.lut}>{t('hdr_policy_lut') || 'Baked SDR fallback (AToB0)'}</option>
           <option value={HDR_POLICY.off}>{t('hdr_policy_off') || 'Off — as a pre-amendment CMM'}</option>

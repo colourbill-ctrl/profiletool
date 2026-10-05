@@ -19,9 +19,14 @@ const mod = await createIccConstruct();
 const sig = (u8, off) => String.fromCharCode(u8[off], u8[off + 1], u8[off + 2], u8[off + 3]);
 const err = (e) => (mod.getExceptionMessage ? (() => { try { return mod.getExceptionMessage(e)[1] } catch { return e } })() : e);
 
+// buildLink(chain, intents, firstInput, grid, interp). firstInput = true runs the head profile
+// device -> PCS, which is what an RGB -> CMYK link needs and what the Pipeline builder sends.
+// This helper once called buildLink(chain, intent, grid) — written before firstInput existed —
+// so `grid` (0) landed in firstInput as false, the head ran PCS -> device, and RGB -> CMYK
+// failed with "Invalid space link". It read as a CMM bug for a long time; it was this call.
 function link(paths, intent = 1, grid = 0) {
   const chain = paths.map((p) => new Uint8Array(readFileSync(p)));
-  return mod.buildLink(chain, intent, grid);
+  return mod.buildLink(chain, intent, true, grid, 0);
 }
 
 function report(label, paths, intent = 1, grid = 0) {
@@ -44,6 +49,6 @@ if (args.length && !args[0].startsWith('--')) {
   report('RGB→RGB  ', [RGB, RGB]);
   report('RGB→CMYK ', [RGB, CMYK]);
   // error path: an empty chain must be rejected, not crash.
-  try { mod.buildLink([], 1, 0); console.log('empty    : ❌ did not reject'); process.exitCode = 2; }
+  try { mod.buildLink([], 1, true, 0, 0); console.log('empty    : ❌ did not reject'); process.exitCode = 2; }
   catch (e) { console.log(`empty    : ✅ rejected (${err(e)})`); }
 }

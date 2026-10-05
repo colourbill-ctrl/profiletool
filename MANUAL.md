@@ -11,7 +11,7 @@
 - **Validate** — run the ICC Profile Assessment Working Group checklist (Security / Conformance / Quality), each check with a verdict, filterable by category.
 - **Round-trip edit** — convert the profile to XML or JSON, edit it in the built-in code editor, convert back to ICC, and re-validate. The save button downloads the edited binary.
 - **Chain profiles** — in the **Combine** tab, drag pooled profiles into an ordered chain, then bake it into a **DeviceLink**, **transform an image** through it (with full control over output encoding, compression, planar layout and ICC embedding), or **transform a colour dataset**.
-- **Work with HDR** — check a profile against the ICC.1 HDR Profile rules (clause 8.10), read its cICP code points, and plot its adaptive gain curve at any display headroom. The **HDR** tab shows one HDR image on your display, and **Settings → Environment** reports what this browser and display can do.
+- **Work with HDR** — check a profile against the ICC.1 HDR ColorSpace Profile rules (clause 8.7.1), read its cICP code points, and plot its adaptive gain curve at any display headroom. The **HDR** tab shows one HDR image on your display, and **Settings → Environment** reports what this browser and display can do.
 - **Launch from chardata** — open a profile that's loaded in [chardata](https://chardata.colourbill.com/) directly here, with the bytes handed over in-browser via `postMessage`.
 - **Launch with a URL** — open a link that points the tool at a profile hosted on the web and, optionally, the tab to land on (e.g. `…/profiletool#url=…&tab=VAL`).
 
@@ -22,7 +22,7 @@ Everything runs client-side. Profile bytes never leave the browser tab.
 </div>
 
 <div class="note">
-<strong>HDR Profile support follows a draft.</strong> The HDR checks, the <code>headroomAdaptiveGainCurveTag</code> views and the HDR tab implement the ICC.1 HDR amendment as it currently stands. The amendment is not yet published, so details may change before it is.
+<strong>HDR ColorSpace Profile support follows a draft.</strong> The HDR checks, the <code>headroomAdaptiveGainCurveTag</code> views and the HDR tab implement the ICC.1 HDR amendment as it currently stands. The amendment is not yet published, so details may change before it is.
 </div>
 
 ---
@@ -75,7 +75,7 @@ A profile is accepted if its first 36 bytes contain the `acsp` signature and it 
 
 ### The Profiles pane
 
-Loaded profiles are grouped into collapsible sections by **profile class** (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). ICC.1 clause 8.10 **HDR Profiles** get their own section at the top instead, split by transfer into **Linear transfer** and **Non-linear transfer (PQ, HLG)**, with the transfer shown as a badge on each row. The split matters in the [HDR tab](#4-7-hdr-tab), where only a Linear-transfer profile can be assigned to an OpenEXR or Radiance HDR image. Each row shows the filename and badges for class, colour space, version and size; a profile that could only be partially parsed is flagged. Use the **A–Z** button to cycle the sort (load order → ascending → descending), the **×** on a row to remove it, and the handle on the pane's right edge to resize it — or collapse the pane entirely.
+Loaded profiles are grouped into collapsible sections by **profile class** (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). ICC.1 clause 8.7.1 **HDR ColorSpace Profiles** get their own section at the top instead (they are ColorSpace-class profiles, so they are lifted out of the ColorSpace section), split by transfer into **Linear transfer** and **Non-linear transfer (PQ, HLG)**, with the transfer shown as a badge on each row. The split matters in the [HDR tab](#4-7-hdr-tab), where only a Linear-transfer profile can be assigned to an OpenEXR or Radiance HDR image. Each row shows the filename and badges for class, colour space, version and size; a profile that could only be partially parsed is flagged. Use the **A–Z** button to cycle the sort (load order → ascending → descending), the **×** on a row to remove it, and the handle on the pane's right edge to resize it — or collapse the pane entirely.
 
 Click to select a row; Ctrl/Cmd-click to toggle and Shift-click to select a range. **Drag rows out of the pool onto a tab** to put them to work.
 
@@ -211,7 +211,7 @@ The gamut tag (`gamt`) has no evaluator — it is a one-channel in/out-of-gamut 
 
 #### HDR gain curves (HAGC)
 
-A `headroomAdaptiveGainCurveTag` says how an HDR Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:
+A `headroomAdaptiveGainCurveTag` says how an HDR ColorSpace Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:
 
 - **Gain curve** plots the control points exactly as stored in the file, one line per alternate image. It is absent when the tag stores no alternate images. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.
 - **Gain at a display headroom** shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag **Display headroom** from 0 to 6 stops; it starts at the tag's baseline, and **Baseline** returns there. Two plots follow the slider:
@@ -227,13 +227,13 @@ A `headroomAdaptiveGainCurveTag` says how an HDR Profile's image should be tone-
 
   Two cases have no curves to draw, and the view still explains them:
   - **Tone mapping on, no alternate images.** The tag asks for no tone mapping, only a clamp to what the display can show. The gain is zero at every headroom, and the preview strip shows the clamp.
-  - **Tone mapping off** (the tag's *Headroom Adaptive Tone Map* flag is clear), or a tag IccProfLib cannot apply. The view says why IccProfLib declines, and a colour engine falls back to the next tone-mapping method (clause 8.10.3).
+  - **Tone mapping off** (the tag's *Headroom Adaptive Tone Map* flag is clear), or a tag IccProfLib cannot apply. The view says why IccProfLib declines, and a colour engine falls back to the next tone-mapping method (clause 8.7.1.3).
 
 ### 3.3 Validation
 
 Runs the **ICC Profile Assessment Working Group** checklist against the loaded profile and shows it as a report. The checks come from the iccDEV `iccPawgReport` tool, compiled to a separate WebAssembly module that's fetched only when you first open this tab. (The same report drives the validity badge in the title bar, and is reachable from a URL launch as either `VAL` or the legacy `PAWG`.)
 
-Each check is grouped under **Security**, **Conformance**, or **Quality**, and carries one verdict. Profiles with HDR content get a fourth group, **HDR**. Its first check reports whether the profile is a conforming ICC.1 **HDR Profile** (clause 8.10), and the rest check the HDR metadata that clause relies on:
+Each check is grouped under **Security**, **Conformance**, or **Quality**, and carries one verdict. Profiles with HDR content get a fourth group, **HDR**. Its first check reports whether the profile is a conforming ICC.1 **HDR ColorSpace Profile** (clause 8.7.1), and the rest check the HDR metadata that clause relies on:
 
 | Verdict | Meaning |
 |---|---|
@@ -369,7 +369,7 @@ Drag one or more profiles from the pool into the Combine card to add them to the
 - **Rendering intent** — pick one for the whole chain with *Rendering intent (all)*, or override any single stage with its own listbox. Hover either control for a description of the selected intent. Beyond the four base intents, a profile that carries the necessary tables also offers the *no D2Bx/B2Dx* and *+ BPC* (black-point compensation) variants.
 
 <div class="note">
-<strong>HDR Profile in the chain.</strong> An ICC.1 HDR Profile has no TRC tags, so a transform through it uses its <code>AToB0Tag</code>. That table is the baked SDR rendering clause 8.10.6 requires for software without HDR processing. The card says so when a chain contains an HDR Profile: the DeviceLink, image or data you produce reflects that SDR fallback, not the profile's HDR behaviour.
+<strong>HDR ColorSpace Profile in the chain.</strong> An ICC.1 HDR ColorSpace Profile has no TRC tags — clause 8.7 defines none for a ColorSpace profile — so a transform through it uses its <code>AToB0Tag</code>. That table is the HDR&#8594;SDR rendering clause 8.7.1.5 requires for software without HDR processing. The card says so when a chain contains an HDR ColorSpace Profile: the DeviceLink, image or data you produce reflects that SDR fallback, not the profile's HDR behaviour.
 </div>
 
 ### 4.2 Make DeviceLink
@@ -404,7 +404,7 @@ The Combine tab holds **two** maker cards. Above the Link Pipeline, the **Observ
 
 ### 4.6 Compare and Spectral tabs
 
-The **Compare** tab overlays the gamut boundaries of two or more pooled profiles — a 3-D shell plus a 2-D lightness slice — to see where they differ. When the profiles are HDR Profiles, a **Showing the SDR fallback** note explains that each gamut is built from the `AToB0Tag` SDR rendering, not from the profile's HDR range, which cannot be drawn in a bounded PCS. The **Spectral** tab assembles a set of single-channel spectral images (dropped in channel order) into one multi-channel TIFF (`iccSpecSepToTiff`).
+The **Compare** tab overlays the gamut boundaries of two or more pooled profiles — a 3-D shell plus a 2-D lightness slice — to see where they differ. When the profiles are HDR ColorSpace Profiles, a **Showing the SDR fallback** note explains that each gamut is built from the `AToB0Tag` SDR rendering, not from the profile's HDR range, which cannot be drawn in a bounded PCS. The **Spectral** tab assembles a set of single-channel spectral images (dropped in channel order) into one multi-channel TIFF (`iccSpecSepToTiff`).
 
 ### 4.7 HDR tab
 
@@ -455,31 +455,32 @@ The **Fit to display** beside **Target headroom**, when a profile is assigned, n
 
 **Assigning an HDR profile.** For TIFF, PNG, JPEG, OpenEXR and Radiance HDR, **Assign profile** chooses a profile to interpret the image's pixel values:
 - the image's **embedded profile**;
-- any **HDR Profile in the pool** (load one in the Profiles pane first);
+- any **HDR ColorSpace Profile in the pool** (load one in the Profiles pane first);
 - **None**, to go back to what the file itself signals.
 
 A TIFF starts with its embedded profile selected, since without one its values mean nothing.
 
-With a profile assigned, profiletool decodes the image itself and runs it through IccProfLib's HDR colour-management path, as the ICC.1 HDR amendment (clause 8.10) describes. The profile's transfer function (PQ, HLG or Linear) converts the code values to light, its gain curve tone-maps them, and its colorants set the colour. 1.0 lands on the profile's **HDR reference white**, which is shown at the display's SDR white.
+With a profile assigned, profiletool decodes the image itself and runs it through IccProfLib's HDR colour-management path, as the ICC.1 HDR amendment (clause 8.7.1) describes. The profile's transfer function (PQ, HLG or Linear) converts the code values to light, its gain curve tone-maps them, and its <code>cicpTag</code> primaries set the colour. 1.0 lands on the profile's **HDR reference white**, which is shown at the display's SDR white.
 - **Target headroom** (0 to 6 stops) is the display the image is being prepared for. The profile's gain curve is evaluated there, the same curve **Gain at a display headroom** plots in the Tags tab. **Fit to display** sets it to this display's peak.
-- **Tone mapping** chooses the method: **Auto** (the clause 8.10.3 ranking), **Gain curve** only, the profile's **Baked SDR fallback** (`AToB0Tag`), or **Off**, which behaves like a colour engine that predates the amendment. The baked fallback is only as good as the table the profile carries. A table baked from the gain curve (for example by iccDEV's `iccHdrFallback`) gives a proper SDR rendering. A placeholder table of identity curves passes the raw PQ or HLG signal values through, and the image looks flat and too bright.
+- **Tone mapping** chooses the method: **Auto** (the clause 8.7.1.3 recommended ranking), **Gain curve** only, the profile's **Baked SDR fallback** (`AToB0Tag`), or **Off**, which behaves like a colour engine that predates the amendment. The baked fallback is only as good as the table the profile carries. A table baked from the gain curve (for example by iccDEV's `iccHdrFallback`) gives a proper SDR rendering. A placeholder table of identity curves passes the raw PQ or HLG signal values through, and the image looks flat and too bright.
 - The panel reports what the colour engine actually did: which **path** (HDR with the gain curve applied, HDR without a curve, or the baked table), the **transfer**, and the **HDR reference white**. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the **Dynamic range** limit is what keeps its highlights within the display.
-- Pooled HDR Profiles appear in two groups, **Linear transfer** and **PQ / HLG transfer**, matching the Profiles pane. OpenEXR and Radiance HDR store linear light, so for those images only the **Linear transfer** group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.
-- **Linear values** (OpenEXR, Radiance HDR and floating-point TIFF only) says what a file value of 1.0 means. The two conventions disagree. These files usually put SDR white at 1.0, but an ICC Linear transfer reads 1.0 as 1 cd/m² (ICC.1 clause 8.10.2 a) and then divides by the HDR reference white, so an unscaled image comes out a few hundred times too dark.
+- Pooled HDR ColorSpace Profiles appear in two groups, **Linear transfer** and **PQ / HLG transfer**, matching the Profiles pane. OpenEXR and Radiance HDR store linear light, so for those images only the **Linear transfer** group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.
+- A profile whose `cicpTag` declares **ColourPrimaries 2 (Unspecified)** is listed with the note *Unspecified primaries: no HDR path in this build*. Clause 8.7.1.1 takes such a profile's primaries from a `cicpType` chromaticity extension (clause 10.3) whose format is not yet available to profiletool, so **Auto** and **Gain curve** decline it and say why. **Baked SDR fallback** and **Off** still render it through its `AToB0Tag`, which is why it stays in the list rather than being hidden.
+- **Linear values** (OpenEXR, Radiance HDR and floating-point TIFF only) says what a file value of 1.0 means. The two conventions disagree. These files usually put SDR white at 1.0, but an ICC Linear transfer reads 1.0 as 1 cd/m² (ICC.1 clause 8.7.1.2 a) and then divides by the HDR reference white, so an unscaled image comes out a few hundred times too dark.
   - **File 1.0 = HDR reference white** (the default) multiplies the pixels by the profile's HDR reference white first, so file 1.0 lands on it. The **Input scale** fact shows the factor, for example *×300*.
   - **File 1.0 = 1 cd/m²** passes the values unscaled, as the clause reads them. Use it for files whose values really are in cd/m².
 
   The choice is remembered.
 
 <div class="note">
-<strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.10 HDR Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
+<strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.7.1 HDR ColorSpace Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
 </div>
 
 <div class="note">
 <strong>Refusals name the reason.</strong> For example, HEIC display needs Safari: Chrome and Firefox decode HEIC on no platform. The image's profile can still be opened in the Profile tab.
 </div>
 
-**Gain curves.** An HDR Profile's adaptive gain curve is not shown here but in **Profile → Tags**. See *HDR gain curves (HAGC)* under [Tags](#3-2-tags).
+**Gain curves.** An HDR ColorSpace Profile's adaptive gain curve is not shown here but in **Profile → Tags**. See *HDR gain curves (HAGC)* under [Tags](#3-2-tags).
 
 ---
 

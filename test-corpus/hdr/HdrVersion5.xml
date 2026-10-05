@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VERSION NEGATIVE for clause 8.7.1.1: profile version 5.0.0.0.
+
+  This is the only fixture that isolates the v5 CEILING.  The eight BT2100*
+  fixtures are v5 as well, but they are also 'mntr'/'scnr', so they fail on
+  class AND version and would keep passing if the version test were dropped.
+
+  The ceiling is a RULING, not the amendment's text - the 23-09-2026 revision
+  states no version condition at either end.  It is icHdrIsVersion4(): this
+  amendment amends ICC.1, the ColorSpace profile it builds on is ICC.1's 8.7,
+  and ICC.2 has its own profile model, so an ICC.1 clause is not applied to a
+  v5 profile.  If the ICC extends the sub-class to ICC.2, this fixture flips to
+  a positive and the predicate is the single place to change.
+
+  Built as a SINGLE-ATTRIBUTE DELTA of HdrColorSpaceClass.xml, the conforming
+  base: the profile version and nothing else is changed - same cicpTag, same HDR Image
+  metadata, same AToB0Tag/BToA0Tag pair, same description style.  That is what
+  lets the fixture isolate one membership condition: a classifier that stopped
+  testing it would admit this profile and would still pass every positive in
+  the corpus, which is the failure Testing/HDR/hdr-corpus-manifest.tsv exists to
+  catch.  Failing a membership condition makes a profile a non-member, not a
+  defective profile, so nothing is reported against it.
+
+  EXPECTED: icHdrProfileHdrContent.  The validation verdict is whatever v5
+  header and tag rules make of an ICC.1-shaped body, and is recorded, measured,
+  in Testing/qa-profile-manifest.tsv; it is not what this fixture is for.
+-->
+<IccProfile>
+  <Header>
+    <PreferredCMMType>ICCD</PreferredCMMType>
+    <ProfileVersion>5.00</ProfileVersion>
+    <ProfileDeviceClass>spac</ProfileDeviceClass>
+    <DataColourSpace>RGB </DataColourSpace>
+    <PCS>XYZ </PCS>
+    <CreationDateTime>2026-08-05T00:00:00</CreationDateTime>
+    <ProfileFlags EmbeddedInFile="false" UseWithEmbeddedDataOnly="false"/>
+    <DeviceAttributes ReflectiveOrTransparency="reflective" GlossyOrMatte="glossy" MediaPolarity="positive" MediaColour="colour"/>
+    <RenderingIntent>Relative Colorimetric</RenderingIntent>
+    <PCSIlluminant>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </PCSIlluminant>
+    <ProfileCreator>ICCD</ProfileCreator>
+  </Header>
+  <Tags>
+    <!-- Standard Bradford D65 to D50 adaptation. -->
+    <chromaticAdaptationTag> <s15Fixed16ArrayType>
+      <Array>
+        1.047882  0.022919 -0.050201
+        0.029587  0.990479 -0.017059
+       -0.009232  0.015076  0.751678
+      </Array>
+    </s15Fixed16ArrayType> </chromaticAdaptationTag>
+
+    <mediaWhitePointTag> <XYZArrayType>
+      <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
+    </XYZArrayType> </mediaWhitePointTag>
+
+    <cicpTag> <cicpType>
+      <cicpFields ColorPrimaries="1" TransferCharacteristics="16" MatrixCoefficients="0" VideoFullRangeFlag="1"/>
+    </cicpType> </cicpTag>
+
+    <metaDataTag> <dictType>
+      <DictEntry Name="CRWL" Value="203.0"/>
+      <DictEntry Name="CLL" Value="1000.0 400.0 9"/>
+      <DictEntry Name="MDCV" Value="1000.0 0.005 9"/>
+    </dictType> </metaDataTag>
+
+    <!-- There are no TRC tags and no matrix column tags, and under the
+         23-09-2026 revision that is not a prohibition being obeyed - it is
+         what a ColorSpace profile IS. 8.7 never defines either set for this
+         class, so, in the revision's words, "there is nothing for this
+         amendment to prohibit". The transfer comes from the cicpTag's
+         TransferCharacteristics field and the primaries from its
+         ColourPrimaries field; 8.7.1.1 says the cicpTag "is the only tag that
+         can convey either".
+
+         The AToB0Tag/BToA0Tag pair below is required by 8.7 of every
+         ColorSpace profile, which 8.7.1.5 leans on rather than restates -
+         "both already unconditionally required of every ColorSpace profile by
+         8.7" - and it is what gives a legacy CMM a rendering path. Identity B
+         curves: these fixtures exercise classification and the tone-mapping
+         chain, not the bake's accuracy. -->
+
+    <AToB0Tag> <lutAtoBType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutAtoBType> </AToB0Tag>
+
+    <BToA0Tag> <lutBtoAType>
+      <Channels InputChannels="3" OutputChannels="3"/>
+      <BCurves>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+        <Curve IdentitySize="2"/>
+      </BCurves>
+    </lutBtoAType> </BToA0Tag>
+
+    <profileDescriptionTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[iccDEV version negative: v5.0 ColorSpace profile with a PQ cicpTag, outside ICC.1 clause 8.7.1]]></LocalizedText>
+    </multiLocalizedUnicodeType> </profileDescriptionTag>
+
+    <copyrightTag> <multiLocalizedUnicodeType>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[Copyright (C) 2026 The International Color Consortium. Generated fixture, no measured data.]]></LocalizedText>
+    </multiLocalizedUnicodeType> </copyrightTag>
+  </Tags>
+</IccProfile>

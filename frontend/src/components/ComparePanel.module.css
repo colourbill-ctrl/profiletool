@@ -144,8 +144,8 @@
 :global(body.dark) .volTable th,
 :global(body.dark) .volTable td { border-color: #2e2f34; }
 
-/* Phase 3: says what a gamut mesh actually represents for an HDR Profile — the baked
-   SDR fallback of 8.10.6, not the profile's HDR behaviour. Styled as a note rather than
+/* Phase 3: says what a gamut mesh actually represents for an HDR ColorSpace Profile — the baked
+   SDR fallback of 8.7.1.5, not the profile's HDR behaviour. Styled as a note rather than
    a warning: nothing is wrong, the picture just means something other than it appears to. */
 .hdrNote {
   margin: 6px 0 10px;

@@ -2,20 +2,26 @@
 <!--
   profiletool fixture: HAGC reference white vs metadataTag CRWL, DISAGREEING.
 
-  THE ONE THING THIS PINS. Clause 8.10.4 states no precedence between the two
+  THE ONE THING THIS PINS. Clause 8.7.1.4 states no precedence between the two
   carriers of the content HDR reference white, and states its 203 cd/m^2 default
   twice with conditions that disagree exactly where an HAGC tag is present. That
-  is answered by 8.10.4 itself for the content axis: its default paragraph is
+  is answered by 8.7.1.4 itself for the content axis: its default paragraph is
   conditioned on there being no HAGC tag AND no CRWL entry - coherent only if the
-  HAGC tag supplies the white when present - and 8.10.4 a) then divides CLL.max by
-  "the value derived above". 8.10.3 ranks the HAGC tag highest and has it applied
+  HAGC tag supplies the white when present - and 8.7.1.4 a) then divides CLL.max by
+  "the value derived above". 8.7.1.3 ranks the HAGC tag highest and has it applied
   as its own Annex 1 defines, which agrees, but is informative and ranks
   descriptors rather than values. (Recorded here first as iccDEV's ruling, which
   was accurate then; they have since re-examined the clause and reclassified it.)
 
-  Nothing in iccDEV's 42-fixture corpus can distinguish those two orders. Only
-  HagcDisplay and HdrLinearHagcWhite carry a HAGC reference white, and neither
-  carries a CRWL entry; our own ProfiletoolHdrDisplay carries both but sets them
+  SURVIVES THE 8.10 -> 8.7.1 RETARGET, unlike its sibling ProfiletoolHdrCrossAxisWhite,
+  which was retired with it: that one pinned the CONTENT-vs-DISPLAY axis, and clause
+  8.10.5's display headroom was deleted outright by the 23-09-2026 revision. This
+  fixture's conflict is between the two carriers of the CONTENT reference white, an
+  axis 8.7.1.4 still defines.
+
+  Nothing in iccDEV's corpus can distinguish those two orders. Only
+  HagcColorSpace and HdrLinearHagcWhite carry a HAGC reference white, and neither
+  carries a CRWL entry; our own ProfiletoolHdrColorSpace carries both but sets them
   EQUAL (203/203) so that H7 reports an agreement. profiletool's headroom checker
   shipped with the precedence INVERTED and still scored 84/84 against the whole
   corpus — which is how the gap was found.
@@ -28,18 +34,18 @@
       HAGC first (the clause)  ->  600 / 300 = 2.0
       CRWL first (the bug)     ->  600 / 203 = 2.9557
 
-  Transfer is LINEAR (cicp 8) and not PQ, deliberately: 8.10.4's content-headroom
+  Transfer is LINEAR (cicp 8) and not PQ, deliberately: 8.7.1.4's content-headroom
   resolution is gated on Linear, because that is the only transfer the priority
   order is stated for. Under PQ the division never happens and the fixture would
   prove nothing.
 
   It also wakes PAWG H7's DISAGREE branch, which no fixture in either corpus
-  reaches — ProfiletoolHdrDisplay reaches the agree branch, this one the other —
+  reaches — ProfiletoolHdrColorSpace reaches the agree branch, this one the other —
   and gives HDR-10 its first executable case.
 
-  Still a conforming HDR Profile: 8.10.1 admits transfer 8 (Linear) alongside 16
+  Still a conforming HDR ColorSpace Profile: 8.7.1.1 admits transfer 8 (Linear) alongside 16
   and 18, so changing PQ to Linear costs no membership. Every other attribute is
-  unchanged from ProfiletoolHdrDisplay — single-attribute-delta, in the style the
+  unchanged from ProfiletoolHdrColorSpace — single-attribute-delta, in the style the
   upstream corpus uses.
 
   REGISTRY CAVEAT (inherited): the ICC dictType Metadata Registry defining CRWL is
@@ -49,7 +55,7 @@
   <Header>
     <PreferredCMMType>ICCD</PreferredCMMType>
     <ProfileVersion>4.50</ProfileVersion>
-    <ProfileDeviceClass>mntr</ProfileDeviceClass>
+    <ProfileDeviceClass>spac</ProfileDeviceClass>
     <DataColourSpace>RGB </DataColourSpace>
     <PCS>XYZ </PCS>
     <CreationDateTime>2026-09-10T00:00:00</CreationDateTime>
@@ -62,22 +68,9 @@
     <ProfileCreator>ICCD</ProfileCreator>
   </Header>
   <Tags>
-    <!-- BT.2020 primaries, chromatically adapted to D50. -->
-    <redColorantTag> <XYZArrayType>
-      <XYZNumber X="0.636962890625" Y="0.262695312500" Z="0.000000000000"/>
-    </XYZArrayType> </redColorantTag>
-
-    <greenColorantTag> <XYZArrayType>
-      <XYZNumber X="0.144622802734" Y="0.677978515625" Z="0.028076171875"/>
-    </XYZArrayType> </greenColorantTag>
-
-    <blueColorantTag> <XYZArrayType>
-      <XYZNumber X="0.168869018555" Y="0.059326171875" Z="1.060989379883"/>
-    </XYZArrayType> </blueColorantTag>
-
-    <!-- No redTRCTag/greenTRCTag/blueTRCTag: 8.10.1 prohibits them, and their
-         absence is what distinguishes this fixture from every upstream one.
-         The transfer function is carried by the cicpTag instead. -->
+    <!-- No TRC tags and no matrix column tags: clause 8.7 defines neither for a
+         ColorSpace profile, so the cicpTag is the sole carrier of both the
+         transfer function and the primaries (8.7.1.1). -->
 
     <mediaWhitePointTag> <XYZArrayType>
       <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
@@ -87,10 +80,11 @@
       <cicpFields ColorPrimaries="9" TransferCharacteristics="8" MatrixCoefficients="0" VideoFullRangeFlag="1"/>
     </cicpType> </cicpTag>
 
-    <!-- 8.10.6 requires an AToB0Tag in EVERY RGB HDR Profile, whatever the
-         profile class, as the fallback path for a consumer that implements no
-         HDR processing at all; 8.10.3 c) requires it to be PAIRED with a
-         BToA0Tag, which is the defect HdrMissingBToA0.icc isolates. Identity
+    <!-- Clause 8.7 requires the AToB0Tag/BToA0Tag pair of EVERY ColorSpace
+         profile, and 8.7.1.5 constrains what the AToB0Tag must contain in an HDR
+         ColorSpace Profile: an HDR->SDR rendering at target headroom 1.0, for a
+         consumer that implements no HDR processing at all. The pair is the defect
+         HdrMissingBToA0.icc isolates — critically now, since 8.7 owns it. Identity
          B-curve LUTs, exactly as HdrBakedLut.icc uses: what this fixture proves
          is that the pair is present and complete, not what it contains. -->
     <AToB0Tag> <lutAtoBType>
@@ -111,10 +105,10 @@
       </BCurves>
     </lutBtoAType> </BToA0Tag>
 
-    <!-- Same simple gain curve as ProfiletoolHdrDisplay — one alternate, fixed
+    <!-- Same simple gain curve as ProfiletoolHdrColorSpace — one alternate, fixed
          mixing type 2, PCHIP-derived slopes. HDRReferenceWhite is 300.0 here so
-         it DISAGREES with the CRWL entry below; under 8.10.4's resolution this
-         value is the one 8.10.4 divides by. -->
+         it DISAGREES with the CRWL entry below; under 8.7.1.4's resolution this
+         value is the one 8.7.1.4 divides by. -->
     <headroomAdaptiveGainCurveTag> <headroomAdaptiveGainCurveType>
       <HagcMetadata ApplicationVersion="1" MinApplicationVersion="1"
                     HDRReferenceWhite="300.0000"
@@ -133,18 +127,14 @@
 
     <!-- CRWL deliberately DISAGREES with the HAGC tag's HDRReferenceWhite (300)
          above: that disagreement is the whole point of this fixture. CLL supplies
-         the luminance 8.10.4 divides by the resolved white. DERH still gives H8 a
-         subject on the display axis. -->
+         the luminance 8.7.1.4 a) divides by the resolved white. -->
     <metaDataTag> <dictType>
       <DictEntry Name="CRWL" Value="203.0"/>
       <DictEntry Name="CLL" Value="600.0 300.0 9"/>
-      <DictEntry Name="DERH" Value="2.0"/>
-      <DictEntry Name="DRWL" Value="203.0"/>
-      <DictEntry Name="DCV" Value="812.0 0.005 1"/>
     </dictType> </metaDataTag>
 
     <profileDescriptionTag> <multiLocalizedUnicodeType>
-      <LocalizedText LanguageCountry="enUS"><![CDATA[profiletool HDR Profile: HAGC reference white 300 vs CRWL 203 (Linear)]]></LocalizedText>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[profiletool HDR ColorSpace Profile: HAGC reference white 300 vs CRWL 203 (Linear)]]></LocalizedText>
     </multiLocalizedUnicodeType> </profileDescriptionTag>
 
     <copyrightTag> <multiLocalizedUnicodeType>

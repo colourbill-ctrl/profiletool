@@ -1,53 +1,104 @@
 # HDR test corpus
 
-**43 fixtures mirrored from iccDEV `Testing/HDR/` @ `ac264764` (branch `hdr-profiles`),
-plus 6 of our own (`Profiletool*`).** Refreshed 2026-09-13. The `BT2100*` binaries are kept
-from the previous refresh: their XML carries no creation date, so regenerating them changes
-only the header timestamp and profile ID.
+**42 fixtures mirrored from iccDEV `Testing/HDR/` @ `7150a6e79` (branch `hdr-profiles`),
+plus 5 of our own (`Profiletool*`) = 47.** Refreshed 2026-09-26.
+
+**The corpus models ColorSpace-class usage only.** ICC.1 clause 8.7.1 defines the HDR
+sub-class on the **ColorSpace profile (8.7)**, and the owner has ruled there is *zero* need to
+keep the earlier Input/Display-class shape (clause 8.10) working. So every positive is
+`'spac'`, no fixture carries the matrix column tags a ColorSpace profile does not have, and no
+fixture carries the deleted HDR Display metadata (`DERH`/`DRWL`/`DCV`). Nothing here exists to
+keep the old format passing.
+
+The only non-`'spac'` fixtures are negatives and the iccMAX set:
+
+- **Two class negatives**, `HdrClassDisplayNegative` (`'mntr'`) and `HdrClassInputNegative`
+  (`'scnr'`). A class negative is not compatibility — it is the test that Display and Input are
+  *rejected*. Each is `HdrColorSpaceClass` with the class changed and nothing else.
+- **The `BT2100*` iccMAX v5 set** (8 `'mntr'`, 2 `'link'`). Their "Display"/"Scene" names are
+  BT.2100's display-referred / scene-referred terms, not the ICC class. They fail membership on
+  version *and* class, so they are confounded; `HdrVersion5` is what isolates the version bound.
+
+**Every membership condition has a negative that fails on it alone** — each is
+`HdrColorSpaceClass` (the conforming base) with one attribute changed, so a classifier that
+stopped testing any single condition fails exactly the row(s) below and nothing else:
+
+| Condition (`icGetHdrProfileInfo` `bMembership`) | Isolating negative(s) |
+|---|---|
+| RGB data colour space (`bRgbColorSpace`) | `HdrNonRgbSpace` (`3CLR`) |
+| ColorSpace class (`bRgbColorSpace`) | `HdrClassDisplayNegative` (`'mntr'`), `HdrClassInputNegative` (`'scnr'`) |
+| version below 5.0.0.0 (`bVersion4`, an iccDEV ruling) | `HdrVersion5` |
+| PCSXYZ (`bPcsXyz`) | `HdrPcsLab` |
+| a cicpTag (`bHasCicp`) | `HdrNoCicpTag` |
+| TransferCharacteristics in {8, 16, 18} (`bTransferIsHdr`) | `HdrTransferSdr` (1), `HdrInvalidTransfer` (13) |
+
+Three fixtures are worth knowing because they were written as negatives under 8.10 and are
+**members** now: `HdrColorSpaceClass` (the conforming base), `HdrVersion44` (8.7.1 has no
+version floor) and `HdrTrcTagsPresent` (TRC tags do not cost membership; it is a member that
+warns).
 
 ## How this directory relates to upstream
 
 Upstream is **XML-only**: it stopped committing `.icc` files and builds them with
 `Testing/HDR/mkprofiles.sh` / `.bat`, which is the single source of its build list. We cannot
 run that here, so the `.icc` files in this directory are **generated from the committed XML
-through our own iccxml WASM** (`xmlToIcc`). All 43 reproduce their manifest classification.
+through our own iccxml WASM** (`xmlToIcc`). All 47 reproduce their manifest classification.
 
 **What that agreement does and does not prove.** It is a **cross-build check, not an
 independent one.** `xmlToIcc` links the same IccXML library that `mkprofiles.sh` drives as
 `iccFromXml`, and the classification is read back through `icGetHdrProfileInfo()` — the very
 function upstream's `iccdev.hdr-corpus-manifest` CTest asserts against, and the function the
-manifest's own numbers came from. A bug in either the XML parse or the 8.10.1 classification
-would reproduce identically on both sides and still read 43/43.
+manifest's own numbers came from. A bug in either the XML parse or the 8.7.1.1 classification
+would reproduce identically on both sides and still read 47/47.
 
 What it *does* establish is worth having and nothing upstream covers it: the **Emscripten
-build** of IccProfLib + IccXML classifies all 43 fixtures identically to the native build.
+build** of IccProfLib + IccXML classifies all 47 fixtures identically to the native build.
 That is a cross-toolchain, cross-ABI agreement — the shape that catches float-width,
 struct-packing and endianness assumptions — and it confirms PAWG's three-way H1 mapping agrees
 with the manifest on every row across a second ABI.
 
-Genuine independence would need a classifier written from clause 8.10 by someone else, or a
+Genuine independence would need a classifier written from clause 8.7.1 by someone else, or a
 corpus of third-party HDR profiles. Neither exists yet. Write "cross-build agreement", not
 "independent confirmation".
 
 `hdr-corpus-manifest.tsv` is copied **verbatim** from upstream so it can be re-copied on the
-next refresh without a merge. It records each fixture's clause-8.10 **classification**, which
-is deliberately a different axis from the validation verdict: failing 8.10.1's membership
+next refresh without a merge. It records each fixture's clause-8.7.1 **classification**, which
+is deliberately a different axis from the validation verdict: failing 8.7.1.1's membership
 conditions does not make a profile invalid, so the membership negatives all validate `valid`
 and are indistinguishable there.
 
 ### Refreshing
 
-Regenerate the `.icc` files from a pinned iccDEV worktree, then verify:
+The WASM must be rebuilt against the new iccDEV **first** — the regeneration links whatever is
+in `frontend/public/wasm/`, so running it before the rebuild produces the corpus with the old
+library, and every check afterwards compares old binaries against the new classifier.
 
 ```bash
-node scripts/check-hdr-corpus.mjs      # asserts all 42 against the manifest
+# 1. copy the XML + manifest from a PINNED iccDEV worktree (never from a moving branch)
+cp <pinned-iccdev>/Testing/HDR/*.xml <pinned-iccdev>/Testing/HDR/hdr-corpus-manifest.tsv test-corpus/hdr/
+#    ...and delete by hand any fixture upstream deleted (its .xml AND .icc)
+
+# 2. regenerate the binaries through our own iccxml WASM
+node scripts/regen-hdr-corpus.mjs         # reports unchanged / kept / CHANGED / NEW / ORPHAN
+
+# 3. verify
+node scripts/check-hdr-corpus.mjs         # classification: 47 rows against the two manifests
+node scripts/check-hdr-profile-class.mjs  # the JS classifier (lib/hdrProfile.js) vs PAWG H1
+node scripts/check-hdr-headroom.mjs       # content headroom, recomputed from the XML
 ```
 
-**Ten checksums will change on every refresh, and that is not drift.** The ten `BT2100*`
-fixtures carry `<CreationDateTime>now</CreationDateTime>`, so IccXML stamps the conversion time
-into the header and the profile ID — an MD5 over the profile — changes with it. Regenerating them
-alters 19 bytes (the header's hh:mm:ss and all 16 ID bytes) and nothing else. The other 35
-fixtures pin an explicit date and regenerate byte-identically. So after a refresh, a checksum change
+`regen-hdr-corpus.mjs` names every binary that changed rather than reporting a count, and lists
+any `.icc` left without an `.xml` beside it (a fixture upstream deleted). **A `CHANGED` line is
+worth reading**: after an iccDEV rebuild it means the library now writes that profile
+differently.
+
+**The ten `BT2100*` fixtures are kept, not rewritten, unless their content changes.** Their XML
+carries `<CreationDateTime>now</CreationDateTime>`, so IccXML stamps the conversion time into the
+header and the profile ID — an MD5 over the profile — changes with it: 19 bytes (the header's
+date-time and all 16 ID bytes) differ on every run while nothing else does. The script compares
+with exactly those two ranges masked and leaves such a binary untouched, so a refresh's diff
+holds only real changes; `--force` writes them anyway. The other fixtures pin an explicit date
+and regenerate byte-identically. So after a refresh, a checksum change
 confined to `BT2100*` is expected; one anywhere else is real and worth reading.
 
 The check maps the PAWG report back to a classification with no extra API — `AddHdrItems()`
@@ -63,12 +114,21 @@ classifier that is wrong in the same way on both sides.
 node scripts/check-hdr-headroom.mjs    # the axis that is NOT downstream of that classifier
 ```
 
-`check-hdr-headroom.mjs` recomputes the manifest's four headroom columns **from the XML, with
-no ICC code linked at all** — its only imports are `node:fs`, `node:path` and `node:url`.
-Clause 8.10.4 and 8.10.5 are arithmetic over the `dictType` metadata entries, so the values
-can be derived here: `derh` is taken directly, and every other rule divides a luminance by a
-reference white (`CRWL`, else the HAGC tag's `HDRReferenceWhite`, else the 203 cd/m² default).
-Headroom is a **ratio**, not log2 stops. All 84 values across the 42 rows agree.
+`check-hdr-headroom.mjs` recomputes the manifest's **content_headroom** column **from the XML,
+with no ICC code linked at all** — its only imports are `node:fs`, `node:path` and `node:url`.
+Clause 8.7.1.4 is arithmetic over the `dictType` metadata entries, so the values can be derived
+here: every rule divides a luminance (`CLL` max, else `MDCV` max, else the 1000 cd/m² default)
+by the content reference white — the HAGC tag's `HDRReferenceWhite`, else `CRWL`, else the
+203 cd/m² default, in that order (see the precedence section below for why HAGC comes first).
+Headroom is a **ratio**, not log2 stops. All 47 values across the 47 rows agree.
+
+It checks the content axis only. The display axis (clause 8.10.5: `derh`, `dcv-drwl`,
+`dcv-crwl`) was deleted by the 23-09-2026 revision, and with it the manifest's
+`display_headroom` and `headroom_source` columns. The script now **fails** on any fixture still
+carrying a `DERH`, `DRWL` or `DCV` entry: nothing reads them any more, so a fixture copied from
+a pre-retarget source would otherwise pass every other check silently. It also refuses a
+seven-column (pre-retarget) manifest outright, rather than read `display_headroom` as
+`content_headroom`.
 
 It also runs an **entry-arity audit**. Every reader of these `dictType` entries reads them
 *positionally*, so a key appearing with two different value shapes across the corpus is a
@@ -104,15 +164,15 @@ rule its `source` column names; it does not independently decide **which** rule 
 catches a wrong value or a fixture whose metadata drifted — not a wrong rule selection, which
 would need the unpublished clause text.
 
-## Why the corpus was replaced wholesale
+## Why the corpus was replaced wholesale (2026-09-13, historical)
 
 The 19 fixtures previously mirrored here were copied before upstream rewrote this directory
-for the **29-08-2026** revision of clause 8.10 (since superseded by **2026-09-06**, which
-renumbers the clause-8.10.2 NOTEs — H8's detail now cites NOTE 13 where it cited NOTE 12).
+for the **29-08-2026** revision of clause 8.7.1 (since superseded by **2026-09-06**, which
+renumbers the clause-8.7.1.2 NOTEs — H8's detail now cites NOTE 13 where it cited NOTE 12).
 
-The consequential change: 8.10.1 states that `redTRCTag`/`greenTRCTag`/`blueTRCTag`
-**shall not be present** in an HDR Profile, and 8.10.6 requires an `AToB0Tag` in every RGB
-HDR Profile with 8.10.3 c) requiring it paired with a `BToA0Tag`. Every old fixture carried
+The consequential change: 8.7.1.1 states that `redTRCTag`/`greenTRCTag`/`blueTRCTag`
+**shall not be present** in an HDR ColorSpace Profile, and 8.7.1.5 requires an `AToB0Tag` in every RGB
+HDR ColorSpace Profile with 8.7.1.3 c) requiring it paired with a `BToA0Tag`. Every old fixture carried
 the TRC trio and no LUT pair, so **all 19 classified as non-members** — which meant PAWG
 emitted H1 as N/A and suppressed H2..H8, and nothing in the corpus could exercise the HDR
 section past its first item. Three of the old binaries had also drifted far enough that their
@@ -120,57 +180,65 @@ HAGC metadata no longer decoded at all.
 
 ## Classification breakdown
 
-**25 `conforming`** — members of the clause-8.10 HDR Profile sub-class.
+Generated from `hdr-corpus-manifest.tsv` + `profiletool-fixtures.tsv`, which are the
+authoritative record. 29 + 16 + 2 = 47 fixtures.
+
+**29 `conforming`** — members of the clause-8.7.1 HDR ColorSpace Profile sub-class.
 
 | Fixture | Purpose |
 |---|---|
-| `HagcCommonParams` | HAGC common-parameter sharing flags; HLG |
-| `HagcDisplay` | HAGC full layout; PQ |
-| `HagcHexData` | HAGC raw-byte authoring path; Linear, so 8.10.4 rule c) also fires |
-| `HagcInvalidXOrder` | NEGATIVE: control-point X values not strictly increasing |
+| `HagcColorSpace` | HAGC full layout; PQ |
+| `HagcCommonParams` | HAGC common-parameter sharing flags; HLG. Also pins HDR-22: a HAGC tag on 'spac' draws no tag-exclusion warning |
+| `HagcHexData` | HAGC raw-byte authoring path; Linear, so 8.7.1.4 rule c) also fires |
+| `HagcInvalidXOrder` | NEGATIVE: control-point X values decrease, or repeat with a differing Y |
 | `HagcMixingTypes` | HAGC component mixing types 1 and 3 |
 | `HagcRefWhiteToneMap` | ST 2094-50 C.3.8 reference-white tone map |
-| `HdrBakedLut` | baked AToB0/BToA0 pair; makes 8.10.3's precedence observable |
-| `HdrCicp2NoColumns` | NEGATIVE: ColourPrimaries 2 without the matrix column tags |
-| `HdrCicpUnspecified` | ColourPrimaries 2 WITH the columns; the positive of that pair |
-| `HdrDisplayMetadata` | the conforming base fixture; 8.10.5 rule a), all three entries disagreeing |
+| `HdrBakedLut` | baked AToB0/BToA0 pair; makes 8.7.1.3's precedence observable |
+| `HdrCicpUnspecified` | ColourPrimaries 2. MEMBER but NON-CONFORMING: 8.7.1.1 requires the cicpType custom chromaticity extension of 10.3, which this build cannot read, so it validates NonCompliant and will not render. Membership is unaffected - the amendment calls such a profile non-conforming, not a non-member |
+| `HdrColorSpaceClass` | THE CLASS POSITIVE, and the base fixture. Was the 8.10.1 class NEGATIVE before the 23-09-2026 revision moved the sub-class onto the ColorSpace profile; the file is unchanged in intent and inverted in verdict, which is exactly the discriminator the revision needs |
 | `HdrFullRangeFlag` | IMPL-02 pair, full-range half; control for the narrow half |
-| `HdrHeadroomDcvCrwl` | 8.10.5 rule c): DCV / CRWL, CRWL deliberately 250 not 203 |
-| `HdrHeadroomDcvDrwl` | 8.10.5 rule b): DCV / DRWL, chosen so rule c) would give a different number |
 | `HdrHlgBt2020Primaries` | IMPL-04 control: HLG at ColourPrimaries 9, whose Y row IS the old constants |
 | `HdrHlgBt709Primaries` | IMPL-04: the first HLG fixture not in BT.2020 primaries |
-| `HdrInputDisplayMeta` | HDR Display metadata on an Input-class profile; draws an Information note |
-| `HdrLinearCll` | 8.10.4 rule a): CLL / CRWL |
-| `HdrLinearHagcWhite` | HDR-10: the HAGC tag's reference white governs, over 8.10.4's 203 default (no CRWL entry here) |
-| `HdrLinearMdcv` | 8.10.4 rule b): MDCV / CRWL |
-| `HdrLinearNoMetadata` | 8.10.4 rule c): the 1000 cd/m2 default |
-| `HdrMissingBToA0` | NEGATIVE: 8.10.6 mandatory BToA0 absent |
-| `HdrMissingBToA1` | NEGATIVE: 8.10.6 pairing at x=1, which x=0 cannot reach |
-| `HdrMissingLutPair` | NEGATIVE: both halves of the x=0 pair absent |
+| `HdrLinearCll` | 8.7.1.4 rule a): CLL / CRWL |
+| `HdrLinearHagcCrwlDisagree` | HDR-10 precedence: HAGC white 300 and CRWL 203 disagree, and the content axis divides by the HAGC value (CRWL first would give 2,956) |
+| `HdrLinearHagcWhite` | HDR-10: the HAGC tag's reference white governs, over 8.7.1.4's 203 default (no CRWL entry here) |
+| `HdrLinearMdcv` | 8.7.1.4 rule b): MDCV / CRWL |
+| `HdrLinearNoMetadata` | 8.7.1.4 rule c): the 1000 cd/m2 default |
+| `HdrMissingBToA0` | NEGATIVE: no BToA0Tag. The requirement MOVED - 8.7.1.5 defers it to 8.7, so CheckRequiredTags() now raises a CRITICAL error where CheckHdrProfile() used to raise NonCompliant. Membership is unaffected |
+| `HdrMissingBToA1` | NEGATIVE: 8.7.1.5 pairing at x=1, which x=0 cannot reach, and which the revision no longer scopes to the Display class |
+| `HdrMissingLutPair` | NEGATIVE: both halves of the x=0 pair absent; CRITICAL from 8.7, as for HdrMissingBToA0 |
 | `HdrNarrowRangeFlag` | IMPL-02: VideoFullRangeFlag 0; warns that this build does not expand it |
-| `HdrVersion46` | 8.10.1 POSITIVE: version 4.6; the only fixture separating >=4.5 from ==4.5 |
+| `HdrTrcTagsPresent` | INVERTED BY THE REVISION: TRC tags cost membership under 8.10.1 and do not under 8.7.1, which prohibits nothing because 8.7 defines nothing to prohibit. Still draws a tag-exclusion WARNING - a TRC tag has no interpretation on 'spac' - which is the point: not a member-or-not question |
+| `HdrVersion44` | INVERTED BY THE REVISION: 4.4 was below the old 4.5.0.0 window and there is no lower bound now (4.7). The cicpTag's own >= 4.4 tag-type gate is what still applies |
+| `HdrVersion46` | 4.6; with HdrVersion44 it brackets the withdrawn lower bound from both sides |
+| `ProfiletoolHagcBaked` | HAGC BAKED FALLBACK: ProfiletoolHagcFamily with its identity AToB0/BToA0 replaced by iccHdrFallback's White Paper #62 bake (iccDEV 649fc750, 33^3 CLUT, headroom 1.0); every other tag copied, so classification, headroom and the gain curve are the family's. The only corpus profile whose baked-LUT policy and pre-amendment path render a real SDR image rather than PQ code values; scripts/check-hagc-baked.mjs pins grey agreement with the gain curve at headroom 1.0 and the per-channel clip of saturated highlights. PQ, so 8.7.1.4 does not resolve a content headroom |
+| `ProfiletoolHagcClamp` | HAGC CLAMP: Headroom Adaptive Tone Map flag SET with ZERO alternate images - proposal 1.2.2.6 no tone mapping, baseline clamped to the target colour volume (CIccHagcEvaluator ClampsToTargetVolume). The flag-set twin of HagcHexData, whose flag is clear so the evaluator declines before reading the count. HAGC reference white 203 = CRWL. PQ, so 8.7.1.4 does not resolve a content headroom |
+| `ProfiletoolHagcFamily` | HAGC FAMILY: four alternates (the encoding maximum) across 0-6 stops on both sides of a 3-stop baseline (0, 1.5 compress; 4.5, 6 expand), one mixing type, PCHIP slopes. Pins headroom blending and drives the HAGC evaluated view's heatmap, curve family and preview strip. HAGC reference white 203 = CRWL. PQ, so 8.7.1.4 does not resolve a content headroom |
+| `ProfiletoolHdrColorSpace` | Happy path: conforming HDR ColorSpace Profile, H1..H7 all OK; CRWL agrees with the HAGC reference white so H7 reaches its AGREE branch. PQ, so 8.7.1.4 does not resolve a content headroom |
+| `ProfiletoolHdrRefWhiteConflict` | 8.7.1.4 resolution: HAGC reference white 300 vs CRWL 203, so the two 8.7.1.4 carriers DISAGREE. Linear, so the division actually happens: HAGC-first gives 600/300=2, CRWL-first would give 600/203=2.9557. The only fixture in either corpus that distinguishes the two orders, and the only one reaching H7's DISAGREE branch |
 
-**15 `hdr-content`** — carry HDR content but are **not** members. Missing a membership
-condition is *not* a defect: 8.10.1's conditions are definitional, so these are valid profiles
+**16 `hdr-content`** — carry HDR content but are **not** members. Missing a membership
+condition is *not* a defect: 8.7.1.1's conditions are definitional, so these are valid profiles
 and neither `Validate()` nor the PAWG report may report anything against them.
 
 | Fixture | Purpose |
 |---|---|
-| `BT2100HlgFullDisplay` | v5 BT.2100 HLG display; outside 8.10.1's version window |
-| `BT2100HlgFullScene` | v5 BT.2100 HLG scene; outside the version window |
+| `BT2100HlgFullDisplay` | v5 BT.2100 HLG display; a v5 profile is outside an ICC.1 clause (icHdrIsVersion4) and 'mntr' is not the ColorSpace class |
+| `BT2100HlgFullScene` | v5 BT.2100 HLG scene; outside on both counts, as above |
 | `BT2100HlgNarrowDisplay` | v5 narrow-range HLG display; range expansion is an explicit MPE curve |
 | `BT2100HlgNarrowScene` | v5 narrow-range HLG scene; range expansion is an explicit MPE curve |
-| `BT2100PQFullDisplay` | v5 BT.2100 PQ display; outside the version window |
-| `BT2100PQFullScene` | v5 BT.2100 PQ scene; outside the version window |
+| `BT2100PQFullDisplay` | v5 BT.2100 PQ display; outside the version bound and the class |
+| `BT2100PQFullScene` | v5 BT.2100 PQ scene; outside the version bound and the class |
 | `BT2100PQNarrowDisplay` | v5 narrow-range PQ display; range expansion is an explicit MPE curve |
 | `BT2100PQNarrowScene` | v5 narrow-range PQ scene; range expansion is an explicit MPE curve |
-| `HdrColorSpaceClass` | 8.10.1 MEMBERSHIP NEGATIVE: device class not Input/Display |
-| `HdrInvalidTransfer` | NEGATIVE, CONFOUNDED: non-HDR transfer AND TRC tags; kept as-is, de-confounded by the two fixtures below |
-| `HdrNoCicpTag` | 8.10.1 MEMBERSHIP NEGATIVE: no cicpTag; metadata RETAINED so a metadata-keyed classifier fails |
-| `HdrNonRgbSpace` | 8.10.1 MEMBERSHIP NEGATIVE: data colour space 3CLR, not RGB |
-| `HdrTransferSdr` | 8.10.1 MEMBERSHIP NEGATIVE: TransferCharacteristics 1; no TRC tags, so isolated |
-| `HdrTrcTagsPresent` | 8.10.1 MEMBERSHIP NEGATIVE: TRC tags present; PQ retained, so isolated |
-| `HdrVersion44` | 8.10.1 MEMBERSHIP NEGATIVE: version 4.4, below the window |
+| `HdrClassDisplayNegative` | CLASS NEGATIVE: 'mntr', a single-attribute delta of HdrColorSpaceClass. Replaces HdrDisplayMetadata, which modelled the retired Display-class format; the class test itself is not compatibility, it is the proof that Display is rejected |
+| `HdrClassInputNegative` | CLASS NEGATIVE: 'scnr', a single-attribute delta of HdrColorSpaceClass. The Input half of the pair, so a classifier testing only one of the two non-ColorSpace classes still fails a row |
+| `HdrInvalidTransfer` | NEGATIVE: TransferCharacteristics outside {8, 16, 18}. De-confounded by the revision - it used to also carry TRC tags, which were a second disqualifier and are no longer one |
+| `HdrNoCicpTag` | MEMBERSHIP NEGATIVE: no cicpTag; HDR Image metadata RETAINED so a metadata-keyed classifier fails |
+| `HdrNonRgbSpace` | MEMBERSHIP NEGATIVE: data colour space 3CLR, not RGB |
+| `HdrPcsLab` | PCS NEGATIVE, the only one that isolates bPcsXyz: HdrColorSpaceClass with PCS Lab. Without it the manifest could not fail a row on the one membership term that did not go away with the old parent |
+| `HdrTransferSdr` | MEMBERSHIP NEGATIVE: TransferCharacteristics 1; no other disqualifier, so isolated |
+| `HdrVersion5` | VERSION NEGATIVE, the only one that isolates the v5 ceiling: HdrColorSpaceClass at 5.0. The BT2100 set fails on class too, so dropping icHdrIsVersion4() left every other row passing. The ceiling is a ruling; see icHdrIsVersion4() |
 
 **2 `none`** — not HDR-related at all as far as the classifier is concerned. These get **no
 PAWG HDR section whatsoever**.
@@ -184,35 +252,38 @@ PAWG HDR section whatsoever**.
 
 - **`HdrInvalidTransfer` is supposed to be VALID.** Its XML header says so outright: *"despite
   the file name nothing about this profile is invalid"*. It declares
-  TransferCharacteristics 13 (sRGB), which 8.10.1 does not admit, so it is not a member — and
-  that is the whole point of the fixture.
+  TransferCharacteristics 13 (sRGB), which 8.7.1.1 does not admit, so it is not a member — and
+  that is the whole point of the fixture. (It gained an `AToB0Tag`/`BToA0Tag` pair in the
+  8.7.1 retarget: without one, 8.7 would make it critically invalid for a reason that has
+  nothing to do with its transfer characteristic.)
 - **Names beginning `HdrMissing…` are not all invalid either.** `HdrMissingBToA0` is a
-  `conforming` NEGATIVE — it is a member of the sub-class that breaches 8.10.6, which is a
-  different thing from failing to be a member.
+  `conforming` NEGATIVE — it is a member of the sub-class that breaches the `AToB0Tag`/
+  `BToA0Tag` pairing rule, which is a different thing from failing to be a member. That rule
+  is now clause **8.7**'s, owned by every ColorSpace profile, and it is raised *critically*.
 
 ## The reference-white precedence gap — found by an inverted rule passing
 
 Worth reading before trusting any green run here.
 
-Clause 8.10.4 states **no precedence** between the two carriers of the content HDR reference
+Clause 8.7.1.4 states **no precedence** between the two carriers of the content HDR reference
 white — the HAGC tag's `HDRReferenceWhite` and the `metadataTag` `CRWL` entry — and states its
 203 cd/m² default twice with conditions that disagree exactly where a HAGC tag is present.
 The resolution is **HAGC first, then CRWL, then 203**, and for the content axis that is what the
-clause says rather than a house rule: 8.10.4's default paragraph fires only when there is **no
+clause says rather than a house rule: 8.7.1.4's default paragraph fires only when there is **no
 HAGC tag and no CRWL entry** — coherent only if the HAGC tag supplies the white when present —
-and 8.10.4 a) then divides `CLL.max` by "the value derived above", i.e. by that derivation.
-8.10.3 ranks the HAGC tag highest and has it applied as its own Annex 1 defines, which agrees,
+and 8.7.1.4 a) then divides `CLL.max` by "the value derived above", i.e. by that derivation.
+8.7.1.3 ranks the HAGC tag highest and has it applied as its own Annex 1 defines, which agrees,
 but it is explicitly *informative* and ranks descriptors rather than metadata values, so it
 supports the reading without carrying it.
 
 This README previously called the ordering iccDEV's **ruling**. That was accurate when written:
-iccDEV has since re-examined 8.10.3/8.10.4 and reclassified it, narrowing the open register item
+iccDEV has since re-examined 8.7.1.3/8.7.1.4 and reclassified it, narrowing the open register item
 to 8.10.5 c)'s wording alone.
 
 `check-hdr-headroom.mjs` first shipped with that order **inverted** and scored a clean 84/84,
-because **no fixture in upstream's 42 can tell the two apart**: only `HagcDisplay` and
+because **no fixture in upstream's 42 could tell the two apart** at the time: only `HagcDisplay` (now `HagcColorSpace`) and
 `HdrLinearHagcWhite` carry a HAGC reference white, neither carries a `CRWL` entry, and our own
-`ProfiletoolHdrDisplay` carries both but sets them *equal*. iccDEV found it by noticing the two
+`ProfiletoolHdrColorSpace` carries both but sets them *equal*. iccDEV found it by noticing the two
 implementations disagreed on precedence yet agreed on every value.
 
 Two things came out of that:
@@ -225,13 +296,21 @@ Two things came out of that:
 - **`check-hdr-headroom.mjs` reports coverage**, not just agreement — it names whether the
   precedence was exercised at all, so an untested axis can never again read as a tested one.
 
-## The two headroom axes divided by different reference whites — FIXED upstream
+## The two headroom axes divided by different reference whites — FIXED upstream, then MOOT
+
+> **HISTORICAL as of the 23-09-2026 revision.** The 8.10 &rarr; 8.7.1 retarget deleted clause
+> 8.10.5 outright — physical display characterization is out of scope for an HDR ColorSpace
+> Profile — so there is no display headroom axis left to cross, PAWG section H is now H1&ndash;H7
+> with no H8, `ProfiletoolHdrCrossAxisWhite` was retired, and `scripts/check-hdr-headroom.mjs`
+> lost its display half (the content half stays). Kept because it records how the divergence was found, and
+> because the *content*-axis half of the question is still live: see the section above, which
+> `ProfiletoolHdrRefWhiteConflict` still exercises.
 
 Found while verifying the precedence fixture; pinned by `ProfiletoolHdrCrossAxisWhite`; fixed in
 iccDEV `hdr-profiles` **`88672a2e`**. That fixture is now a regression guard.
 
 When a profile carried both carriers of the content HDR reference white, the two headroom axes
-divided by **different values of the same quantity**: 8.10.4's content headroom used the
+divided by **different values of the same quantity**: 8.7.1.4's content headroom used the
 HAGC-first white (300 here), while 8.10.5 c)'s display headroom used the `CRWL` entry alone (203),
 because `CIccHdrMetadataReader::ResolveDisplayHeadroom()` had only a form that called
 `GetResolvedContentReferenceWhite()` = `m_bHasCrwl ? m_crwl : 203`, and the metadata reader cannot
@@ -248,12 +327,12 @@ actually used: `600 cd/m² / 300 cd/m² = 2`.
 **Correction to what we wrote here before.** This README previously called the divergence a
 question for the maintainer "and possibly the WG", on the reasoning that 8.10.5 c) names the CRWL
 *entry*. iccDEV withdrew that framing, and they were right to: the only genuine gap is which of
-the two carriers governs when both are present, and 8.10.4 answers that for the content axis.
+the two carriers governs when both are present, and 8.7.1.4 answers that for the content axis.
 The divergence was that resolution reaching one axis and not the other — iccDEV's to fix, not
 the WG's.
 
 **What the fix does and does not settle.** 8.10.5 c) still literally names the *entry*: CRWL
-"taken from the HDR Image metadata of 8.10.4", defaulting "when no CRWL entry is present" — a
+"taken from the HDR Image metadata of 8.7.1.4", defaulting "when no CRWL entry is present" — a
 condition that never mentions the HAGC tag. So dividing the display axis by the HAGC-first value
 is a decision that one named quantity has one value, taken **against that clause's literal
 words**, not a correction of an unambiguous error. `ProfiletoolHdrCrossAxisWhite` therefore pins
@@ -282,7 +361,7 @@ without a merge. Both check scripts read the two files together.
 **`ProfiletoolHagcFamily`** (added 2026-09-14) exists to exercise what a
 `headroomAdaptiveGainCurveTag` is *for*: a family of tone curves that a CMM blends between as the
 display headroom changes. Every other HAGC fixture pins the tag's layout with one to three curves,
-and only `HagcDisplay` has an alternate above its baseline. This one carries **four alternates,
+and only `HagcColorSpace` has an alternate above its baseline. This one carries **four alternates,
 the most IccLibXML accepts** (a fifth is refused: "more alternate images than the maximum of 4"),
 two on each side of a 3-stop baseline: 0 and 1.5 stops compress, 4.5 and 6 expand. It uses one
 mixing type (2) with PCHIP slopes throughout, so the pictures read cleanly. Each compressing curve
@@ -291,8 +370,8 @@ headroom. `scripts/check-hagc-family.mjs` pins all of that through IccProfLib's 
 control point, the hold above the last point, blends lying between their neighbours, and gain
 signs either side of the baseline. It also checks that iccconstruct's HDR CMM applies the same
 grey outputs. It is the fixture the Tags view's preview strip, heatmap and curve family are built
-around. Otherwise it is the `ProfiletoolHdrDisplay` shell: conforming, PQ, HDR reference white
-203 = CRWL, and DERH 3.0 = the baseline.
+around. Otherwise it is the `ProfiletoolHdrColorSpace` shell: conforming, PQ, HDR reference white
+203 = CRWL, against a baseline headroom of 3.0.
 
 **`ProfiletoolHagcClamp`** (added 2026-09-14) sets the Headroom Adaptive Tone Map flag and lists
 **zero** alternate images. Proposal 1.2.2.6 gives that a defined meaning: no tone mapping, with the
@@ -305,13 +384,13 @@ baseline clamped to the target colour volume. No fixture reached that branch bef
 - **CMM:** does the clamp. Grey output is `min(input, target headroom)` relative to reference
   white, with no gain curve engaged. The baked-table policy takes the AToB0 path instead.
 
-Otherwise the `ProfiletoolHdrDisplay` shell: baseline 2 stops, DERH 2.0, reference white
+Otherwise the `ProfiletoolHdrColorSpace` shell: baseline 2 stops, reference white
 203 = CRWL.
 
 **`ProfiletoolHagcBaked`** (added 2026-09-14) is `ProfiletoolHagcFamily` with a **real SDR
-fallback**. Every other HDR Profile here carries an identity `AToB0`/`BToA0` pair: valid, but it
+fallback**. Every other HDR ColorSpace Profile here carries an identity `AToB0`/`BToA0` pair: valid, but it
 passes raw PQ code values through, so the HDR tab's *Baked SDR fallback* policy, and any CMM that
-does not implement clause 8.10, showed nothing meaningful. This pair was produced by iccDEV's own
+does not implement clause 8.7.1, showed nothing meaningful. This pair was produced by iccDEV's own
 baker, not by hand: `iccHdrFallback -grid 33` at hdr-profiles `649fc750` (a native build of the
 pinned worktree), following ICC White Paper #62 at a target headroom of 1.0. The result went
 through `iccToXml`; only the XML comment and the description were changed before the `.icc` was
@@ -328,7 +407,7 @@ unchanged. The 33³ grid is the tool default. At 17³ the grey error against the
   1.0, which a `lutAToBType` table cannot, so the table clips each channel at the peak (green at
   1000 cd/m²: Y 0.92 on the curve, 0.67 baked).
 
-`ProfiletoolHdrRefWhiteConflict` is described above. `ProfiletoolHdrDisplay` is the happy path: It is a conforming HDR Profile (RGB Display, version 4.50,
+`ProfiletoolHdrRefWhiteConflict` is described above. `ProfiletoolHdrColorSpace` is the happy path: It is a conforming HDR ColorSpace Profile (RGB, ColorSpace class, version 4.50,
 cicp PQ, no TRC tags, A2B0/B2A0 pair) with `CRWL` set to agree with the HAGC tag's
 `HDRReferenceWhite` so H7 reports a genuine agreement. It scores **H1..H8 all OK**.
 
@@ -339,14 +418,13 @@ upstream should be.
 
 ## Assertions that are NOT safe
 
-- **"H1..H8 all OK on any conforming profile" is wrong.** `HagcDisplay` is conforming but
-  reports **H8 = N/A**, correctly: it carries no 8.10.5 HDR Display entries, so rule d) applies
-  and the headroom comes from the destination device. Use `HdrDisplayMetadata` (or
-  `ProfiletoolHdrDisplay`) when an all-OK case is wanted.
+- **Do not assume "every H item OK on any conforming profile".** Section H is **H1&ndash;H7**
+  since the 8.7.1 retarget (H8 went with clause 8.10.5), and individual items are still
+  legitimately N/A per profile. Use `HdrColorSpaceClass` (or `ProfiletoolHdrColorSpace`) when an
+  all-OK case is wanted.
 - **Assert against the manifest, not against remembered verdicts.** Item verdicts legitimately
-  change when the amendment revision moves — H6 gained a Display-class guard in iccDEV
-  `7ea04aa3`, which flipped `HdrInputDisplayMeta` from FAIL to OK. The classification axis is
-  the stable one.
+  change when the amendment revision moves — the 8.10 &rarr; 8.7.1 retarget alone inverted three
+  fixtures' membership and removed an H item. The classification axis is the stable one.
 
 ## Checksums
 
@@ -361,42 +439,41 @@ ee4b80b5b9284f396bede2cd6a88eabcfb19053962a05fed0b47b0f5844ca6e1  BT2100HlgNarro
 d0e5d132c0d426fa55fe135322dd11331a37f3d16ce1081742e0d183fab8f871  BT2100PQNarrowDisplay.icc
 3f96385785b19958e08cd12ecac5f4405b6ca766979e9cf4cd81b8680c6befb4  BT2100PQNarrowScene.icc
 aec190cf8ecca10a9b67d8d85ea1d7715431db33b670b4fcaf050d66a89f10e8  BT2100PQSceneToDisplayLink.icc
-667e9e958608863b6b217ff9551e753577b3eb29f12b434c1822c7b0f6a1286a  HagcCommonParams.icc
-59adffe1669903700448cf9f4ac077cf28fcf71d33ccf2334a4aa98e739ec468  HagcDisplay.icc
-6399c59ac2cb69fc78c5b95a01a779a2892dcdc2e2d0f79a8b8a2258fe1b92d9  HagcHexData.icc
-b300c655c82b1b526e34596c22f9e0ecbbe09317a24b50aca0f621e9c7716365  HagcInvalidXOrder.icc
-e99d07cb86a8d9b15f701ee5ab5e89c641489d2bbbbfea82fdfe88eb12274ea6  HagcMixingTypes.icc
-29e5f24f25a7f34515a4e1d1dc77800edb462ad1fb67a9a54dd6565b21971f71  HagcRefWhiteToneMap.icc
-de41cea9a160ba52b2f27a4afadc2465029cc04712f260b72954662cf49a6110  HdrBakedLut.icc
-95831a2444d0354560000918ab0826b68aaa714bcaa3f463082ac8d11e45f42e  HdrCicp2NoColumns.icc
-fe5916f19bef13135741bc713a4e776d4f88dd8528ad2e9e3ce4f644d092b0b4  HdrCicpUnspecified.icc
-610176bfbf4e01ac12c68ead11fdc3f9063804062a6c8035fd43ee0d1608d304  HdrColorSpaceClass.icc
-9ed1531e4320c4c76fe77f0ae95c4f9c72482e39430b092a5c83a4b470b01295  HdrDisplayMetadata.icc
-096a3373b04db6e0d478d8ec1d05b87a4396a73820ebd189c2484a24bd6a2ac2  HdrFullRangeFlag.icc
-7b03de1411ba450e4fe09fa5f968921917240c45473e9db5520556e2024affc7  HdrHeadroomDcvCrwl.icc
-994c142e7ca7fa8b9f53ff41e74ff7b1caf666a7881b66e1301e8ae9ddb56eaa  HdrHeadroomDcvDrwl.icc
-1b37fc676a3448e36e9cb2c8d5a96e1224cf964d57b785a1848f87dd65097745  HdrHlgBt2020Primaries.icc
-85c341a36ad5a91bc5df1ea6eff50b4230c9db59c618280a1e9b7dada0a86bc0  HdrHlgBt709Primaries.icc
-18bd02f77366f79bec3707ee00e09d4049bf25383383e47577a5191d06484b4b  HdrInputDisplayMeta.icc
-3cf575b7b81bdd8032a9ec6deff69c54ad6bdf626467d4454f4e1d0ca3c8d3f3  HdrInvalidTransfer.icc
-ffd220c80da89e0762ccdb0f3e01d69430565dd139ade52d1ae5787b63dbd690  HdrLinearCll.icc
-7617d4be5102cf18da77d3cecfb626a5268cde223ba8438ba5ddc9e25dfa63b3  HdrLinearHagcWhite.icc
-79b050ced6083ce0cd55910587ce7d96f4ac4429dd63f263b775da9cb862bb10  HdrLinearMdcv.icc
-47b3258ad4b6b73e2053812bbf0a930e9da29fad8930b32b85fd7d07ab1ebc44  HdrLinearNoMetadata.icc
-ac5ba0104a6a11cfd63081422cc76fbdb697e5c8f1089a32beba31682bb638a6  HdrMissingBToA0.icc
-737d96158fdbc467a154d87fa66cb1982c79e3f5b5e76cb2fa8ba8d65132a928  HdrMissingBToA1.icc
-c3e841d778bd4fd6276f1f4c49aba9531ce9a02dac1cd56d2083ca2da952c911  HdrMissingLutPair.icc
-9cd0caeec23932e7867d644d74837f22f3d0a0e36769ff30b10c1be5812c1f7e  HdrNarrowRangeFlag.icc
-59d58b81654473b51112a92d22354075feb4290419ef44bd6ae3c5d56914f956  HdrNoCicpTag.icc
-79c2a3a46d9bf550d9123c9158b34e67e78020f254ed49e7e92f4af9de65feaf  HdrNonRgbSpace.icc
-de00a41cea669f09142fe37f832a3f306df176d97fb1faca9f0ad5166175bf50  HdrTransferSdr.icc
-c310045aa2eeca12c4d0dd87cf4dd916b8f62e64155039a4febb769adf3dd52d  HdrTrcTagsPresent.icc
-37ba391ce781581ca4663b12f32eef2c8aa87e8302f3fdea6703ea7486d33c71  HdrVersion44.icc
-c93706a78c25c822bca2d66ee9c0952d875b380c8069afb73f9a4b3bb23e1dff  HdrVersion46.icc
-0578eb94d5f15cb26d3be8c4a6f1541bcd81b948832bd8a49008ff043acc7ac6  ProfiletoolHdrCrossAxisWhite.icc
-b9933202e0ff4a95299d4a6f342e97851270e9506ccf72325e670d1c9f4dca7f  ProfiletoolHdrDisplay.icc
-53997216ad1db9415dbba5f4a65930526d0b6257fcaee28a56c4cbe45e3eaa81  ProfiletoolHdrRefWhiteConflict.icc
-a65a8eae39156279e53bb57b49a138a2aba016187181b29f4b30e940292b90e9  ProfiletoolHagcFamily.icc
-347c621b1cb28d2407c9750062f265ffe7b149b06475a2f5b4c55e5ebef1a049  ProfiletoolHagcClamp.icc
-ad71169bbe904955fa4ec3faa1b9caafafb08eade0245fa8c90d313de35160dd  ProfiletoolHagcBaked.icc
+9186e794774bf7b1417a21b215aa5ecb2eef3c39fd82fb63f2385e3548d40d28  HagcColorSpace.icc
+cbb8b9a3f886f141d3a41729143a737e9b63a873db2cde97dd1ebbe22d9094f5  HagcCommonParams.icc
+6e4afba46671a679af827805b29970107889a1879cccc106deaf7271af78c11f  HagcHexData.icc
+4ba01f0b38bb6eebb7f026a46d5edecc93e3b211550b765c3d1c29be49e71b35  HagcInvalidXOrder.icc
+9cc669cff6e8aa63b5ee43cbb92a7a55ebe697c6142fb6bdddb9510bdd6aa38c  HagcMixingTypes.icc
+ffe205d0af0fea93aa642a7dcaad6a48ae0d1151cadbf1ada325ec19fd093c1a  HagcRefWhiteToneMap.icc
+3f5bebf111aa8228495abca415028ba248e456f23eb5f19c266976c48c201956  HdrBakedLut.icc
+3001733a507f7a4f19f59fca353713ca2ecbff06f5229597951d13c4ab72303f  HdrCicpUnspecified.icc
+9a6129295ba2f76da91bb512e7b93c849dfaf4943e0d7aa3d044e16f66cead28  HdrClassDisplayNegative.icc
+a2c842e48c8187fb79f274db541fbfcc40679e1bd356068798b3d36b123e6703  HdrClassInputNegative.icc
+81429c19a79e5a90580e08eba14eccc0494b262ea19ed37c402e511b84eef86d  HdrColorSpaceClass.icc
+ad119309c40dda869a35b60f4ec111de44143fc77423c6ee4fa3fbdd7e38ef3d  HdrFullRangeFlag.icc
+9036fa5e325b5d08f294a130e1eb666b2d55b4bcd5e222e3a72b0877504a7975  HdrHlgBt2020Primaries.icc
+34ed8869d0c6912c773a1e3e1c8e6e84037d70122dfc7be5da1ca856ec16a211  HdrHlgBt709Primaries.icc
+441348e8b904763456bb63a9f3a24ef521df60a00a1811ae32d5a4b9c61e7a81  HdrInvalidTransfer.icc
+cc4babee7e5737798503c1bfcc32e4b37fdbe767239af7f8517976484272a4d8  HdrLinearCll.icc
+e1f85174b29d08c60c103d810dfd1be3620dd11bb2cc241ecdc9cd596b6a9510  HdrLinearHagcCrwlDisagree.icc
+ea4d434f309cfca18e4c53da6c5d30e105055e32ed1bf7649c92b3b352046612  HdrLinearHagcWhite.icc
+3a8ae658eef9d524dd7837b6ab40291d65f4555b57f80e076045ae7f31659ef8  HdrLinearMdcv.icc
+bbe8f41a30d2b1d68028abfe890ba2669ea6319647698f187301c41f7316a480  HdrLinearNoMetadata.icc
+1383d604fd5d9237fc6d4db9ee9404b6e0937273143c1f90418b2e51046edf6a  HdrMissingBToA0.icc
+8f7f93d8e9d8e832d09f440bf61cb65c6ffc5d786ba0d2dc623fd59af01ec1b8  HdrMissingBToA1.icc
+ce139071394d5c5be275e8430402a3c581a8175eeac0b632a75c431eff6fab5c  HdrMissingLutPair.icc
+6db314ba51552652bc3f56052065972c881097002b4d597fa977019ec29812f6  HdrNarrowRangeFlag.icc
+8d4b6d7c354ad1598db1987938ceb17e549ec084407c0f76478a091197f0e776  HdrNoCicpTag.icc
+bac9416a52ca5ba487fa3a6db9eb2632b386ba8e997b69bc0cc9004b1eaed985  HdrNonRgbSpace.icc
+8abb267285efdd996169d21ce13320c7cb01e8032a592d3fb55a10a5e3b620da  HdrPcsLab.icc
+84f31c21b034559a7404186e08ee780e07017fbde6872abe505472816c514989  HdrTransferSdr.icc
+e9e10107d4ae090e12b003974ad2c5563208bb6d7d50ecce5a9f1330a3c2e025  HdrTrcTagsPresent.icc
+ec6fd475cfd4aed88f0a1f8aabe4d8489c4a6b0b9ace1e3ba33f27c956deae84  HdrVersion44.icc
+fe46efabb4e7543107629ae476f1260b716b72da8802eece980124b528366a62  HdrVersion46.icc
+b2fb2c9a482a8f9479c027505e6bc03313116e771ac1f9d8615fefe574f24584  HdrVersion5.icc
+529b8237875aaff5806b1e0845b1e56dfec05c9af9438e125877af669866c966  ProfiletoolHagcBaked.icc
+b277011b0085919b8a18ad9e7df83b9df78e6cd4900bdfb57ab99c571844ea76  ProfiletoolHagcClamp.icc
+31dc3640e5692672d9fd70bfe1f18634583e9c5e4d78b581b2ddb31f586e0af6  ProfiletoolHagcFamily.icc
+fcf4a20434c76249e4cbd2d8ee4e0c53200be49dfdc4928d0be8987da899e64f  ProfiletoolHdrColorSpace.icc
+e201d9ac19a540df81e79d95bb73d051f9719ff0e6b4cd20213a41dcac5b3ec1  ProfiletoolHdrRefWhiteConflict.icc
 ```

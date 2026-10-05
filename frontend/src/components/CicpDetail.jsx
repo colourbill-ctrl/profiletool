@@ -9,7 +9,7 @@ import styles from './CicpDetail.module.css'
  * Presentation follows the physical-location rule: this renders IN PLACE on the
  * cicp tag row, above that tag's own Describe() dump. It maps numbers to names
  * and states nothing else — no verdict on whether a value is permitted in an
- * HDR Profile. That judgement is PAWG's (section H, items H1-H8) and reaches the
+ * HDR ColorSpace Profile. That judgement is PAWG's (section H, items H1-H7) and reaches the
  * user there as a settled item, not as a second opinion attached to the tag.
  */
 

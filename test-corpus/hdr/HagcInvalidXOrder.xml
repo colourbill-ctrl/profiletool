@@ -4,27 +4,34 @@
   reported non-compliant. Do not "fix" the control points below.
 
   The gain evaluator (proposal informative annex 1) defines each curve segment
-  as a cubic in t = (x - x_i) / (x_i+1 - x_i). Control point X values that are
-  not strictly increasing therefore do not merely produce an oddly ordered curve
-  - they make that parameter divide by zero or run backwards, and the piecewise
-  cubic is undefined. Nothing in the encoding prevents it: X is an independent
-  uInt16 per point with no ordering constraint on the wire, so the only place
-  the requirement can be enforced is CIccTagHagc::Validate().
+  as a cubic in t = (x - x_i) / (x_i+1 - x_i). Control point X values that go
+  backwards therefore do not merely produce an oddly ordered curve - they make
+  that parameter run backwards, and the piecewise cubic is undefined. Nothing
+  in the encoding prevents it: X is an independent uInt16 per point with no
+  ordering constraint on the wire, so the only place the requirement can be
+  enforced is CIccTagHagc::Validate().
 
-  Alternate 0 repeats X = 0.5000 at indices 1 and 2, which is the degenerate
-  case a naive check for "decreasing" would miss: the values never go down, but
-  the segment between them has zero width. Alternate 1 then goes strictly
-  backwards, so both shapes of the defect are covered.
+  A REPEATED X is not by itself the defect. SMPTE ST 2094-50 clause 6.5.2 lets
+  two adjacent points share an X value when they also share the same Y value -
+  a degenerate point, which is how an encoder pads a fixed-length array. What
+  it forbids is a repeat whose Y values differ, where the curve would have two
+  values at one abscissa.
+
+  Alternate 0 repeats X = 0.5000 at indices 1 and 2 with differing Y (-0.2 and
+  -0.3), which is the case a check for "decreasing" alone would miss.
+  Alternate 1 then goes strictly backwards, so both shapes of the defect are
+  covered.
 
   Expected: iccFromXml saves the profile, and iccDumpProfile -v reports
-    "HAGC alternate image 0 control point X values are not strictly increasing"
+    "HAGC alternate image 0 control point X values decrease, or repeat with
+     differing Y"
   See Testing/expected-invalid-fromxml.tsv.
 -->
 <IccProfile>
   <Header>
     <PreferredCMMType>ICCD</PreferredCMMType>
     <ProfileVersion>4.50</ProfileVersion>
-    <ProfileDeviceClass>mntr</ProfileDeviceClass>
+    <ProfileDeviceClass>spac</ProfileDeviceClass>
     <DataColourSpace>RGB </DataColourSpace>
     <PCS>XYZ </PCS>
     <CreationDateTime>2026-08-05T00:00:00</CreationDateTime>
@@ -37,18 +44,6 @@
     <ProfileCreator>ICCD</ProfileCreator>
   </Header>
   <Tags>
-    <redColorantTag> <XYZArrayType>
-      <XYZNumber X="0.436004638672" Y="0.222503662109" Z="0.013900756836"/>
-    </XYZArrayType> </redColorantTag>
-
-    <greenColorantTag> <XYZArrayType>
-      <XYZNumber X="0.385101318359" Y="0.716903686523" Z="0.097106933594"/>
-    </XYZArrayType> </greenColorantTag>
-
-    <blueColorantTag> <XYZArrayType>
-      <XYZNumber X="0.143096923828" Y="0.060592651367" Z="0.713897705078"/>
-    </XYZArrayType> </blueColorantTag>
-
     <mediaWhitePointTag> <XYZArrayType>
       <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
     </XYZArrayType> </mediaWhitePointTag>
@@ -79,17 +74,21 @@
       </HagcMetadata>
     </headroomAdaptiveGainCurveType> </headroomAdaptiveGainCurveTag>
 
-    <!-- Clause 8.10.1 of the 29-08-2026 revision: "the redTRCTag, greenTRCTag
-         and blueTRCTag shall not be present" in an HDR Profile. The transfer
-         function is conveyed by the cicpTag's TransferCharacteristics field
-         instead, and NOTE 3 makes their absence one of the two tag-level
-         features that distinguish an HDR Profile. This fixture was authored
-         against the previous revision and carried them.
+    <!-- There are no TRC tags and no matrix column tags, and under the
+         23-09-2026 revision that is not a prohibition being obeyed - it is
+         what a ColorSpace profile IS. 8.7 never defines either set for this
+         class, so, in the revision's words, "there is nothing for this
+         amendment to prohibit". The transfer comes from the cicpTag's
+         TransferCharacteristics field and the primaries from its
+         ColourPrimaries field; 8.7.1.1 says the cicpTag "is the only tag that
+         can convey either".
 
-         The AToB0Tag/BToA0Tag pair below is what 8.10.6 makes mandatory, and
-         what NOTE 4 says gives a legacy CMM "a rendering path at all" once the
-         TRC tags are gone. Identity B curves: these fixtures exercise
-         classification and the tone-mapping chain, not the bake's accuracy. -->
+         The AToB0Tag/BToA0Tag pair below is required by 8.7 of every
+         ColorSpace profile, which 8.7.1.5 leans on rather than restates -
+         "both already unconditionally required of every ColorSpace profile by
+         8.7" - and it is what gives a legacy CMM a rendering path. Identity B
+         curves: these fixtures exercise classification and the tone-mapping
+         chain, not the bake's accuracy. -->
 
     <AToB0Tag> <lutAtoBType>
       <Channels InputChannels="3" OutputChannels="3"/>
@@ -110,7 +109,7 @@
     </lutBtoAType> </BToA0Tag>
 
     <profileDescriptionTag> <multiLocalizedUnicodeType>
-      <LocalizedText LanguageCountry="enUS"><![CDATA[iccDEV HDR negative fixture: HAGC control point X values are not strictly increasing]]></LocalizedText>
+      <LocalizedText LanguageCountry="enUS"><![CDATA[iccDEV HDR ColorSpace Profile, negative: HAGC control point X values decrease or repeat with differing Y]]></LocalizedText>
     </multiLocalizedUnicodeType> </profileDescriptionTag>
 
     <copyrightTag> <multiLocalizedUnicodeType>

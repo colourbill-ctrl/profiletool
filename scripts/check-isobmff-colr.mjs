@@ -59,8 +59,8 @@ function build({ props, assoc = null, primary = null, pitmV = 0, ipmaV = 0, ipma
 }
 
 // ── cases ───────────────────────────────────────────────────────────────────
-const A = readFileSync(join(ROOT, 'test-corpus/hdr/ProfiletoolHdrDisplay.icc'))   // "primary"
-const B = readFileSync(join(ROOT, 'test-corpus/hdr/HagcDisplay.icc'))             // "gain map"
+const A = readFileSync(join(ROOT, 'test-corpus/hdr/ProfiletoolHdrColorSpace.icc'))   // "primary"
+const B = readFileSync(join(ROOT, 'test-corpus/hdr/HagcColorSpace.icc'))             // "gain map"
 if (A.length === B.length) throw new Error('payloads must differ in length for the size check to bite')
 
 const cases = [

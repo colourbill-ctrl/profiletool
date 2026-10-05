@@ -1,5 +1,41 @@
 # HDR tranche — Phase 1 status
 
+> ## ⚠ SUPERSEDED IN PART — clause 8.10 became 8.7.1 on 2026-09-26
+>
+> **Everything below describes the amendment as of its 2026-09-06 revision, where the HDR
+> sub-class was a specialisation of the three-component matrix-based Input/Display profile
+> (ICC.1 8.3.3 / 8.4.3).** The 23-09-2026 revision moved it onto the **ColorSpace profile
+> (8.7)**, and profiletool was rebuilt against `hdr-profiles` @ **`1d5d32e20`** on
+> **2026-09-26** to follow, then re-pinned the same day to **`7150a6e79`**, where upstream
+> remodelled `Testing/HDR` on ColorSpace-class usage only (owner ruling: zero compatibility
+> with the Display-class shape). Fixture names below such as `HagcDisplay`,
+> `HdrDisplayMetadata` and `HdrInputDisplayMeta` are that history: they are now
+> `HagcColorSpace`, `HdrClassDisplayNegative` and `HdrClassInputNegative`. This document is kept as the record of how Phase 1 was reasoned
+> and measured; it is **not** a current description of the clause. Read the clause numbers and
+> the membership conditions below as history.
+>
+> What changed, in one table:
+>
+> | | 8.10 (2026-09-06) | 8.7.1 (23-09-2026) |
+> |---|---|---|
+> | name | HDR Profile | **HDR ColorSpace Profile** |
+> | class | `scnr` or `mntr` | **`spac` only** |
+> | version | `profileVersionField` shall be 4.5.0.0 | **no version condition**; iccDEV keeps a `< 5.0.0.0` ceiling as an explicit ruling (`icHdrIsVersion4`), to keep an ICC.1 clause off an ICC.2 profile |
+> | PCS | (came free with the parent) | **PCSXYZ, a stated condition** |
+> | TRC tags | shall not be present | nothing to prohibit — 8.7 defines none |
+> | matrix column tags | required, and used when `ColourPrimaries` = 2 | **gone**; primaries come only from `cicpTag`, and `ColourPrimaries` = 2 needs the `cicpType` chromaticity extension of 10.3, which no build can read yet |
+> | display headroom (8.10.5, DERH/DCV/DRWL) | four-rule precedence | **deleted** — physical display characterization is out of scope |
+> | PAWG section H | H1–H8 | **H1–H7**; IDs deliberately not renumbered |
+>
+> Unchanged: `TransferCharacteristics` ∈ {8, 16, 18}; the EOTF → tone map → matrix order; the
+> 203 cd/m² CRWL default; the Linear CLL → MDCV → 1000 cd/m² content-headroom precedence; RGB only.
+>
+> Upstream's implementation notes for the retarget are at
+> `~/code/iccdev/docs/notes/2026-09-26-hdr-colorspace-profile-retarget.md` (on the shared
+> `docs/notes` symlink, so **not** part of the pushed branch — read it from the path).
+>
+> profiletool-side consequences are recorded in `test-corpus/hdr/README.md`.
+
 **Branch:** `feat/hdr-profiles` (off `main` @ `c37d414`). `main` deliberately left clean so
 any main-facing work can happen in a separate worktree.
 **Date:** 2026-09-14. **Built against:** `hdr-profiles` @ **`649fc750`**

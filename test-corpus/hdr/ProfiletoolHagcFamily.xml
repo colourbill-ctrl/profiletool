@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  profiletool's HAGC FAMILY fixture — a conforming ICC.1 clause 8.10 HDR Profile whose
+  profiletool's HAGC FAMILY fixture — a conforming ICC.1 clause 8.7.1 HDR ColorSpace Profile whose
   headroomAdaptiveGainCurveTag carries FOUR alternate images — the most the encoding allows
   (IccLibXML refuses a fifth) — spread across the whole 0 … 6 stop headroom range, two on
   EACH side of the baseline.
 
   Why this exists. Every other HAGC fixture in the corpus exercises the tag's LAYOUT
   (common parameters, mixing types, hex authoring, slope forms) with one to three
-  curves, and only HagcDisplay has an alternate above its baseline. None of them shows
+  curves, and only HagcColorSpace has an alternate above its baseline. None of them shows
   what the tag is FOR: a family of tone curves that a CMM blends between as the display
   headroom changes. This one is authored to be looked at — the HAGC evaluated view's
   heatmap, curve family and preview strip — and to pin the blending numerically.
@@ -31,9 +31,9 @@
   throughout; no custom chromaticities. Layout variety is covered by the upstream
   fixtures.
 
-  Otherwise the same conforming shell as ProfiletoolHdrDisplay: RGB Display v4.50, BT.2020
+  Otherwise the same conforming shell as ProfiletoolHdrColorSpace: RGB ColorSpace v4.50, BT.2020
   primaries adapted to D50, PQ via cicpTag, no TRC tags, identity AToB0/BToA0 pair.
-  HDRReferenceWhite 203 agrees with CRWL; DERH 3.0 matches the baseline headroom.
+  HDRReferenceWhite 203 agrees with CRWL, against a baseline headroom of 3.0.
 
   Generated through the iccxml WASM path (xmlToIcc), not by hand.
 -->
@@ -41,7 +41,7 @@
   <Header>
     <PreferredCMMType>ICCD</PreferredCMMType>
     <ProfileVersion>4.50</ProfileVersion>
-    <ProfileDeviceClass>mntr</ProfileDeviceClass>
+    <ProfileDeviceClass>spac</ProfileDeviceClass>
     <DataColourSpace>RGB </DataColourSpace>
     <PCS>XYZ </PCS>
     <CreationDateTime>2026-09-14T00:00:00</CreationDateTime>
@@ -55,18 +55,6 @@
   </Header>
   <Tags>
     <!-- BT.2020 primaries, chromatically adapted to D50. -->
-    <redColorantTag> <XYZArrayType>
-      <XYZNumber X="0.636962890625" Y="0.262695312500" Z="0.000000000000"/>
-    </XYZArrayType> </redColorantTag>
-
-    <greenColorantTag> <XYZArrayType>
-      <XYZNumber X="0.144622802734" Y="0.677978515625" Z="0.028076171875"/>
-    </XYZArrayType> </greenColorantTag>
-
-    <blueColorantTag> <XYZArrayType>
-      <XYZNumber X="0.168869018555" Y="0.059326171875" Z="1.060989379883"/>
-    </XYZArrayType> </blueColorantTag>
-
     <mediaWhitePointTag> <XYZArrayType>
       <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
     </XYZArrayType> </mediaWhitePointTag>
@@ -141,9 +129,6 @@
 
     <metaDataTag> <dictType>
       <DictEntry Name="CRWL" Value="203.0"/>
-      <DictEntry Name="DERH" Value="3.0"/>
-      <DictEntry Name="DRWL" Value="203.0"/>
-      <DictEntry Name="DCV" Value="1624.0 0.005 1"/>
     </dictType> </metaDataTag>
 
     <profileDescriptionTag> <multiLocalizedUnicodeType>

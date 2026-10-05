@@ -117,8 +117,8 @@ function intentDescription(id) {
   return baseDesc
 }
 
-// Phase 3: any transform built from an HDR Profile runs through its AToB0Tag — the baked
-// SDR rendering of 8.10.6 — because 8.10.1 leaves it no TRC tags to build a matrix path
+// Phase 3: any transform built from an HDR ColorSpace Profile runs through its AToB0Tag — the baked
+// SDR rendering of 8.7.1.5 — because a ColorSpace profile has no TRC tags to build a matrix path
 // from. The chain therefore works, and produces the fallback rather than HDR behaviour.
 // Said out loud for the same reason as in Compare: it is not an error, so nothing else
 // would tell the user.
@@ -229,7 +229,7 @@ export default function PipelineBuilder({ getEntry, onBuildLink, onApplyImages, 
   const [interp, setInterp] = usePersisted('profiletool.img.interp', 'tetrahedral')     // tetrahedral|linear
 
   const stageEntries = useMemo(() => chain.map((id) => getEntry(id)), [chain, getEntry])
-  // Which stages are HDR Profiles, so the chain can say what it is actually applying.
+  // Which stages are HDR ColorSpace Profiles, so the chain can say what it is actually applying.
   const hdrStages = useMemo(
     () => stageEntries
       .map((e) => (e ? { name: e.filename, hdr: classifyHdrProfile(e.parsed, e.currentBytes) } : null))
@@ -676,13 +676,13 @@ export default function PipelineBuilder({ getEntry, onBuildLink, onApplyImages, 
         <p className={styles.sub}>{t('pl_sub') || 'Build a chain of profiles, then make a DeviceLink, transform an image, or transform a colour dataset through it.'}</p>
       </header>
 
-      {/* Phase 3: an HDR Profile in the chain contributes its AToB0Tag — the baked SDR
-          rendering — because 8.10.1 leaves it no TRC tags. The chain runs and the result
+      {/* Phase 3: an HDR ColorSpace Profile in the chain contributes its AToB0Tag — the baked SDR
+          rendering — because a ColorSpace profile has no TRC tags. The chain runs and the result
           is the fallback, which looks like a normal result. Say so. */}
       {hdrStages.length > 0 && (
         <div className={styles.hdrNote} role="note">
-          <strong>{t('pl_hdr_title') || 'HDR Profile in the chain'}</strong>{' '}
-          {t('pl_hdr_body') || 'Transforms through an HDR Profile use its AToB0Tag — the baked SDR rendering required by clause 8.10.6 — because clause 8.10.1 leaves it no TRC tags. The result is that fallback, not HDR behaviour.'}
+          <strong>{t('pl_hdr_title') || 'HDR ColorSpace Profile in the chain'}</strong>{' '}
+          {t('pl_hdr_body') || 'Transforms through an HDR ColorSpace Profile use its AToB0Tag — the baked SDR rendering required by clause 8.7.1.5 — because a ColorSpace profile has no TRC tags. The result is that fallback, not HDR behaviour.'}
           <span className={styles.hdrWhich}>
             {hdrStages.map((x) => `${x.name} (${x.hdr.transfer})`).join(', ')}
           </span>
