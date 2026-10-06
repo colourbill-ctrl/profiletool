@@ -11,7 +11,9 @@
 > with the Display-class shape), and on **2026-10-04** to **`356fddd77`** (comment-only HDR
 > fixes + a 21-commit iccDEV master merge; corpus and manifests unchanged), then to **`81d80b806`**
 > (TEMPORARY: an HDR request on a ColourPrimaries 2 member now falls back to the AToB0Tag instead
-> of failing, pending the WG on HDR-23). Fixture names below such as `HagcDisplay`,
+> of failing, pending the WG on HDR-23), then to **`99e099935`** (2026-10-06: PAWG Q4 no longer
+> reports a false Gap on lut8/lut16 profiles, and says why when it cannot evaluate; a master
+> merge removes the 256-byte text cap in the XML converters). Fixture names below such as `HagcDisplay`,
 > `HdrDisplayMetadata` and `HdrInputDisplayMeta` are that history: they are now
 > `HagcColorSpace`, `HdrClassDisplayNegative` and `HdrClassInputNegative`. This document is kept as the record of how Phase 1 was reasoned
 > and measured; it is **not** a current description of the clause. Read the clause numbers and
