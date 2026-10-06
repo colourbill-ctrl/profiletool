@@ -1,6 +1,6 @@
 # HDR test corpus
 
-**42 fixtures mirrored from iccDEV `Testing/HDR/` @ `99e099935` (branch `hdr-profiles`),
+**42 fixtures mirrored from iccDEV `Testing/HDR/` @ `b2188dbc6` (branch `hdr-profiles`),
 plus 5 of our own (`Profiletool*`) = 47.** Refreshed 2026-09-26 at `7150a6e79`; re-pinned
 2026-10-04 to `356fddd77` (a comment-only HDR change plus a 21-commit merge of iccDEV master),
 where `Testing/HDR` and both manifests are unchanged and every binary regenerates identically;
@@ -8,7 +8,8 @@ then to `81d80b806` (same corpus), whose TEMPORARY CMM change makes an HDR reque
 ColourPrimaries 2 member fall back to its `AToB0Tag` instead of failing — asserted in
 `scripts/check-hdr-apply.mjs`; then to `99e099935` (PAWG Q4 fixes and an iccDEV master merge
 that removes a 256-byte text truncation in the XML converters), same corpus, every binary
-regenerating identically.
+regenerating identically; then to `b2188dbc6` (master merge with #2784: Q4/Q1/Q3 evaluate
+DToBx-only profiles; stricter XML/JSON readers), again with every binary identical.
 
 **The corpus models ColorSpace-class usage only.** ICC.1 clause 8.7.1 defines the HDR
 sub-class on the **ColorSpace profile (8.7)**, and the owner has ruled there is *zero* need to
