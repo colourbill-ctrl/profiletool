@@ -20,7 +20,11 @@ function channelRange(spaceSig, isPcs, idx) {
       ? { min: 0, max: 100, step: 0.5, def: 50 }
       : { min: -128, max: 127, step: 1, def: 0 }
   }
-  return { min: 0, max: 1.2, step: 0.005, def: idx === 1 ? 1 : 0.9 } // XYZ
+  // XYZ. The ceiling is the PCSXYZ encoding's own: 16-bit u1Fixed15 tops out at
+  // 1 + 32767/32768 ≈ 1.99997 (ICC.1 clause 6.3.4.2 / 10.x legacy encoding), so 2.0
+  // lets the whole encodable range be probed. It used to stop at 1.2, which read as a
+  // property of the PCS to a reviewer; it never was. Defaults stay at D50-ish white.
+  return { min: 0, max: 2, step: 0.005, def: idx === 1 ? 1 : 0.9 }
 }
 
 /**

@@ -21,7 +21,7 @@
 
     RGB data colour space                    (8.7.1.5 first sentence)
     ColorSpace class ('spac')                (8.7.1.5 second sentence)
-    ProfileVersion 4.50, below 5.0.0.0       (icHdrIsVersion4 — a ruling, not a
+    ProfileVersion 4.40, below 5.0.0.0       (icHdrIsVersion4 — a ruling, not a
                                               condition of the amendment; 4.7
                                               withdrew the old 4.5.0.0 floor)
     PCSXYZ                                   (the 8.7.1.2 chain ends in XYZ)
@@ -53,7 +53,7 @@
 <IccProfile>
   <Header>
     <PreferredCMMType>ICCD</PreferredCMMType>
-    <ProfileVersion>4.50</ProfileVersion>
+    <ProfileVersion>4.40</ProfileVersion>
     <ProfileDeviceClass>spac</ProfileDeviceClass>
     <DataColourSpace>RGB </DataColourSpace>
     <PCS>XYZ </PCS>
