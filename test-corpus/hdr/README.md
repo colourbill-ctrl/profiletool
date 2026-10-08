@@ -1,6 +1,6 @@
 # HDR test corpus
 
-**41 fixtures mirrored from iccDEV `Testing/HDR/` @ `d4fc8211a` (branch `hdr-profiles`),
+**41 fixtures mirrored from iccDEV `Testing/HDR/` @ `b9a752cac` (branch `hdr-profiles`),
 plus 5 of our own (`Profiletool*`) = 46.** Refreshed 2026-09-26 at `7150a6e79`; re-pinned
 2026-10-04 to `356fddd77` (a comment-only HDR change plus a 21-commit merge of iccDEV master),
 where `Testing/HDR` and both manifests are unchanged and every binary regenerates identically;
@@ -16,7 +16,12 @@ was dropped from the balloted amendment because a tag proposal cannot rev the sp
 moved 4.50 -> 4.40, `HdrVersion44` was retired (the base fixture now covers 4.4), the Creator
 signature moved `ICCD` -> `iccd` (registered; clears PAWG S3), and the copyright/description
 texts were rewritten for distribution. The validator's v4 minor-version ceiling is back to
-4.4, so a 4.5 header now WARNs "Version 4 minor number is unexpected".
+4.4, so a 4.5 header now WARNs "Version 4 minor number is unexpected". Then to `b9a752cac`
+(2026-10-08), a master merge with #2794 (PAWG Q3 counts a step as a discontinuity only when it is
+over 6.0 dE00 AND over 4x its neighbours' mean): every fixture byte-identical, Q3 WARN -> OK on the
+identity-table fixtures, while the 5 `BT2100PQ*` still WARN correctly (their PQ formula segment
+uses m1 where it needs 1/m1, a defect in master's 2023 fixtures, pending upstream). Our 5
+`Profiletool*` moved their CMM and Creator `ICCD` -> `iccd` to match upstream, clearing S3.
 
 **The corpus models ColorSpace-class usage only.** ICC.1 clause 8.7.1 defines the HDR
 sub-class on the **ColorSpace profile (8.7)**, and the owner has ruled there is *zero* need to
@@ -484,9 +489,9 @@ da3e28482e264d102a3a244d93b8f9a973ddf3344e5dc00562fe939ba4370ab1  HdrPcsLab.icc
 53eb0de846efaa06207361e236316a361c90d8f8d07d22901681a6db6c067d61  HdrTrcTagsPresent.icc
 4120be72fbc4701c9bb4b8535d367a4eadcc01bb7cbc7c1fb266f869ab765a79  HdrVersion46.icc
 8244fb4686e1dd4e5367b450410797420778e7fdf430ddeaa33f78f9d3cafd59  HdrVersion5.icc
-a2d15f4968c811fd58a743487a3ae4ed95d8801d767d54aabeb3667013c5f966  ProfiletoolHagcBaked.icc
-f4a6e3c9648311af2a25e4e130ac6b071a30afa66ec46759970b5308fb37ec35  ProfiletoolHagcClamp.icc
-0f7708ae22989f06918d3ab082b2868dde4876a5728514742f49bbc1ae6dd745  ProfiletoolHagcFamily.icc
-f5187cc86ef0c7ea37bd9c248f361d281aba8d0da388b85bca46c79a0783993d  ProfiletoolHdrColorSpace.icc
-6c0e5ae2108965b2b24818c8ddeafd8e6cbc860fbb20044e3a307e319dd3384e  ProfiletoolHdrRefWhiteConflict.icc
+287f7c83b7ea2b0ed376b0b0e0e0135e465a0a1a82ee3b3387903cb19457df14  ProfiletoolHagcBaked.icc
+b36008ec17f2a29bbf61c5276e58404f17912a0ada5cff8509d648d0af6af0f0  ProfiletoolHagcClamp.icc
+b947d40f92e164146003cac30577cb572207ff5e11b766f4c7bf7551d89f0bf1  ProfiletoolHagcFamily.icc
+e037c1d3c98bdd6c831749ae21adf24bca58813f67436027b8bb18feffe3728a  ProfiletoolHdrColorSpace.icc
+d011f3baa7f5eafcd02d915242206ff3ab9c9c9360b931aec77e33c88c4b2dc3  ProfiletoolHdrRefWhiteConflict.icc
 ```

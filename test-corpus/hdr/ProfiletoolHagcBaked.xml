@@ -32,7 +32,7 @@
 -->
 <IccProfile>
   <Header>
-    <PreferredCMMType>ICCD</PreferredCMMType>
+    <PreferredCMMType>iccd</PreferredCMMType>
     <ProfileVersion>4.40</ProfileVersion>
     <ProfileDeviceClass>spac</ProfileDeviceClass>
     <DataColourSpace>RGB </DataColourSpace>
@@ -44,7 +44,7 @@
     <PCSIlluminant>
       <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
     </PCSIlluminant>
-    <ProfileCreator>ICCD</ProfileCreator>
+    <ProfileCreator>iccd</ProfileCreator>
     <ProfileID>C73B5060ED992604533E9AB9D27CFF5C</ProfileID>
   </Header>
   <Tags>

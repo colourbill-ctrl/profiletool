@@ -39,7 +39,7 @@
 -->
 <IccProfile>
   <Header>
-    <PreferredCMMType>ICCD</PreferredCMMType>
+    <PreferredCMMType>iccd</PreferredCMMType>
     <ProfileVersion>4.40</ProfileVersion>
     <ProfileDeviceClass>spac</ProfileDeviceClass>
     <DataColourSpace>RGB </DataColourSpace>
@@ -51,7 +51,7 @@
     <PCSIlluminant>
       <XYZNumber X="0.964202880859" Y="1.000000000000" Z="0.824905395508"/>
     </PCSIlluminant>
-    <ProfileCreator>ICCD</ProfileCreator>
+    <ProfileCreator>iccd</ProfileCreator>
   </Header>
   <Tags>
     <!-- BT.2020 primaries, chromatically adapted to D50. -->
