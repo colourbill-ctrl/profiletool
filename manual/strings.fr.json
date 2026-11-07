@@ -1,0 +1,23 @@
+{
+  "page": {
+    "title": "Outil de profil ICC — Aide",
+    "subtitle": "Inspecteur, validateur et éditeur aller-retour dans le navigateur pour les profils ICC.1 et ICC.2 (iccMAX)",
+    "stale": "<strong>Cette section a été mise à jour récemment.</strong> Elle s’affiche en anglais jusqu’à la mise à jour de sa traduction."
+  },
+  "diagram": {
+    "drag a row onto a tab →": "glisser une ligne sur un onglet →",
+    "Based on iccDEV demo implementation": "Basé sur l’implémentation de démonstration iccDEV",
+    "Modified — unsaved": "Modifié — non enregistré",
+    "Save profile": "Enregistrer le profil",
+    "System default (English)": "Par défaut du système (Français)",
+    "Drag into the chain →": "Glisser dans la chaîne →",
+    "Combine — Link Pipeline": "Lier — Pipeline de liaison",
+    "Chain profiles, then make a DeviceLink or transform an image / dataset.": "Chaînez des profils, puis créez un DeviceLink ou transformez une image / des données.",
+    "Drop an image (TIFF/PNG/JPEG)": "Déposez une image (TIFF/PNG/JPEG)",
+    "Drop a dataset (CGATS/CSV/CxF)": "Déposez des données (CGATS/CSV/CxF)",
+    "Chain:": "Chaîne :",
+    "CMM interp.": "Interp. CMM",
+    "Per-stage intent": "Intention par étape",
+    "iccApplyProfiles output knobs": "Réglages de sortie iccApplyProfiles"
+  }
+}

@@ -1,9 +1,9 @@
 #!/bin/bash
 # (c) 2026 William Li
 # Pre-commit hook for profiletool:
-#   1. Regenerate frontend/public/help.html when MANUAL.md or
-#      scripts/generate-help.js is staged.
-#   2. Abort the commit if help.html is hand-edited (it's auto-generated).
+#   1. Regenerate frontend/public/help*.html (English + every locale) when a
+#      user-guide source is staged, and run the manual translation check.
+#   2. Abort the commit if a help page is hand-edited (they're auto-generated).
 #
 # Activate after a fresh clone with:
 #   git config core.hooksPath hooks
@@ -33,27 +33,39 @@ if [ -n "$SINK_HITS" ]; then
     exit 1
 fi
 
+# The user guide: MANUAL.md (English) + manual/MANUAL.<lang>.md translations →
+# frontend/public/help.html + help.<lang>.html. The pages also depend on the
+# generator, its l10n model and width table, and i18n.jsx (diagram labels and the
+# bold-UI-label check read the interface dictionary).
+HELP_SOURCES='^(MANUAL\.md|manual/.*|scripts/generate-help\.js|scripts/lib/manual-l10n\.cjs|scripts/lib/arial-widths\.json|scripts/check-manual-l10n\.mjs|frontend/src/i18n\.jsx)$'
 HELP_SOURCE_CHANGED=false
-if echo "$STAGED" | grep -qE '^(MANUAL\.md|scripts/generate-help\.js)$'; then
+if echo "$STAGED" | grep -qE "$HELP_SOURCES"; then
     HELP_SOURCE_CHANGED=true
 fi
 
-if echo "$STAGED" | grep -qE '^frontend/public/help\.html$' && [ "$HELP_SOURCE_CHANGED" = false ]; then
+if echo "$STAGED" | grep -qE '^frontend/public/help(\.[A-Za-z-]+)?\.html$' && [ "$HELP_SOURCE_CHANGED" = false ]; then
     echo ""
-    echo "ERROR: frontend/public/help.html is auto-generated from MANUAL.md."
-    echo "Edit MANUAL.md (or scripts/generate-help.js for diagrams/layout) instead."
+    echo "ERROR: frontend/public/help*.html are auto-generated from MANUAL.md and manual/."
+    echo "Edit MANUAL.md, manual/MANUAL.<lang>.md (or scripts/generate-help.js for diagrams/layout) instead."
     echo "Commit aborted."
     exit 1
 fi
 
 if [ "$HELP_SOURCE_CHANGED" = true ]; then
-    echo "MANUAL.md or generate-help.js changed — regenerating help.html..."
-    node scripts/generate-help.js
-    if [ $? -ne 0 ]; then
+    echo "User-guide sources changed — regenerating help pages..."
+    if ! node scripts/generate-help.js; then
         echo ""
-        echo "ERROR: help.html generation failed — commit aborted."
+        echo "ERROR: help page generation failed — commit aborted."
         exit 1
     fi
-    git add frontend/public/help.html
-    echo "help.html regenerated and staged."
+    # Translation check: structural errors and interface-label mismatches block the
+    # commit; stale sections only warn (they build in English with a note).
+    if ! node scripts/check-manual-l10n.mjs --quiet; then
+        echo ""
+        echo "ERROR: manual translation check failed — run node scripts/check-manual-l10n.mjs for details."
+        echo "Commit aborted."
+        exit 1
+    fi
+    git add frontend/public/help.html frontend/public/help.*.html
+    echo "Help pages regenerated and staged."
 fi

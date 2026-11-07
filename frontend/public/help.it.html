@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICC Profile Tool — Guida</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, 'Noto Sans SC', 'Hiragino Sans', 'Microsoft YaHei', 'Apple SD Gothic Neo', sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
+    .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-size: 24px; color: #1a5a8a; margin-bottom: 6px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+    h2 { font-size: 17px; color: #1a5a8a; margin: 36px 0 10px; padding-bottom: 5px; border-bottom: 2px solid #d0e6f5; }
+    h3 { font-size: 14px; font-weight: bold; color: #333; margin: 20px 0 6px; }
+    h4 { font-size: 13px; font-weight: bold; color: #555; margin: 14px 0 4px; }
+    p { font-size: 14px; margin-bottom: 10px; }
+    ul, ol { font-size: 14px; margin: 8px 0 10px 24px; }
+    li { margin-bottom: 4px; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 1px 5px; border-radius: 3px; }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 13px; }
+    th { background: #e8edf2; text-align: left; padding: 6px 10px; border: 1px solid #ccd6e0; font-weight: bold; color: #444; }
+    td { padding: 5px 10px; border: 1px solid #dde4ec; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f9fb; }
+    .note { background: #fff8e6; border-left: 3px solid #f0b429; padding: 8px 12px; font-size: 13px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+    nav { background: #fff; border: 1px solid #dde; border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; font-size: 13px; }
+    nav ol { margin-left: 18px; }
+    pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 8px 12px; border-radius: 4px; margin: 8px 0 12px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
+    nav li { margin-bottom: 3px; }
+    nav a { color: #1a5a8a; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    hr { border: none; border-top: 1px solid #dde; margin: 32px 0; }
+    strong { color: #222; }
+    section { margin-bottom: 8px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1c1f; color: #d0d4da; }
+      h1 { color: #7ab8e8; }
+      h2 { color: #7ab8e8; border-bottom-color: #2a4a60; }
+      h3 { color: #c8cdd4; }
+      h4 { color: #9aa0a8; }
+      code { background: #2a2e35; color: #a8d4f0; }
+      pre { background: #2a2e35; }
+      table { color: #c8cdd4; }
+      th { background: #252930; border-color: #3a4048; color: #9aa0a8; }
+      td { border-color: #2e3440; }
+      tr:nth-child(even) td { background: #1e2128; }
+      .note { background: #2a2410; border-left-color: #c08820; color: #c8b880; }
+      nav { background: #22262e; border-color: #333a44; }
+      nav a { color: #7ab8e8; }
+      hr { border-top-color: #2e3440; }
+      strong { color: #e0e4ea; }
+      .subtitle { color: #666e7a; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>ICC Profile Tool — Guida</h1>
+  <p class="subtitle">Strumento basato sul browser per ispezionare, convalidare e modificare in round-trip i profili ICC.1 e ICC.2 (iccMAX)</p>
+
+<p><strong>ICC Profile Tool</strong> (profiletool; nell'interfaccia italiana <strong>Strumento per profili ICC</strong>) è uno strumento basato sul browser per ispezionare, convalidare e modificare in round-trip i profili colore <strong>ICC.1</strong> e <strong>ICC.2 (iccMAX)</strong>. Funziona interamente nel browser — nessun caricamento su server, nessuna installazione — grazie a una build WebAssembly di <a href="https://github.com/InternationalColorConsortium/iccDEV">iccDEV</a>, l'implementazione dimostrativa ufficiale di IccProfLib dell'ICC.</p>
+<p><strong>Cosa puoi fare:</strong></p>
+<ul>
+<li><strong>Esaminare l'intestazione</strong> — ogni campo dell'intestazione del profilo da 128 byte, decodificato in stringhe leggibili.</li>
+<li><strong>Esaminare la directory dei tag</strong> — ogni tag con firma, tipo, offset in byte, dimensione e byte di riempimento. Fai clic su un tag per espandere la descrizione completa specifica del tipo (lo stesso output della vista "Describe" di <code>wxProfileDump</code> di iccDEV) e — per i tag che ne hanno una — una <strong>visualizzazione</strong> in linea: curve di risposta tonale, diagrammi di cromaticità, immagini CLUT e del gamut, grafici a dispersione dei colori nominali, più un <strong>valutatore della trasformazione</strong> su un singolo punto.</li>
+<li><strong>Convalidare</strong> — eseguire la checklist dell'ICC Profile Assessment Working Group (Sicurezza / Conformità / Qualità), con un esito per ogni controllo e un filtro per categoria.</li>
+<li><strong>Modificare in round-trip</strong> — convertire il profilo in XML o JSON, modificarlo nell'editor di codice integrato, riconvertirlo in ICC e convalidarlo di nuovo. Il pulsante di salvataggio scarica il file binario modificato.</li>
+<li><strong>Concatenare profili</strong> — nella scheda <strong>Collega</strong>, trascina i profili del pool in una catena ordinata, poi convertila in un <strong>DeviceLink</strong>, <strong>trasforma un'immagine</strong> attraverso di essa (con pieno controllo su codifica di output, compressione, disposizione planare e incorporamento ICC) oppure <strong>trasforma un set di dati colore</strong>.</li>
+<li><strong>Lavorare con l'HDR</strong> — verificare un profilo rispetto alle regole ICC.1 per gli HDR ColorSpace Profile (clausola 8.7.1), leggerne i punti di codice cICP e tracciarne la curva di guadagno adattiva a qualsiasi margine (headroom) del display. La scheda <strong>HDR</strong> mostra un'immagine HDR sul tuo display e <strong>Impostazioni → Ambiente</strong> riporta che cosa sanno fare questo browser e questo display.</li>
+<li><strong>Avviare da chardata</strong> — aprire qui direttamente un profilo caricato in <a href="https://chardata.colourbill.com/">chardata</a>, con i byte trasferiti all'interno del browser tramite <code>postMessage</code>.</li>
+<li><strong>Avviare con un URL</strong> — aprire un link che indica allo strumento un profilo ospitato sul web e, facoltativamente, la scheda su cui arrivare (ad es. <code>…/profiletool#url=…&tab=VAL</code>).</li>
+</ul>
+<p>Tutto viene eseguito lato client. I byte del profilo non lasciano mai la scheda del browser.</p>
+<div class="note">
+<strong>Il supporto ICC.2 (iccMAX) è parziale.</strong> I profili ICC.2 si caricano, si ispezionano, si convalidano e supportano il round-trip come quelli ICC.1 — la checklist di convalida include controlli specifici per iccMAX, i PCS spettrali e i tag multi-processing-element vengono decodificati e i motori di trasformazione sono compilati sull'intero stack iccMAX. Non ancora coperti: i flussi di lavoro <strong>ICS</strong> (Interchange Color Space) in più parti, la selezione di un <em>sotto-profilo</em> V5 quando si applica una trasformazione e la ricerca inversa su alcuni profili ICC.2. Sono prevedibili lacune sulle funzioni ICC.2 più particolari; vengono colmate versione dopo versione.
+</div>
+<div class="note">
+<strong>Il supporto degli HDR ColorSpace Profile segue una bozza.</strong> I controlli HDR, le viste di <code>headroomAdaptiveGainCurveTag</code> e la scheda HDR implementano l'emendamento HDR di ICC.1 nella sua forma attuale. L'emendamento non è ancora pubblicato, quindi alcuni dettagli potrebbero cambiare prima della pubblicazione.
+</div>
+
+  <nav>
+    <strong>Indice</strong>
+    <ol>
+      <li><a href="#1-the-workspace">L'area di lavoro</a></li>
+      <li><a href="#2-settings-panel">Pannello Impostazioni</a></li>
+      <li><a href="#3-profile-views">Viste del profilo</a>
+        <ol>
+          <li><a href="#3-1-header">Intestazione</a></li>
+          <li><a href="#3-2-tags">Tag</a></li>
+          <li><a href="#3-3-validation">Convalida</a></li>
+          <li><a href="#3-4-analysis">Analisi</a></li>
+          <li><a href="#3-5-xml">XML</a></li>
+          <li><a href="#3-6-json">JSON</a></li>
+        </ol>
+      </li>
+      <li><a href="#4-combine-tab">Scheda Collega</a>
+        <ol>
+          <li><a href="#4-1-building-a-chain">Costruire una catena</a></li>
+          <li><a href="#4-2-make-devicelink">Crea DeviceLink</a></li>
+          <li><a href="#4-3-transform-image">Trasforma immagine</a></li>
+          <li><a href="#4-4-transform-data">Trasforma dati</a></li>
+          <li><a href="#4-5-observer-change">Cambio di osservatore</a></li>
+          <li><a href="#4-6-compare-and-spectral-tabs">Schede Confronta e Spettrale</a></li>
+          <li><a href="#4-7-hdr-tab">Scheda HDR</a></li>
+        </ol>
+      </li>
+      <li><a href="#5-round-trip-editing">Modifica round-trip</a></li>
+      <li><a href="#6-launching-from-chardata">Avvio da chardata</a></li>
+      <li><a href="#7-launching-with-a-url">Avvio con un URL</a></li>
+      <li><a href="#8-mobile">Dispositivi mobili</a></li>
+      <li><a href="#9-limits-and-security">Limiti e sicurezza</a></li>
+    </ol>
+  </nav>
+
+<h2 id="1-the-workspace">1. L'area di lavoro</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 780 470"
+  style="width:100%;max-width:780px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="780" height="470" rx="0" class="bg"/><rect x="10" y="10" width="172" height="450" rx="8" class="pnl"/><rect x="10" y="10" width="172" height="28" rx="8" class="hd"/><text x="22" y="29" text-anchor="start" class="tB">Profili</text><rect x="74" y="17" width="18" height="14" rx="7" class="act"/><text x="83" y="28" text-anchor="middle" class="tW">3</text><text x="138" y="29" text-anchor="start" class="t3">A–Z ↕</text><text x="172" y="29" text-anchor="end" class="t3">‹</text><rect x="22" y="46" width="110" height="20" rx="5" class="act"/><text x="77" y="60" text-anchor="middle" class="tW tB">Carica profili</text><text x="22" y="84" text-anchor="start" class="tA">＋ Nuovo da .cube</text><text x="22" y="106" text-anchor="start" class="t3 tB">▾ Uscita</text><text x="168" y="106" text-anchor="end" class="t3">2</text><rect x="20" y="114" width="152" height="32" rx="5" class="sec"/><text x="28" y="127" text-anchor="start" class="t2 mono">Coated.icc</text><text x="28" y="140" text-anchor="start" class="t3">prtr · CMYK · v4.3</text><text x="164" y="130" text-anchor="end" class="t3">×</text><rect x="20" y="152" width="152" height="32" rx="5" class="sec"/><text x="28" y="165" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="28" y="178" text-anchor="start" class="t3">mntr · RGB · v4.2</text><text x="164" y="168" text-anchor="end" class="t3">×</text><text x="22" y="206" text-anchor="start" class="t3 tB">▸ Visualizzazione</text><text x="168" y="206" text-anchor="end" class="t3">1</text><text x="22" y="232" text-anchor="start" class="t3" textLength="148" lengthAdjust="spacingAndGlyphs">trascina una riga su una scheda →</text><text x="194" y="30" text-anchor="start" class="tT">Strumento per profili ICC</text><text x="194" y="46" text-anchor="start" class="t3">Basato sull'implementazione dimostrativa di iccDEV</text><line x1="194" y1="54" x2="634" y2="54" class="div"/><line x1="194" y1="78" x2="268" y2="78" stroke="var(--act)" stroke-width="3"/><text x="231" y="72" text-anchor="middle" class="tA">Profilo</text><rect x="254" y="62" width="16" height="12" rx="6" class="act"/><text x="262" y="72" text-anchor="middle" class="tW">1</text><text x="313" y="72" text-anchor="middle" class="t2">Confronta</text><rect x="336" y="62" width="16" height="12" rx="6" class="act"/><text x="344" y="72" text-anchor="middle" class="tW">2</text><text x="395" y="72" text-anchor="middle" class="t2">Collega</text><text x="477" y="72" text-anchor="middle" class="t2">Spettrale</text><line x1="194" y1="80" x2="634" y2="80" class="div"/><rect x="194" y="90" width="116" height="20" rx="9" class="lnbd"/><text x="204" y="104" text-anchor="start" class="t3">Coated.icc   ×</text><text x="194" y="133" text-anchor="start" class="tB">Coated.icc</text><rect x="270" y="121" width="122" height="16" rx="8" class="amber"/><text x="331" y="133" text-anchor="middle" class="tW" textLength="114" lengthAdjust="spacingAndGlyphs">● Modificato — non salvato</text><rect x="544" y="119" width="90" height="22" rx="5" class="act"/><text x="589" y="134" text-anchor="middle" class="tW tB">Salva profilo</text><rect x="194" y="150" width="440" height="306" rx="6" class="pnl"/><rect x="194" y="150" width="440" height="26" rx="6" class="sec"/><text x="204" y="167" text-anchor="start" class="tB mono">Coated.icc</text><text x="280" y="167" text-anchor="start" class="t3">· 1,838,244 bytes · IccProfLib 2.3.1</text><rect x="582" y="156" width="44" height="14" rx="3" class="green"/><text x="604" y="167" text-anchor="middle" class="tW tB" textLength="40" lengthAdjust="spacingAndGlyphs">Superato</text><line x1="204" y1="202" x2="262" y2="202" stroke="var(--act)" stroke-width="3"/><text x="233" y="194" text-anchor="middle" class="tA" textLength="54" lengthAdjust="spacingAndGlyphs">Intestazione</text><text x="291" y="194" text-anchor="middle" class="t2">Tag</text><rect x="304" y="184" width="18" height="12" rx="6" class="act"/><text x="313" y="194" text-anchor="middle" class="tW">14</text><text x="356" y="194" text-anchor="middle" class="t2">Convalida</text><text x="429" y="194" text-anchor="middle" class="t2">Analisi</text><text x="485" y="194" text-anchor="middle" class="t2">XML</text><text x="529" y="194" text-anchor="middle" class="t2">JSON</text><line x1="204" y1="204" x2="624" y2="204" class="div"/><rect x="204" y="216" width="420" height="20" rx="4" class="sec"/><text x="212" y="229" text-anchor="start" class="t3 tB">PROFILE ID</text><text x="284" y="229" text-anchor="start" class="tA mono">9efa8dc6c12f4e0b8b3a04e6c5a6e51c</text><rect x="204" y="242" width="420" height="18" rx="0" class="sec"/><text x="212" y="254" text-anchor="start" class="t3">Profile Class</text><text x="344" y="254" text-anchor="start" class="t2">Output Profile</text><text x="212" y="272" text-anchor="start" class="t3">Data Color Space</text><text x="344" y="272" text-anchor="start" class="t2">CMYK</text><rect x="204" y="278" width="420" height="18" rx="0" class="sec"/><text x="212" y="290" text-anchor="start" class="t3">PCS</text><text x="344" y="290" text-anchor="start" class="t2">Lab</text><text x="212" y="308" text-anchor="start" class="t3">Profile Version</text><text x="344" y="308" text-anchor="start" class="t2">4.30.00</text><rect x="204" y="314" width="420" height="18" rx="0" class="sec"/><text x="212" y="326" text-anchor="start" class="t3">Rendering Intent</text><text x="344" y="326" text-anchor="start" class="t2">Perceptual</text><text x="212" y="344" text-anchor="start" class="t3">Creation Date</text><text x="344" y="344" text-anchor="start" class="t2">2025-08-14 10:24 UTC</text><rect x="766" y="10" width="6" height="450" rx="0" class="pnl"/><rect x="728" y="30" width="38" height="32" rx="5" class="btn"/><text x="747" y="51" text-anchor="middle" class="t2 tB">⚙</text><rect x="728" y="68" width="38" height="32" rx="5" class="btn"/><text x="747" y="89" text-anchor="middle" class="t2 tB">?</text><rect x="728" y="106" width="38" height="32" rx="5" class="btn"/><text x="747" y="127" text-anchor="middle" class="t2">✉</text><line x1="747" y1="46" x2="712" y2="42" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="39" text-anchor="end" class="t3">⚙ Impostazioni</text><line x1="747" y1="84" x2="712" y2="80" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="77" text-anchor="end" class="t3">? Aiuto</text><line x1="747" y1="122" x2="712" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="115" text-anchor="end" class="t3">✉ Contatto</text>
+</svg><p>profiletool è un <strong>banco di lavoro multi-profilo</strong>. La finestra è composta da tre parti:</p>
+<ul>
+<li>il pannello <strong>Profili</strong> a sinistra — il <em>pool</em> di tutto ciò che hai caricato;</li>
+<li>l'<strong>area di lavoro</strong> a destra, con cinque schede in alto — <strong>Profilo</strong>, <strong>Confronta</strong>, <strong>Collega</strong>, <strong>Spettrale</strong>, <strong>HDR</strong>;</li>
+<li>il pannello laterale <strong>Impostazioni</strong> sul bordo destro (vedi <a href="#2-settings-panel">Pannello Impostazioni</a>).</li>
+</ul>
+<h3 id="loading-profiles">Caricare i profili</h3>
+<p>Puoi caricare i file in due modi:</p>
+<ul>
+<li>Fai clic su <strong>Carica profili</strong> in cima al pannello Profili e scegli uno o più file, oppure</li>
+<li><strong>Trascina e rilascia</strong> i file sul pannello Profili.</li>
+</ul>
+<p>Puoi caricare profili <code>.icc</code> / <code>.icm</code> <em>e</em> immagini. Rilascia un file <strong>TIFF, PNG, JPEG, HEIC o AVIF</strong> e lo strumento ne estrae il <strong>profilo ICC incorporato</strong> e lo aggiunge al pool. Legge solo i metadati del file, mai i pixel. Per HEIC e AVIF percorre i box del file, quindi funziona in ogni browser, anche in quelli che non sanno visualizzare questi formati. Anche un file <strong>JPEG XL</strong> viene rifiutato: il suo profilo è compresso all'interno del codestream, che profiletool non sa ancora decomprimere. I video e i file raw di fotocamera che condividono il contenitore di HEIC (MP4, QuickTime, Canon CR3) non vengono trattati come immagini. Un file <strong>OpenEXR</strong> o <strong>Radiance HDR</strong> (<code>.hdr</code>) viene rifiutato indicandone il motivo: nessuno dei due formati prevede uno spazio per un profilo ICC. OpenEXR dichiara il proprio colore tramite cromaticità, Radiance HDR tramite una riga di intestazione <code>PRIMARIES</code> facoltativa. Per <em>visualizzare</em> un'immagine, usa la <a href="#4-7-hdr-tab">scheda HDR</a>. Il pulsante <strong>＋ Nuovo da .cube</strong> crea un DeviceLink da una LUT <code>.cube</code>. Il risultato viene aggiunto al pool e aperto nella scheda <strong>Profilo</strong>; nulla viene scaricato finché non fai clic su <strong>Salva profilo ICC</strong>.</p>
+<p>Un profilo viene accettato se i suoi primi 36 byte contengono la firma <code>acsp</code> e se supera l'analisi di <code>ValidateIccProfile</code> di IccProfLib. I file non validi sono elencati in un riepilogo dei rifiuti con il motivo specifico; i loro byte non vengono conservati.</p>
+<h3 id="the-profiles-pane">Il pannello Profili</h3>
+<p>I profili caricati sono raggruppati in sezioni comprimibili per <strong>classe di profilo</strong> (Input, Display, Output, DeviceLink, ColorSpace, Abstract, Named Color, …). Gli <strong>HDR ColorSpace Profile</strong> della clausola 8.7.1 di ICC.1 hanno invece una sezione propria in cima, <strong>Profili HDR ColorSpace</strong> (sono profili di classe ColorSpace, quindi vengono estratti dalla sezione ColorSpace), suddivisa per trasferimento in <strong>Trasferimento lineare</strong> e <strong>Trasferimento non lineare (PQ, HLG)</strong>, con il trasferimento indicato da un badge su ogni riga. La suddivisione conta nella <a href="#4-7-hdr-tab">scheda HDR</a>, dove a un'immagine OpenEXR o Radiance HDR si può assegnare solo un profilo a trasferimento lineare. Ogni riga mostra il nome del file e i badge di classe, spazio colore, versione e dimensione; un profilo analizzabile solo in parte viene segnalato. Usa il pulsante <strong>A–Z</strong> per cambiare l'ordinamento (ordine di caricamento → crescente → decrescente), la <strong>×</strong> su una riga per rimuoverla e la maniglia sul bordo destro del pannello per ridimensionarlo — oppure comprimi del tutto il pannello.</p>
+<p>Fai clic su una riga per selezionarla; Ctrl/Cmd-clic per aggiungerla o toglierla dalla selezione e Maiusc-clic per selezionare un intervallo. <strong>Trascina le righe dal pool su una scheda</strong> per metterle all'opera.</p>
+<div class="note">
+<strong>Il pool dura solo per la sessione.</strong> Nulla viene caricato su un server e nulla viene conservato — il tuo file system resta l'archivio permanente. Ricaricando la pagina il pool si svuota.
+</div>
+<h3 id="the-tabs">Le schede</h3>
+<table><thead>
+<tr><th>Scheda</th><th>Cosa fa</th></tr></thead><tbody>
+<tr><td><strong>Profilo</strong></td><td>Ispeziona <strong>un</strong> profilo — intestazione, tag, convalida, analisi, XML, JSON. Rilasciando qui un nuovo profilo si sostituisce quello attuale.</td></tr>
+<tr><td><strong>Confronta</strong></td><td>Sovrappone i gamut di <strong>due o più</strong> profili.</td></tr>
+<tr><td><strong>Collega</strong></td><td>Concatena i profili in un DeviceLink, oppure trasforma attraverso di essi un'immagine o un set di dati.</td></tr>
+<tr><td><strong>Spettrale</strong></td><td>Riunisce immagini spettrali a canale singolo in un unico TIFF multicanale.</td></tr>
+<tr><td><strong>HDR</strong></td><td>Mostra <strong>un'</strong>immagine HDR sul tuo display, con un controllo SDR ↔ HDR. Vedi <a href="#4-7-hdr-tab">Scheda HDR</a>.</td></tr>
+</tbody></table>
+<p>Le schede Spettrale e HDR accettano direttamente file immagine anziché profili del pool. Ciascuna delle altre schede mantiene un proprio insieme di profili, mostrati come chip rimovibili sotto la barra delle schede, con un badge numerico sulla scheda stessa. Il primo profilo caricato si apre automaticamente nella scheda <strong>Profilo</strong>; in seguito, trascinalo dal pool sulla scheda che preferisci. Rilasciando i file direttamente su una scheda li si carica nel pool <em>e</em> li si colloca su quella scheda in un'unica azione.</p>
+<div class="note">
+<strong>Limite di dimensione:</strong> il caricatore rifiuta qualsiasi file più grande di 256 MB. I profili reali sono normalmente ben al di sotto dei 10 MB; il limite serve solo a impedire che un rilascio o un postMessage ostile esaurisca l'heap WASM della scheda.
+</div>
+<hr>
+<h2 id="2-settings-panel">2. Pannello Impostazioni</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 380 186"
+  style="width:100%;max-width:380px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="380" height="186" rx="0" class="bg"/><rect x="8" y="8" width="364" height="170" rx="8" class="pnl"/><rect x="8" y="24" width="38" height="34" rx="5" class="btn"/><text x="27" y="45" text-anchor="middle" class="t2 tB">⚙</text><rect x="8" y="64" width="38" height="34" rx="5" class="btn"/><text x="27" y="85" text-anchor="middle" class="t2 tB">?</text><rect x="8" y="104" width="38" height="34" rx="5" class="btn"/><text x="27" y="125" text-anchor="middle" class="t2">✉</text><line x1="46" y1="8" x2="46" y2="178" class="div"/><text x="54" y="32" text-anchor="start" class="tT">Impostazioni</text><line x1="50" y1="44" x2="366" y2="44" class="div"/><text x="54" y="69" text-anchor="start" class="tA tB">Visualizzazione</text><text x="54" y="91" text-anchor="start" class="t3 tB">Sfondo</text><rect x="232" y="78" width="130" height="22" rx="4" class="btn"/><text x="242" y="93" text-anchor="start" class="t2">Sistema</text><text x="352" y="93" text-anchor="end" class="t3">▾</text><text x="54" y="121" text-anchor="start" class="t3 tB">Formato numerico</text><rect x="232" y="108" width="130" height="22" rx="4" class="btn"/><text x="242" y="123" text-anchor="start" class="t2">Esadecimale</text><text x="352" y="123" text-anchor="end" class="t3">▾</text><text x="54" y="151" text-anchor="start" class="t3 tB">Lingua</text><rect x="232" y="138" width="130" height="22" rx="4" class="btn"/><text x="242" y="153" text-anchor="start" class="t2" textLength="104" lengthAdjust="spacingAndGlyphs">Predefinito di sistema (Italiano)</text><text x="352" y="153" text-anchor="end" class="t3">▾</text>
+</svg><p>Apri le Impostazioni facendo clic sul pulsante <strong>⚙</strong> sul bordo destro dello schermo (o sull'icona a ingranaggio in alto a destra sui dispositivi mobili). Il pannello scorre sopra il contenuto senza ridimensionarlo.</p>
+<p>Sotto ⚙ si trovano altri due pulsanti:</p>
+<ul>
+<li><strong>?</strong> apre questa guida <strong>all'interno dell'app</strong>, in un pannello che scorre sopra la finestra. Nell'intestazione ha una casella di ricerca — digita per evidenziare le corrispondenze, poi usa <code>Enter</code> / <code>Shift+Enter</code> (o i pulsanti <code>˄</code> <code>˅</code>) per scorrerle; <code>Escape</code> cancella la ricerca e un secondo <code>Escape</code> chiude il pannello.</li>
+<li><strong>✉</strong> apre il modulo di contatto su colourbill.com in una nuova scheda del browser.</li>
+</ul>
+<p>Il pannello ha due gruppi, <strong>Visualizzazione</strong> e <strong>Ambiente</strong>. Per allargare o restringere il pannello, trascinane il bordo sinistro (220–560 px); la larghezza viene memorizzata.</p>
+<h3 id="background">Sfondo</h3>
+<p>Passa l'app tra i temi <strong>Chiaro</strong>, <strong>Scuro</strong> e <strong>Sistema</strong> (segue la preferenza del sistema operativo). La scelta viene mantenuta tra una sessione e l'altra. In modalità <strong>Sistema</strong> l'app si iscrive a <code>prefers-color-scheme</code> e cambia automaticamente quando cambia il tema del sistema operativo; scegliendo esplicitamente Chiaro o Scuro quel listener viene scollegato.</p>
+<h3 id="number-format">Formato numerico</h3>
+<p>Sceglie come vengono mostrati i valori numerici in tutte le viste del profilo — <strong>Esadecimale</strong> o <strong>Decimale</strong>.</p>
+<h3 id="language">Lingua</h3>
+<p>Imposta la lingua dell'interfaccia. <strong>Predefinito di sistema (…)</strong> rileva la lingua del browser e usa la lingua supportata più vicina, con il nome nativo tra parentesi per mostrarti quale ha scelto. La traduzione copre l'interfaccia dell'app: il pannello Profili, le etichette delle schede, gli strumenti Collega, Spettrale e HDR, le viste della curva di guadagno HDR in Tag, il pannello Impostazioni compresi Ambiente e le sue motivazioni, e l'interfaccia di questa guida. Alcuni testi non vengono tradotti:</p>
+<ul>
+<li>Le stringhe prodotte da IccProfLib — descrizioni dei tag, messaggi di convalida, nomi dei campi dell'intestazione — provengono dalla libreria C++ in inglese.</li>
+<li>Il nome del flag del browser resta in inglese, così corrisponde alla pagina dei flag del browser stesso.</li>
+<li>Il registro <strong>Eventi del display</strong> del pannello Ambiente resta in inglese, così si può incollare così com'è in una segnalazione di bug.</li>
+<li>Questa guida segue la stessa impostazione, tranne le sezioni sull'HDR, che restano in inglese finché il supporto HDR è in beta e il loro testo è ancora in evoluzione. Anche una sezione rivista in inglese dopo l'ultimo aggiornamento della traduzione viene mostrata in inglese, con una nota, finché la traduzione non viene aggiornata.</li>
+</ul>
+<p>Lingue supportate: English, Français, Deutsch, Italiano, Español, Português (PT), Português (BR), Svenska, 中文（简体）, 中文（繁體）, 日本語, 한국어. Il pannello Impostazioni di chardata offre lo stesso insieme, quindi cambiando la lingua in un'app si ottiene un'esperienza di lettura coerente nell'altra.</p>
+<h3 id="environment">Ambiente</h3>
+<p>Mostra che cosa sanno fare <strong>questo</strong> browser, questa piattaforma e questo display, così quando un formato o una funzione HDR non è disponibile puoi capire perché. Dall'alto in basso:</p>
+<ul>
+<li><strong>Riepilogo</strong> — il browser e il sistema operativo, e se il display dichiara il supporto HDR.</li>
+<li><strong>Flag del browser</strong> (Chrome, Edge, Opera, Brave) — se <em>Experimental Web Platform features</em> è attivo. Quel flag abilita il canvas HDR e permette alla pagina di leggere il margine HDR di un display.</li>
+<p>
+  - Quando si sa che il flag non è attivo, il riquadro viene evidenziato. È indicato come <strong>necessario</strong> se questo browser non dispone di un WebGPU utilizzabile, perché il canvas HDR è allora l'unico modo di rendere l'HDR. Altrimenti è <strong>facoltativo</strong>.
+ 
+  - L'ispezione dei profili non ne ha mai bisogno.
+ 
+  - Una pagina web non può aprire né modificare i flag del browser. Fai clic su <strong>Copia</strong>, incolla l'indirizzo nella barra degli indirizzi, imposta il flag su <em>Enabled</em>, quindi riavvia il browser.
+<li><strong>Caratteristiche del display</strong> — <strong>Display HDR</strong>, <strong>Gamut esteso</strong> (sRGB, Display P3 o Rec. 2020), <strong>Rapporto pixel</strong> e il <strong>Percorso canvas HDR</strong> in uso (<code>float16-canvas</code>, <code>webgpu</code> o nessuno). Si aggiornano da sole quando trascini la finestra su uno schermo dove sono diverse. Il passaggio avviene quando la maggior parte della finestra si trova sul nuovo schermo.</li>
+<li><strong>Identifica i display</strong> (browser Chromium) — chiede il permesso di vedere su quale monitor si trova la finestra. Una volta concesso, il pannello si aggiorna anche tra monitor simili, indica il <strong>Monitor attuale</strong> e mostra il <strong>Margine HDR</strong> dove il browser lo espone (Chrome con il flag sopra), ad esempio <em>1,35 stop (≈2,55× il bianco SDR)</em>. Se rifiuti il permesso, puoi modificarlo nelle impostazioni del sito.</li>
+ 
+  - Il margine è lo spazio sopra il bianco SDR, quindi sul pannello HDR integrato di un portatile <strong>diminuisce quando aumenti la luminosità</strong> (il bianco SDR diventa più luminoso mentre il picco del pannello resta invariato) e aumenta quando la abbassi. Per la visione HDR, abbassa la luminosità.
+ 
+  - Su Windows il nuovo valore arriva qualche secondo dopo una modifica della luminosità, quando il driver video lo comunica. Si aggiorna anche quando la finestra passa a un altro schermo o Chrome torna a essere l'app attiva.
+<li><strong>Eventi del display</strong> — un registro comprimibile degli ultimi 20 aggiornamenti e di ciò che ha attivato ciascuno. È utile per segnalare un problema del display.</li>
+<li><strong>Tabella dei formati</strong> — una riga per formato (profilo ICC, TIFF, PNG, JPEG, OpenEXR, Radiance HDR, AVIF, HEIC/HEIF, JPEG XL), con tre domande:</li>
+ 
+  - <strong>Ispeziona</strong>: il profilo incorporato è leggibile?
+ 
+  - <strong>Visualizza</strong>: i pixel possono essere mostrati?
+ 
+  - <strong>HDR</strong>: può essere reso più luminoso del bianco?
+</ul>
+</p>
+<p>  Passa il puntatore su una riga per conoscere il motivo di una ✕; i formati che non possono essere visualizzati sono elencati sotto la tabella con i rispettivi motivi. Un punto contrassegna i formati che profiletool decodifica da sé, che funzionano allo stesso modo in ogni browser. <strong>Ispeziona</strong> è ✓ per tutti i formati tranne JPEG XL, il cui profilo è compresso all'interno del codestream.</p>
+<hr>
+<h2 id="3-profile-views">3. Viste del profilo</h2>
+<p>Trascina un profilo dal pool sulla scheda <strong>Profilo</strong> per ispezionarlo. La scheda mostra una barra con il nome del file e un pulsante <strong>Salva profilo ICC</strong> (più un'etichetta <em>● Modificato — non salvato</em> dopo che lo hai modificato) e, sotto, il visualizzatore: una barra del titolo (nome del file · dimensione in byte · versione di IccProfLib · badge di validità) e una propria barra di schede.</p>
+<p>Il badge riassume il rapporto di <strong>Convalida</strong>: verde <strong>Superato</strong> quando nessun controllo fallisce o genera avvisi, ambra <strong>Avviso</strong> quando almeno un controllo genera un avviso, rosso <strong>Non superato</strong> quando un controllo fallisce.</p>
+<div class="note">
+<strong>Profili analizzati in parte:</strong> se un profilo è danneggiato al punto che il validatore può leggerne solo la struttura, compare un banner di avviso e sono disponibili solo le schede <strong>Intestazione</strong> e <strong>Tag</strong> — Convalida, Analisi, XML e JSON sono nascoste, perché il profilo non deve essere applicato.
+</div>
+<h3 id="3-1-header">3.1 Intestazione</h3>
+<p>Una tabella a due colonne con tutti i campi dell'intestazione binaria da 128 byte del profilo ICC. I valori sono decodificati in stringhe leggibili (firme espanse, date formattate, valori in virgola fissa convertiti) tramite <code>CIccInfo</code> di IccProfLib. L'<strong>ID del profilo</strong> (l'hash MD5 presente nell'intestazione) è mostrato in una fascia evidenziata in alto.</p>
+<h3 id="3-2-tags">3.2 Tag</h3>
+<p>Una griglia a sei colonne con tutti i tag della directory dei tag del profilo:</p>
+<table><thead>
+<tr><th>Colonna</th><th>Significato</th></tr></thead><tbody>
+<tr><td><code>#</code></td><td>Posizione nella directory (a partire da 1)</td></tr>
+<tr><td><code>Name</code></td><td>Nome esteso leggibile (ad es. <code>profileDescriptionTag</code>)</td></tr>
+<tr><td><code>ID</code></td><td>Firma di 4 caratteri (ad es. <code>desc</code>)</td></tr>
+<tr><td><code>Offset</code></td><td>Offset in byte dall'inizio del file</td></tr>
+<tr><td><code>Size</code></td><td>Dimensione in byte dei dati del tag</td></tr>
+<tr><td><code>Pad</code></td><td>Byte di riempimento tra questo tag e il successivo</td></tr>
+</tbody></table>
+<p>La firma del <strong>tipo</strong> di tag (ad es. <code>descType</code>, <code>mft2</code>, <code>mAB</code>) è mostrata insieme a offset e dimensione in cima al tag espanso.</p>
+<p>I tag sono ordinati per offset. La colonna <strong>Riempimento</strong> è codificata a colori — <code>Pad < 0</code> (tag sovrapposti, non conformi) è mostrato in rosso; <code>Pad > 3</code> (riempimento oltre quanto previsto dalla specifica) è mostrato in ambra.</p>
+<p><strong>Fai clic su una riga</strong> per espanderla sul posto (a fisarmonica — un tag aperto alla volta). Il dettaglio espanso termina sempre con la descrizione completa specifica del tipo — equivalente all'esecuzione di <code>CIccTag::Describe(verbosity = 100)</code> di IccProfLib. Per i tag che contengono CLUT o curve di grandi dimensioni (ad es. <code>A2B0</code>, <code>B2A0</code>), include ogni cella della griglia o punto della curva.</p>
+<p>Sopra la descrizione, i tag con dati visualizzabili mostrano una o più <strong>visualizzazioni in linea</strong>, ciascuna in una sezione comprimibile:</p>
+<table><thead>
+<tr><th>Tipo di tag</th><th>Visualizzazioni</th></tr></thead><tbody>
+<tr><td>Curve tonali (<code>rTRC</code>/<code>gTRC</code>/<code>bTRC</code>/<code>kTRC</code>)</td><td>La curva di risposta tonale tracciata rispetto alla retta identità; la tabella della curva è compressa sotto il grafico.</td></tr>
+<tr><td>Coloranti RGB (<code>rXYZ</code>/<code>gXYZ</code>/<code>bXYZ</code>) e punto di bianco (<code>wtpt</code>)</td><td>Un diagramma di cromaticità CIE 1931 con il primario corrispondente (o il punto di bianco) evidenziato; i dati del colorante o del punto di bianco sono mostrati sotto.</td></tr>
+<tr><td>Trasformazioni LUT (<code>A2B0–3</code>, <code>B2A0–3</code>, <code>gamt</code>, <code>pre0–2</code>)</td><td>Curve tonali lato ingresso e lato uscita (sovrapposte, con un colore per colorante e una legenda per attivare o disattivare le tracce); il reticolo della CLUT come immagine; l'<strong>immagine del gamut</strong> (per il <code>gamutTag</code> del profilo, codificata a colori — neutro = nel gamut, rosso = fuori gamut); il <strong>valutatore</strong> (vedi sotto); e la tabella dei dati grezzi, compressa.</td></tr>
+<tr><td>Tabelle di colori nominali / coloranti (<code>ncl2</code>/<code>nmcl</code>/<code>clrt</code>/<code>clot</code>)</td><td>Un grafico a dispersione dei colori sui diagrammi CIELAB a*b* (e CIE xy); le tabelle sono compresse sotto.</td></tr>
+<tr><td>Punti di codice indipendenti dalla codifica (<code>cicp</code>)</td><td><strong>Punti di codice</strong>: primari del colore, caratteristiche di trasferimento, coefficienti di matrice e flag di gamma completa, ciascuno denominato come lo definisce ITU-T H.273. I valori che H.273 non assegna vengono segnalati, così come i byte riservati diversi da zero.</td></tr>
+<tr><td>Curva di guadagno adattiva (<code>headroomAdaptiveGainCurveTag</code>)</td><td><strong>Guadagno a un margine del display</strong>, più <strong>Curva di guadagno</strong> quando il tag memorizza immagini alternative. Vedi <em>HDR gain curves (HAGC)</em> più avanti.</td></tr>
+</tbody></table>
+<div class="note">
+<strong>I dati malformati non vengono mai nascosti.</strong> Se una curva o un altro elemento visualizzabile non supera la convalida di IccProfLib — ad esempio una curva tonale con una gamma degenere pari a 0 — la sezione mostra comunque ciò che può e visualizza un avviso ⚠ con il motivo esatto fornito dalla libreria, invece di omettere silenziosamente il grafico.
+</div>
+<h4 id="the-transform-evaluator">Il valutatore della trasformazione</h4>
+<p>Per le trasformazioni LUT (<code>A2B<em></code> / <code>B2A</em></code> / tag di anteprima) la sezione <strong>Valuta</strong> applica la trasformazione di quel tag specifico a un singolo colore da te indicato, usando direttamente IccProfLib — senza alcun motore colore esterno. La direzione segue il tag (<code>A2B<em></code> va da dispositivo → PCS; <code>B2A</em></code> da PCS → dispositivo) e l'intento di rendering è implicito nel tag (<code>…0</code> percettivo, <code>…1</code> colorimetrico relativo, <code>…2</code> saturazione).</p>
+<ul>
+<li>Inserisci l'ingresso come valori in <strong>virgola mobile</strong> (canali del dispositivo, oppure PCS in unità Lab/XYZ leggibili) oppure, quando il tag ha una CLUT, tramite l'indice del <strong>punto griglia</strong> (la posizione di un nodo sul reticolo).</li>
+<li>L'uscita è mostrata in <strong>entrambe</strong> le forme: la codifica interna normalizzata 0–1 e le unità leggibili (Lab/XYZ per un risultato PCS).</li>
+</ul>
+<p>Il tag gamut (<code>gamt</code>) non ha un valutatore — è una mappa a un canale dentro/fuori gamut anziché una trasformazione invertibile; al suo posto viene mostrata la sua immagine del gamut.</p>
+<h4 id="hdr-gain-curves-hagc">HDR gain curves (HAGC)</h4>
+<div class="note"><strong>This section is in English only.</strong> It describes HDR support, a beta feature that follows a draft ICC amendment and is still changing. It will be translated once the feature and its text are stable.</div>
+<p>A <code>headroomAdaptiveGainCurveTag</code> says how an HDR ColorSpace Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:</p>
+<ul>
+<li><strong>Gain curve</strong> plots the control points exactly as stored in the file, one line per alternate image. It is absent when the tag stores no alternate images. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.</li>
+<li><strong>Gain at a display headroom</strong> shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag <strong>Display headroom</strong> from 0 to 6 stops; it starts at the tag's baseline, and <strong>Baseline</strong> returns there. Two plots follow the slider:</li>
+<p>
+  - <strong>Gain applied at this headroom</strong>: the blended curve, drawn against every curve in the tag;
+ 
+  - <strong>Grey tone curve at this headroom</strong>: what a grey input becomes, drawn against <em>no change</em> and the display peak.
+</ul>
+</p>
+<p>
+  Three more views make the adaptation visible:
+ 
+  - <strong>Preview through the colour engine</strong> runs one test strip through IccProfLib's HDR transform twice: a grey ramp, then pure R, G, B, Y, C and M bands, all rising left to right in the profile's own signal (PQ, HLG, or Linear on a log scale). The top strip is <strong>as authored</strong>, at the baseline headroom where the tag applies no gain. The bottom strip is <strong>tone-mapped</strong> for the slider's headroom. Both are capped at that headroom's peak, the way a display with that much headroom would show them. Where the top strip clips to flat, the gain curve rolls the highlights off. Ticks mark where the ramp reaches <strong>reference white</strong> and the <strong>display peak</strong>. The strips use the same HDR output as the <a href="#4-7-hdr-tab">HDR tab</a>: on an HDR display, values above SDR white look brighter than it.
+ 
+  - <strong>Gain across every headroom</strong> is a heatmap of the gain on a grey input. The horizontal axis is input brightness, in stops relative to HDR reference white; the vertical axis is display headroom from 0 to 6 stops. Blue compresses, red expands, white leaves the input unchanged. Dotted lines mark the curves stored in the tag, the solid line the baseline, the amber line the slider, and the dashed diagonal where the input reaches the display peak. <strong>Click</strong> the heatmap to move the slider to that headroom.
+ 
+  - <strong>Grey tone curves by headroom</strong> overlays the tone curve at each headroom the tag stores, shaded from blue (low) to red (high), with the slider's curve in amber. Both axes are in stops, so the diagonal means no change.
+</p>
+<p>  A note appears when slopes or whole curves are derived rather than stored. Another appears when the headroom is outside the tag's range, in which case the nearest curve is used unchanged.</p>
+<p>
+  Two cases have no curves to draw, and the view still explains them:
+ 
+  - <strong>Tone mapping on, no alternate images.</strong> The tag asks for no tone mapping, only a clamp to what the display can show. The gain is zero at every headroom, and the preview strip shows the clamp.
+ 
+  - <strong>Tone mapping off</strong> (the tag's <em>Headroom Adaptive Tone Map</em> flag is clear), or a tag IccProfLib cannot apply. The view says why IccProfLib declines, and a colour engine falls back to the next tone-mapping method (clause 8.7.1.3).
+</p>
+<h3 id="3-3-validation">3.3 Convalida</h3>
+<p>Esegue sul profilo caricato la checklist dell'<strong>ICC Profile Assessment Working Group</strong> e la presenta come rapporto. I controlli provengono dallo strumento <code>iccPawgReport</code> di iccDEV, compilato in un modulo WebAssembly separato che viene scaricato solo quando apri questa scheda per la prima volta. (Lo stesso rapporto determina il badge di validità nella barra del titolo ed è raggiungibile da un avvio tramite URL sia con <code>VAL</code> sia con il codice storico <code>PAWG</code>.)</p>
+<p>Ogni controllo è raggruppato sotto <strong>Sicurezza</strong>, <strong>Conformità</strong> o <strong>Qualità</strong> e riporta un esito. I profili con contenuto HDR hanno un quarto gruppo, <strong>HDR</strong>. Il suo primo controllo indica se il profilo è un <strong>Profilo HDR ColorSpace</strong> ICC.1 conforme (clausola 8.7.1), mentre gli altri verificano i metadati HDR su cui quella clausola si basa:</p>
+<table><thead>
+<tr><th>Esito</th><th>Significato</th></tr></thead><tbody>
+<tr><td><strong>Superato</strong> (PASS)</td><td>Il controllo è riuscito</td></tr>
+<tr><td><strong>Warn</strong></td><td>Un problema non bloccante che merita una verifica</td></tr>
+<tr><td><strong>Non superato</strong> (FAIL)</td><td>Il profilo non soddisfa il controllo</td></tr>
+<tr><td><strong>Gap</strong></td><td>Il controllo non ha potuto essere valutato completamente (ad es. non ancora implementato)</td></tr>
+<tr><td><strong>N/A</strong></td><td>Il controllo non si applica a questo profilo</td></tr>
+<tr><td><strong>Not Run</strong></td><td>Il controllo è stato saltato</td></tr>
+</tbody></table>
+<p>La riga di riepilogo in alto conta ogni esito in una pillola colorata. <strong>Fai clic su una pillola per filtrare</strong> il rapporto sottostante — un alone blu indica le categorie attualmente mostrate e le pillole con zero elementi sono inattive. Ad esempio, disattiva <strong>PASS</strong> e <strong>N/A</strong> per concentrarti solo su WARN e FAIL.</p>
+<h3 id="3-4-analysis">3.4 Analisi</h3>
+<p>Analisi di qualità sull'intero profilo derivate dalle sue trasformazioni colore — calcolate da un modulo WebAssembly dedicato (il motore di visualizzazione di iccDEV), scaricato solo quando apri questa scheda per la prima volta, e tracciate nello stile proprio dell'app.</p>
+<p>Ogni analisi è una sezione comprimibile e <strong>all'inizio sono tutte chiuse</strong>. È una scelta voluta: ogni sezione richiede un passaggio completo di trasformazione sul profilo, quindi aprirne una è una tua scelta esplicita, invece di avviare sei analisi nel momento in cui cambi scheda. I risultati vengono memorizzati in cache, quindi riaprire una sezione è immediato. Una sezione che non si applica al profilo caricato mostra invece una breve nota <em>non applicabile</em> (ad esempio, un profilo display matrice/TRC non ha CLUT dispositivo↔PCS da analizzare).</p>
+<h4 id="profile-statistics">Statistiche del profilo</h4>
+<p>Metriche sull'intero profilo per <strong>un</strong> intento di rendering selezionato, controllate da due elenchi e una casella di controllo:</p>
+<ul>
+<li><strong>Intento di rendering</strong> — Percettivo / Colorimetrico relativo / Saturazione / Colorimetrico assoluto.</li>
+<li><strong>Tipo di round-trip</strong> — quale metrica di accuratezza riportare (vedi sotto).</li>
+<li><strong>Usa tag MPE (colore)</strong> — disattivato = le tabelle di conversione colorimetriche; attivato = i tag multi-processing-element / colore. Non ha effetto sulla panoramica nel gamut, dove è disattivato.</li>
+</ul>
+<p>La tabella mostra il <strong>volume del gamut</strong> (in ΔE*ab³, racchiuso dalla trasformazione dispositivo → PCS <code>A2B</code>, misurato voxelizzando il confine e contando le celle racchiuse) insieme a <strong>min / media / dev. std. / P90 / max</strong> del ΔE*ab del round-trip selezionato. Sotto si trova un istogramma della distribuzione del ΔE — barre di frequenza relativa con una linea di frequenza cumulativa — più il valore <code>L, a, b</code> con l'errore peggiore e, per PRMG, se il profilo implica il Perceptual Reference Medium Gamut.</p>
+<p>I quattro tipi di round-trip:</p>
+<ul>
+<li><strong>Panoramica nel gamut (RT0)</strong> — una griglia di valori dispositivo portata al PCS, di nuovo al dispositivo e ancora al PCS; il ΔE*ab è misurato tra i due passaggi PCS. Un rapido controllo di stabilità nel gamut.</li>
+<li><strong>Inversione + gamut (RT1)</strong> — ΔE*ab tra il PCS di ogni colore dispositivo e il suo PCS dopo un round-trip Lab → dispositivo → Lab. Riflette l'accuratezza dell'inversione <em>e</em> il gamut mapping.</li>
+<li><strong>Riproducibilità (RT2)</strong> — ΔE*ab tra il primo e il secondo round-trip: quanto è stabile un round-trip ripetuto, indipendentemente dal clipping di gamut del primo passaggio.</li>
+<li><strong>Interoperabilità PRMG</strong> — i colori PCS all'interno del Perceptual Reference Medium Gamut eseguono un singolo round-trip; la distribuzione del ΔE indica l'interoperabilità tra profili.</li>
+</ul>
+<p>Sotto l'istogramma, <strong>ΔE di andata e ritorno per luminosità</strong> risponde alla domanda a cui i valori riassuntivi non possono rispondere: <em>dove</em> nella scala tonale l'inversione è in difficoltà, e <em>quanto in profondità nel gamut</em> arriva il problema.</p>
+<p>Campiona 32 livelli di luminosità. A ogni livello prende 64 punti <strong>sul confine del gamut</strong>, poi li ripete erosi verso l'asse neutro all'80 %, al 50 % e al 20 % della loro croma — 8.192 punti in tutto, ciascuno tracciato singolarmente, con separatori punteggiati tra i livelli.</p>
+<p>Leggilo fascia per fascia. All'interno di una fascia i punti vanno dalla superficie del gamut a sinistra al neutro a destra, quindi l'errore dovrebbe <strong>diminuire</strong> lungo la fascia: i colori vicini al confine sono i più difficili da invertire, quelli vicini al neutro i più facili. Una fascia il cui errore resta alto fino al neutro indica un profilo in difficoltà a quella luminosità. I picchi più alti indicano i livelli di luminosità in cui il confine del gamut stesso è invertito peggio.</p>
+<p>Ogni punto di partenza è per costruzione all'interno del gamut, quindi ciò che vedi è un reale disaccordo tra <code>B2A</code> e <code>A2B</code>, non colori tagliati perché irraggiungibili. Nota che questo grafico ha un <strong>proprio</strong> campionamento — volutamente concentrato verso il confine del gamut — quindi la sua media e il suo massimo sono più alti di quelli della tabella sopra e non sono confrontabili con essi. Segue l'intento di rendering ma non il tipo di round-trip.</p>
+<p>Un profilo privo delle trasformazioni dispositivo↔PCS richieste da una metrica mostra una nota <em>non applicabile</em>; uno spazio dispositivo troppo ampio per essere campionato viene segnalato come saltato anziché come errore.</p>
+<h4 id="extrema-colorimetry">Colorimetria degli estremi</h4>
+<p>Gli estremi dell'intervallo di riproduzione del profilo — i numeri che un operatore di stampa di solito legge per primi.</p>
+<ul>
+<li><strong>Punto di bianco</strong> — il colore con <strong>colorante nullo</strong>, cioè il supporto nudo.</li>
+<li><strong>Punto di nero</strong> — si ottiene facendo passare il nero PCS (L*=0, a*=b*=0) attraverso la tabella <code>B2A</code> selezionata per ricavare l'inchiostrazione che il profilo <em>sceglie</em> per il nero, e rileggendo poi tale inchiostrazione tramite <code>A2B1</code>.</li>
+<li>Entrambi sono mostrati in colorimetria <strong>relativa</strong> e <strong>assoluta</strong>. Quella assoluta mostra il colore proprio del supporto (una carta bianco-azzurra risulta qualcosa come L* 95, b* −4); quella relativa lo riferisce a un bianco perfetto. Se le due colonne coincidono è normale — il bianco del supporto corrisponde semplicemente all'illuminante. Un profilo senza tag del punto di bianco del supporto mostra solo la relativa.</li>
+<li><strong>Inchiostrazione al punto di nero</strong> e <strong>TAC</strong> — l'inchiostro per canale a quel nero e la loro somma: la copertura totale d'inchiostro, il valore del limite d'inchiostro.</li>
+</ul>
+<p>Poiché ogni tabella <code>B2A</code> sceglie la propria inchiostrazione per il nero, il punto di nero cambia davvero da un intento all'altro — da qui il selettore dell'intento di rendering.</p>
+<p>Più sotto, <strong>Pieno e croma massima</strong>: per ogni vertice d'inchiostro (C, M, Y, R, G, B e K), dove si colloca in tinta / croma / luminosità, e il punto più cromatico trovato lungo il percorso dal supporto nudo. Queste righe sono misurate tramite <code>A2B1</code> e quindi <strong>non cambiano con il selettore dell'intento</strong>. In un profilo ben formato le due righe coincidono. Quando la croma massima arriva <em>prima</em> del pieno la riga viene segnalata: oltre quel punto l'inchiostro aggiuntivo non aggiunge più croma, scurisce soltanto.</p>
+<p><strong>Solo profili di output (stampante)</strong> — l'analisi presuppone che colorante nullo significhi supporto nudo. La tabella per tinta richiede inoltre uno spazio dispositivo <strong>CMYK o CMY</strong>: un profilo n-colori (nCLR) nomina i propri canali in un ordine qualsiasi, quindi non si può sapere quale canale sia il "ciano", e la tabella lo segnala invece di tirare a indovinare.</p>
+<h4 id="neutral-axis-inking">Inchiostrazione dell'asse neutro</h4>
+<p>Percorre l'asse neutro (a*=b*=0) dal bianco (L*=100) al nero (L*=0) attraverso la tabella <code>B2A</code> (PCS → dispositivo) del profilo e traccia quanto di ciascun colorante del dispositivo il profilo deposita lungo il percorso — la classica curva di GCR / costruzione del neutro. Una curva per canale del dispositivo, con un colore per colorante.</p>
+<p>Sopra la separazione è tracciata un'ulteriore curva:</p>
+<ul>
+<li><strong>L* in uscita (tono)</strong> — la risposta tonale: dove l'asse neutro arriva effettivamente in luminosità dopo un round-trip attraverso il profilo. Dalla sua forma si leggono due cose. Un avvallamento sotto la diagonale significa che i grigi vengono resi più scuri del richiesto. Ancora più utile, la curva <strong>si appiattisce alla luminosità più scura che il profilo può raggiungere</strong> — quel plateau <em>è</em> il punto di nero del supporto, e dovrebbe concordare con la sezione Colorimetria degli estremi sopra.</li>
+</ul>
+<p><strong>Solo profili di output (stampante)</strong>; le altre classi di profilo mostrano una nota.</p>
+<h4 id="ink-usage-in-shadows">Uso dell'inchiostro nelle ombre</h4>
+<p>Quattro percorsi rettilinei sul piano a*b* a una luminosità costante e deliberatamente scura — 0°, 45°, 90° e 135° — passati attraverso la tabella <code>B2A</code> selezionata, con la separazione risultante tracciata per ciascuno.</p>
+<p>Poiché tutti i campioni di un percorso condividono la stessa L*, ogni scalino brusco o inversione in un colorante deriva unicamente dalla gestione di tinta e croma. È la firma di un artefatto di gamut mapping nelle ombre, ed è il tipo di difetto che in stampa si manifesta come banding o come un improvviso salto di colore nelle zone scure. I percorsi partono da molto fuori del gamut, lo attraversano ed escono dal lato opposto, quindi si vede anche dove il profilo inizia a tagliare.</p>
+<p>Il piano di luminosità viene scelto automaticamente: a metà tra il vertice Blu del profilo e il più scuro fra C, M, Y, R e G. Per le tabelle percettiva e di saturazione la luminosità viene prima estesa dal punto di nero del supporto fino al nero PCS — quelle tabelle si aspettano il nero lì — e la sezione riporta sia il piano compensato sia quello grezzo.</p>
+<p><strong>Solo profili di output (stampante)</strong>, con la stessa restrizione CMYK/CMY della tabella per tinta sopra (il piano è derivato dai vertici d'inchiostro).</p>
+<h4 id="primary-inking-paths-through-neutral">Percorsi d'inchiostrazione primaria attraverso il neutro</h4>
+<p>Tre percorsi — ciano→rosso, magenta→verde, giallo→blu — ciascuno condotto da un vertice primario, <strong>attraverso l'asse neutro</strong> alla luminosità media dei suoi due estremi, fino al vertice opposto, passati attraverso la tabella <code>B2A</code> selezionata e tracciati come separazione.</p>
+<p>È il corrispettivo nel gamut di Uso dell'inchiostro nelle ombre. Lì i percorsi escono deliberatamente dal gamut per mettere in luce gli artefatti di gamut mapping; qui <strong>ogni campione è per costruzione all'interno del gamut</strong> — entrambi gli estremi sono primari del profilo stesso e il perno si trova sull'asse neutro. Quindi uno scalino, una piega o un'inversione in un colorante lungo uno di questi percorsi non si può attribuire al clipping di gamut: è un difetto di regolarità della CLUT. Il perno neutro è il punto centrale di ogni grafico, dove dovresti vedere una costruzione del neutro bilanciata.</p>
+<p>Per le tabelle percettiva e di saturazione la luminosità è compensata per il punto di nero in base all'intento, esattamente come in Uso dell'inchiostro nelle ombre.</p>
+<p><strong>Solo profili di output (stampante)</strong>, con la stessa restrizione CMYK/CMY (i vertici provengono dalla stessa fonte della tabella per tinta).</p>
+<h4 id="ink-usage-statistics">Statistiche di utilizzo dell'inchiostro</h4>
+<p>Quanto di ciascun colorante il profilo deposita, come copertura media e come <strong>quota del totale</strong> — la firma di consumo d'inchiostro della separazione.</p>
+<p>La tabella somma ciascun colorante lungo l'asse neutro e ne riporta la copertura media e la percentuale su tutto l'inchiostro depositato. La colonna della quota è quella diagnostica: è l'impronta della costruzione del neutro del profilo (un bilanciamento dei grigi a prevalenza di ciano si legge diversamente da uno a prevalenza di nero) ed è indipendente dal numero di campioni prelevati.</p>
+<p>Una seconda tabella — l'utilizzo d'inchiostro su <strong>tutti i colori sul confine e all'interno del gamut</strong> — è indicata come <em>in arrivo</em>: richiede una costruzione del confine del gamut non ancora implementata.</p>
+<p><strong>Solo profili di output (stampante).</strong></p>
+<h4 id="clut-image">Immagine CLUT</h4>
+<p>La tabella di conversione colore di una trasformazione dispositivo↔PCS, disposta a mosaico in un'immagine, con un selettore della tabella dell'intento di rendering da visualizzare (<code>A2B0</code>–<code>A2B3</code>, <code>B2A0</code>–<code>B2A3</code> e le tabelle di anteprima). Utile per individuare a colpo d'occhio danni strutturali in una tabella. Ingrandisci, sposta e ripristina con i controlli sul canvas.</p>
+<p>Quando selezioni una <strong>tabella <code>B2A</code> (PCS → dispositivo)</strong>, sotto il reticolo compare un'<strong>immagine di copertura d'inchiostro in scala di grigi per ogni colorante</strong> — le separazioni per inchiostro, dove più scuro significa più inchiostro. Un suggerimento in cima alla sezione te le indica, poiché la sezione si apre su una tabella <code>A2B</code> (la cui uscita è L*a*b*, non inchiostri). Per un <strong>output n-colori (nCLR)</strong> — a 5, 6 o 7 colori — dove non esiste una semplice anteprima a colori, l'immagine principale è <strong>gestita a colori tramite la <code>A2B</code> diretta del profilo</strong>, così viene comunque resa a colori reali invece che in un grigio a canale singolo.</p>
+<h4 id="gamut-image">Immagine gamut</h4>
+<p>La mappa dentro/fuori gamut del tag gamut: neutra dove un colore PCS è riproducibile, rossa dove cade fuori dal gamut del dispositivo. Presente solo quando il profilo contiene un tag <code>gamt</code>.</p>
+<h3 id="3-5-xml">3.5 XML</h3>
+<p>Converte il profilo in XML (tramite IccLibXML, lo stesso writer usato dalla CLI <code>iccToXml</code> di iccDEV) e lo mostra in un editor CodeMirror con evidenziazione della sintassi. Modifica l'XML e fai clic su <strong>Converti in ICC</strong> per tornare al formato binario; il visualizzatore ripete la convalida e il pulsante <strong>Salva profilo ICC</strong> nella barra della scheda Profilo scarica il risultato.</p>
+<p>Un indicatore di <strong>modifiche non applicate</strong> compare quando il testo dell'editor differisce dall'ultimo output del convertitore, così puoi vedere a colpo d'occhio se le tue modifiche sono state applicate. Se la conversione non riesce, l'errore di analisi di IccLibXML viene mostrato sopra l'editor con la riga / colonna incriminata.</p>
+<h3 id="3-6-json">3.6 JSON</h3>
+<p>Stesso principio della scheda XML, ma con una rappresentazione JSON del profilo prodotta dal wrapper del validatore (<code>json-wrapper.cpp</code>). Modifica, fai clic su <strong>Converti in ICC</strong>, salva. La forma JSON è più compatta e più semplice da gestire con script; la forma XML è più familiare se hai usato gli strumenti CLI di iccDEV.</p>
+<hr>
+<h2 id="4-combine-tab">4. Scheda Collega</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 780 452"
+  style="width:100%;max-width:780px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="780" height="452" rx="0" class="bg"/><rect x="16" y="12" width="150" height="428" rx="8" class="pnl"/><rect x="16" y="12" width="150" height="26" rx="8" class="hd"/><text x="28" y="29" text-anchor="start" class="tB">Profili</text><rect x="26" y="48" width="130" height="28" rx="5" class="sec"/><text x="36" y="66" text-anchor="start" class="t2 mono">sRGB.icc</text><rect x="26" y="82" width="130" height="28" rx="5" class="sec"/><text x="36" y="100" text-anchor="start" class="t2 mono">Coated.icc</text><text x="26" y="132" text-anchor="start" class="t3">Trascina nella catena →</text><rect x="186" y="12" width="578" height="428" rx="8" class="pnl"/><text x="202" y="32" text-anchor="start" class="tT">Collega — Pipeline di collegamento</text><text x="202" y="48" text-anchor="start" class="t3">Concatena i profili, poi crea un DeviceLink o trasforma un'immagine / set di dati.</text><line x1="202" y1="56" x2="748" y2="56" class="div"/><rect x="202" y="64" width="270" height="32" rx="6" class="sec"/><text x="214" y="84" text-anchor="start" class="t2">🖼  Rilascia un'immagine (TIFF/PNG/JPEG)</text><rect x="482" y="64" width="266" height="32" rx="6" class="sec"/><text x="494" y="84" text-anchor="start" class="t2">🔢  Rilascia un set di dati (CGATS/CSV/CxF)</text><text x="202" y="116" text-anchor="start" class="t3">Intento di rendering (tutti)</text><rect x="336" y="104" width="150" height="18" rx="4" class="btn"/><text x="342" y="116" text-anchor="start" class="t2">Colorimetrico relativo</text><rect x="202" y="130" width="546" height="38" rx="6" class="sec"/><text x="216" y="153" text-anchor="start" class="t3">⠿</text><rect x="230" y="141" width="16" height="16" rx="4" class="act"/><text x="238" y="153" text-anchor="middle" class="tW tB">1</text><text x="256" y="153" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="614" y="153" text-anchor="start" class="t3">RGB → Lab</text><rect x="706" y="140" width="42" height="18" rx="4" class="btn"/><text x="727" y="153" text-anchor="middle" class="t2">Rel</text><line x1="238" y1="168" x2="238" y2="180" stroke="var(--ln)" stroke-width="2"/><rect x="451" y="170" width="48" height="14" rx="7" class="lnbd"/><text x="475" y="181" text-anchor="middle" class="t3">Lab</text><rect x="202" y="184" width="546" height="38" rx="6" class="sec"/><text x="216" y="207" text-anchor="start" class="t3">⠿</text><rect x="230" y="195" width="16" height="16" rx="4" class="act"/><text x="238" y="207" text-anchor="middle" class="tW tB">2</text><text x="256" y="207" text-anchor="start" class="t2 mono">Coated.icc</text><text x="614" y="207" text-anchor="start" class="t3">Lab → CMYK</text><rect x="706" y="194" width="42" height="18" rx="4" class="btn"/><text x="727" y="207" text-anchor="middle" class="t2">Perc</text><text x="202" y="244" text-anchor="start" class="t3">Catena:</text><text x="244" y="244" text-anchor="start" class="tA">RGB → CMYK</text><rect x="202" y="256" width="124" height="24" rx="5" class="act"/><text x="264" y="272" text-anchor="middle" class="tW tB">Crea DeviceLink</text><rect x="334" y="256" width="124" height="24" rx="5" class="act"/><text x="396" y="272" text-anchor="middle" class="tW tB">Trasforma immagine</text><rect x="466" y="256" width="124" height="24" rx="5" class="act"/><text x="528" y="272" text-anchor="middle" class="tW tB">Trasforma dati</text><rect x="202" y="296" width="546" height="96" rx="6" class="sec"/><text x="214" y="314" text-anchor="start" class="tB">Opzioni di output dell'immagine</text><text x="214" y="330" text-anchor="start" class="t3">Codifica</text><rect x="214" y="336" width="96" height="16" rx="4" class="btn"/><text x="262" y="348" text-anchor="middle" class="t2">Come l'origine</text><text x="326" y="330" text-anchor="start" class="t3">Compressione</text><rect x="326" y="336" width="96" height="16" rx="4" class="btn"/><text x="374" y="348" text-anchor="middle" class="t2">Nessuno</text><text x="438" y="330" text-anchor="start" class="t3">Planare</text><rect x="438" y="336" width="96" height="16" rx="4" class="btn"/><text x="486" y="348" text-anchor="middle" class="t2">Interlacciato</text><text x="214" y="366" text-anchor="start" class="t3">Interp. CMM</text><rect x="214" y="372" width="96" height="16" rx="4" class="btn"/><text x="262" y="384" text-anchor="middle" class="t2">Tetraedrica</text><text x="326" y="366" text-anchor="start" class="t3">Incorpora profilo ICC</text><rect x="326" y="372" width="96" height="16" rx="4" class="btn"/><text x="374" y="384" text-anchor="middle" class="t2">☑ sì</text><line x1="727" y1="138" x2="644" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="644" y="115" text-anchor="end" class="t3">Intento per fase</text><line x1="704" y1="276" x2="704" y2="298" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/><text x="748" y="272" text-anchor="end" class="t3" textLength="142" lengthAdjust="spacingAndGlyphs">Opzioni di output iccApplyProfiles</text>
+</svg><p>profiletool conserva ogni profilo caricato in un <strong>pool di profili</strong> a sinistra. In alto si trovano cinque schede — <strong>Profilo</strong> (il visualizzatore di profilo singolo descritto sopra), <strong>Confronta</strong>, <strong>Collega</strong>, <strong>Spettrale</strong> e <strong>HDR</strong>. La scheda <strong>Collega</strong> è dove concateni i profili e li metti all'opera: crea un <strong>DeviceLink</strong>, <strong>trasforma un'immagine</strong> o <strong>trasforma un set di dati colore</strong> attraverso la catena.</p>
+<h3 id="4-1-building-a-chain">4.1 Costruire una catena</h3>
+<p>Trascina uno o più profili dal pool nel riquadro Collega per aggiungerli alla catena, nell'ordine. La catena è una <strong>pila verticale</strong>: l'origine è in alto, la destinazione in basso. Ogni profilo contribuisce con <strong>una trasformazione</strong> e lo strumento mostra lo spazio colore in ingresso e in uscita (ad es. <code>RGB → Lab</code>), con lo <strong>spazio di connessione</strong> indicato sulla linea tra le fasi. Il motore convalida l'intera catena in tempo reale e riporta il flusso da capo a capo (ad es. <em>Catena: RGB → CMYK</em>) oppure spiega, fase per fase, dove la connessione non riesce.</p>
+<ul>
+<li><strong>Riordina</strong> una fase trascinandone la maniglia (<code>⠿</code>) o con i pulsanti ▲ / ▼; rimuovine una con ×.</li>
+<li><strong>Inverti la direzione</strong> — il pulsante ⇅ della trasformazione iniziale inverte la direzione della catena, propagandosi alle fasi successive.</li>
+<li><strong>Intento di rendering</strong> — scegline uno per tutta la catena con <em>Intento di rendering (tutti)</em>, oppure sovrascrivilo per una singola fase con il relativo elenco. Passa il puntatore su uno dei due controlli per una descrizione dell'intento selezionato. Oltre ai quattro intenti di base, un profilo che contiene le tabelle necessarie offre anche le varianti <em>no D2Bx/B2Dx</em> e <em>+ BPC</em> (compensazione del punto di nero).</li>
+</ul>
+<div class="note">
+<strong>Profilo HDR ColorSpace nella catena.</strong> Un HDR ColorSpace Profile ICC.1 non ha tag TRC — la clausola 8.7 non ne definisce per un profilo ColorSpace — quindi una trasformazione attraverso di esso usa il suo <code>AToB0Tag</code>. Quella tabella è il rendering HDR&#8594;SDR che la clausola 8.7.1.5 richiede per i software privi di elaborazione HDR. Il riquadro lo segnala quando una catena contiene un HDR ColorSpace Profile: il DeviceLink, l'immagine o i dati prodotti riflettono quel ripiego SDR, non il comportamento HDR del profilo.
+</div>
+<h3 id="4-2-make-devicelink">4.2 Crea DeviceLink</h3>
+<p>Fonde l'intera catena in un unico profilo <strong>DeviceLink</strong> (un porting nel browser di <code>iccApplyToLink</code> di iccDEV). Assegnagli un nome e fai clic su <strong>Crea DeviceLink</strong>; il risultato finisce nel pool e nell'accumulatore di Collega come qualsiasi altro profilo, pronto per essere ispezionato nella scheda Profilo o riutilizzato in un'altra catena.</p>
+<h3 id="4-3-transform-image">4.3 Trasforma immagine</h3>
+<p>Rilascia un'immagine raster (TIFF, PNG o JPEG) nello spazio dell'immagine e fai clic su <strong>Trasforma immagine</strong> per farla passare attraverso la catena (un porting nel browser di <code>iccApplyProfiles</code>). L'immagine viene prima verificata leggendone solo l'intestazione — il suo spazio colore deve corrispondere all'ingresso della catena. Il risultato <strong>viene scaricato</strong>; le immagini non vengono mai conservate nel pool.</p>
+<p>Quando è caricata un'immagine valida, compare un pannello <strong>Opzioni di output dell'immagine</strong> con le impostazioni di destinazione che rispecchiano la CLI <code>iccApplyProfiles</code>:</p>
+<ul>
+<li><strong>Codifica</strong> — <em>Come l'origine</em>, 8 bit, 16 bit o <strong>Virgola mobile (32 bit)</strong>.</li>
+<li><strong>Compressione</strong> — Nessuna, <strong>LZW</strong> o <strong>ZIP</strong> (Deflate).</li>
+<li><strong>Planare</strong> — piani <strong>Interlacciato</strong> (chunky) o <strong>Separato</strong>.</li>
+<li><strong>Interpolazione CMM</strong> — <strong>Tetraedrica</strong> o <strong>Lineare</strong>.</li>
+<li><strong>Incorpora profilo ICC</strong> — associa all'output l'ultimo profilo della catena (quello dello spazio di uscita).</li>
+</ul>
+<p>L'impostazione predefinita mantiene l'output RGB/Gray in PNG; scegliendo un'opzione esclusiva del TIFF (virgola mobile, LZW/ZIP o piani separati) il contenitore passa a TIFF.</p>
+<div class="note">
+<strong>Profili incorporati:</strong> se l'immagine rilasciata contiene un proprio profilo ICC incorporato, un banner propone di <strong>estrarlo</strong> — con un clic il profilo viene aggiunto al pool e posizionato all'inizio della catena (come suo spazio di origine).
+</div>
+<h3 id="4-4-transform-data">4.4 Trasforma dati</h3>
+<p>Rilascia un set di dati colore (CGATS/IT8, CSV, CxF o JSON) nello spazio dei dati e fai clic su <strong>Trasforma dati</strong> per far passare ogni campione attraverso la catena (l'equivalente di <code>iccApplyNamedCmm</code>). Lo strumento legge i tipi di dati presenti nel set (dispositivo / Lab / XYZ / spettrale) e fornisce quello richiesto dall'ingresso della catena; un ingresso <strong>spettrale</strong> viene convertito in colorimetria con il calcolatore canonico di iccDEV, usando l'<strong>Osservatore</strong> e l'<strong>Illuminante</strong> che scegli. I campioni duplicati possono essere filtrati (mediana o media). Il risultato si apre in una tabella che puoi salvare come CSV con <strong>Salva</strong>.</p>
+<h3 id="4-5-observer-change">4.5 Cambio di osservatore</h3>
+<p>La scheda Collega contiene <strong>due</strong> riquadri generatori. Sopra la Pipeline di collegamento, il riquadro <strong>Cambio di osservatore</strong> crea un profilo display matrice/TRC v4.3 a partire da un profilo display RGB V5 e da un profilo osservatore V5 (PCC). Trascina entrambi sul riquadro — vengono assegnati automaticamente agli spazi <strong>Display RGB V5</strong> e <strong>Osservatore V5 (PCC)</strong> in base alla classe di profilo — poi fai clic su <strong>Crea profilo display V4</strong>, assegnagli un nome e fai clic su <strong>Crea</strong>. Il risultato si aggiunge al pool e a questa scheda. Un profilo che non è né l'uno né l'altro viene ignorato con un avviso.</p>
+<h3 id="4-6-compare-and-spectral-tabs">4.6 Schede Confronta e Spettrale</h3>
+<p>La scheda <strong>Confronta</strong> sovrappone i confini del gamut di due o più profili del pool — un guscio 3D più una sezione 2D a luminosità costante — per vedere dove differiscono. Quando i profili sono HDR ColorSpace Profile, una nota <strong>Visualizzazione del ripiego SDR</strong> spiega che ogni gamut è costruito dal rendering SDR di <code>AToB0Tag</code>, non dall'intervallo HDR del profilo, che non può essere tracciato in un PCS limitato. La scheda <strong>Spettrale</strong> riunisce un insieme di immagini spettrali a canale singolo (rilasciate nell'ordine dei canali) in un unico TIFF multicanale (<code>iccSpecSepToTiff</code>).</p>
+<h3 id="4-7-hdr-tab">4.7 HDR tab</h3>
+<div class="note"><strong>This section is in English only.</strong> It describes HDR support, a beta feature that follows a draft ICC amendment and is still changing. It will be translated once the feature and its text are stable.</div>
+<p>Drop <strong>one</strong> image on the <strong>HDR</strong> tab, or click the drop area to choose one. A new image replaces the current one, and nothing is added to the Profiles pool. What happens depends on who can decode the image:</p>
+<table><thead>
+<tr><th>File</th><th>Shown by</th><th>SDR ↔ HDR control</th></tr></thead><tbody>
+<tr><td><strong>AVIF</strong>, <strong>JPEG</strong> (including gain-map JPEG), <strong>PNG</strong> (including cICP-tagged), <strong>HEIC</strong> and <strong>JPEG XL</strong> on Safari</td><td>the browser</td><td><strong>SDR</strong> / <strong>HDR</strong> buttons, plus a <strong>Dynamic range</strong> slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only.</td></tr>
+<tr><td><strong>OpenEXR</strong>, <strong>Radiance HDR</strong> (<code>.hdr</code>, RGBE)</td><td>profiletool</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
+<tr><td><strong>TIFF</strong></td><td>profiletool, once a profile is assigned (a TIFF's own embedded profile is assigned automatically); a TIFF with no profile shows a note</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
+</tbody></table>
+<p>The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the <strong>brightest pixel</strong> as a multiple of SDR white (whenever profiletool renders the pixels), its chromaticities, any <strong>gain map</strong>, and any <strong>embedded ICC profile</strong>. <strong>Open in Profile tab</strong> loads that profile for inspection.</p>
+<p><strong>Radiance HDR.</strong> profiletool reads run-length-encoded and flat RGBE files in any orientation. A <code>PRIMARIES</code> header line sets the chromaticities; without one (or with Photoshop's all-zero line) Rec. 709 is assumed, as for OpenEXR. The stored values are shown as they are: an <code>EXPOSURE</code> line is not undone. XYZE files are refused, and so is any image over 40 megapixels. So is a file whose pixel data is too small for its size: at most 64 pixels per byte, four times what run-length encoding reaches on a flat scanline. Old-style repeat markers could otherwise describe a 40-megapixel image in about 75 KB.</p>
+<p>
+<strong>Outputs for OpenEXR and Radiance HDR.</strong> profiletool renders the pixels itself, through the first of these that works:
+ 
+1. <strong>HDR canvas (float16)</strong>: needs <code>chrome://flags/#enable-experimental-web-platform-features</code> (see <a href="#environment">Environment</a>).
+ 
+2. <strong>WebGPU (extended range)</strong>: needs no flag, but needs a working GPU adapter.
+ 
+3. <strong>SDR canvas (tone-mapped)</strong>: always available. It cannot show brighter-than-white, so the slider is hidden.
+</p>
+<p>On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops), shown beside the slider.</p>
+<p><strong>Matching the display.</strong> The panel tracks the monitor the window is on: drag it to another screen and the facts and notes update.</p>
+<ul>
+<li><strong>Display peak</strong> says how bright this display can go, as a multiple of SDR white. It comes from the headroom the browser reports; see <a href="#environment">Environment</a>, where <strong>Identify displays</strong> grants the permission (the button also appears here). An SDR display reads <em>1× — SDR display</em>. When the browser does not report a peak, the panel says so rather than guessing.</li>
+<li>When an OpenEXR or Radiance HDR image asks for more than the display shows, a note says so — for example <em>asks for 4.93×, this display shows up to 2.23×</em>. Values above the display's peak then <strong>clip</strong> to flat white, which is why the SDR and HDR ends can look alike even on an HDR monitor.</li>
+<li><strong>Fit to display</strong> sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.</li>
+<li>An <strong>SDR white patch</strong> — plain white — sits against the image's right edge, for comparison by eye. <strong>Drag</strong> it anywhere over the viewer (or focus it and use the arrow keys; Shift for bigger steps), and <strong>double-click</strong> it to put it back beside the image. The <strong>SDR white patch</strong> button above the image turns it on and off. Its position and on/off state are remembered. On an HDR display with real HDR output, highlights look brighter than the patch; at the SDR end the brightest pixels sit just below it, because the SDR rendering eases highlights in under white. If highlights never look brighter, the output is being clamped.</li>
+</ul>
+<p><strong>When Fit to display is available.</strong> The button is always shown. When it cannot work it is greyed out, with the reason beside it:</p>
+<table><thead>
+<tr><th>The panel shows…</th><th>Fit to display</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>Shown by: the browser</strong> (AVIF, JPEG, PNG, HEIC, JPEG XL)</td><td>not available</td><td>The browser renders the image, and CSS can only show it at the SDR end, the HDR end, or a blend of the two. It has no setting for "cap at this display's peak".</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, <strong>Output: SDR canvas</strong></td><td>not available</td><td>This output cannot show anything above SDR white, so there is nothing to fit. The Dynamic range slider is hidden too.</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, <strong>Display peak: not known</strong></td><td>not available</td><td>There is no peak to fit to. Click <strong>Identify displays</strong> in the <strong>Display peak</strong> row.</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, an HDR output and a known peak</td><td>available</td><td>Sets the limit to the display's peak.</td></tr>
+</tbody></table>
+<p>The <strong>Fit to display</strong> beside <strong>Target headroom</strong>, when a profile is assigned, needs only a known display peak.</p>
+<p><strong>Image details.</strong> Click <strong>Image details</strong> to fold away the facts from <strong>Embedded ICC profile</strong> down to <strong>HDR reference white</strong>, including <strong>Assign profile</strong>, and leave more room for the image. Click again to unfold. The choice is remembered.</p>
+<p><strong>Zoom, pan and resize.</strong> The image opens at actual size (100%), or shrunk to fit if it is larger than the view. Zooming is a display transform only: the pixel values sent to the display do not change.</p>
+<ul>
+<li><strong>+</strong> and <strong>−</strong> zoom, as does <strong>Ctrl</strong> (⌘ on a Mac) with the mouse wheel, toward the pointer. The percentage is the scale: 100% is one image pixel per CSS pixel. Above 200%, pixels show as sharp squares.</li>
+<li><strong>Fit image</strong> fills the view with the image; <strong>1:1</strong> returns to actual pixels. <strong>Double-click</strong> the image to go back to the opening view.</li>
+<li><strong>Drag</strong> the image to pan. With the view focused, the arrow keys pan, and <strong>+</strong>, <strong>−</strong>, <strong>0</strong> (opening view) and <strong>1</strong> (1:1) work too.</li>
+<li>Drag the <strong>corner grip</strong> at the bottom right to resize the view; double-click the grip for the default size. The size is remembered.</li>
+<li>The <strong>SDR white patch</strong> is not zoomed: it stays the same size wherever the image moves, and a docked patch follows the image's right edge.</li>
+</ul>
+<p><strong>Assigning an HDR profile.</strong> For TIFF, PNG, JPEG, OpenEXR and Radiance HDR, <strong>Assign profile</strong> chooses a profile to interpret the image's pixel values:</p>
+<ul>
+<li>the image's <strong>embedded profile</strong>;</li>
+<li>any <strong>HDR ColorSpace Profile in the pool</strong> (load one in the Profiles pane first);</li>
+<li><strong>None</strong>, to go back to what the file itself signals.</li>
+</ul>
+<p>A TIFF starts with its embedded profile selected, since without one its values mean nothing.</p>
+<p>With a profile assigned, profiletool decodes the image itself and runs it through IccProfLib's HDR colour-management path, as the ICC.1 HDR amendment (clause 8.7.1) describes. The profile's transfer function (PQ, HLG or Linear) converts the code values to light, its gain curve tone-maps them, and its <code>cicpTag</code> primaries set the colour. 1.0 lands on the profile's <strong>HDR reference white</strong>, which is shown at the display's SDR white.</p>
+<ul>
+<li><strong>Target headroom</strong> (0 to 6 stops) is the display the image is being prepared for. The profile's gain curve is evaluated there, the same curve <strong>Gain at a display headroom</strong> plots in the Tags tab. <strong>Fit to display</strong> sets it to this display's peak.</li>
+<li><strong>Tone mapping</strong> chooses the method: <strong>Auto</strong> (the clause 8.7.1.3 recommended ranking), <strong>Gain curve</strong> only, the profile's <strong>Baked SDR fallback</strong> (<code>AToB0Tag</code>), or <strong>Off</strong>, which behaves like a colour engine that predates the amendment. The baked fallback is only as good as the table the profile carries. A table baked from the gain curve (for example by iccDEV's <code>iccHdrFallback</code>) gives a proper SDR rendering. A placeholder table of identity curves passes the raw PQ or HLG signal values through, and the image looks flat and too bright.</li>
+<li>The panel reports what the colour engine actually did: which <strong>path</strong> (HDR with the gain curve applied, HDR without a curve, or the baked table), the <strong>transfer</strong>, and the <strong>HDR reference white</strong>. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the <strong>Dynamic range</strong> limit is what keeps its highlights within the display.</li>
+<li>Pooled HDR ColorSpace Profiles appear in two groups, <strong>Linear transfer</strong> and <strong>PQ / HLG transfer</strong>, matching the Profiles pane. OpenEXR and Radiance HDR store linear light, so for those images only the <strong>Linear transfer</strong> group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.</li>
+<li>A profile whose <code>cicpTag</code> declares <strong>ColourPrimaries 2 (Unspecified)</strong> is listed with the note <em>Unspecified primaries: no HDR path in this build</em>. Clause 8.7.1.1 takes such a profile's primaries from a <code>cicpType</code> chromaticity extension (clause 10.3) whose format is not yet available to profiletool, so no policy can give it an HDR rendering. Every policy renders it through its <code>AToB0Tag</code> instead — <strong>Auto</strong> and <strong>Gain curve</strong> fall back to the same SDR rendering as <strong>Baked SDR fallback</strong> and <strong>Off</strong> — and <strong>Colour engine path</strong> says <em>Baked AToB0 — not the HDR path</em>. That fallback is a temporary measure in IccProfLib while the ICC settles how such a profile should be handled.</li>
+<li><strong>Linear values</strong> (OpenEXR, Radiance HDR and floating-point TIFF only) says what a file value of 1.0 means. The two conventions disagree. These files usually put SDR white at 1.0, but an ICC Linear transfer reads 1.0 as 1 cd/m² (ICC.1 clause 8.7.1.2 a) and then divides by the HDR reference white, so an unscaled image comes out a few hundred times too dark.</li>
+<p>
+  - <strong>File 1.0 = HDR reference white</strong> (the default) multiplies the pixels by the profile's HDR reference white first, so file 1.0 lands on it. The <strong>Input scale</strong> fact shows the factor, for example <em>×300</em>.
+ 
+  - <strong>File 1.0 = 1 cd/m²</strong> passes the values unscaled, as the clause reads them. Use it for files whose values really are in cd/m².
+</ul>
+</p>
+<p>  The choice is remembered.</p>
+<div class="note">
+<strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.7.1 HDR ColorSpace Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
+</div>
+<div class="note">
+<strong>Refusals name the reason.</strong> For example, HEIC display needs Safari: Chrome and Firefox decode HEIC on no platform. The image's profile can still be opened in the Profile tab.
+</div>
+<p><strong>Gain curves.</strong> An HDR ColorSpace Profile's adaptive gain curve is not shown here but in <strong>Profile → Tags</strong>. See <em>HDR gain curves (HAGC)</em> under <a href="#3-2-tags">Tags</a>.</p>
+<hr>
+<h2 id="5-round-trip-editing">5. Modifica round-trip</h2>
+<p>Sia la scheda XML sia la scheda JSON possono riscrivere il profilo in formato binario ICC. Il flusso di lavoro tipico:</p>
+<p>
+1. <strong>Carica</strong> un profilo ICC.
+ 
+2. Apri la scheda <strong>XML</strong> o <strong>JSON</strong>. Fai clic su <strong>Converti in XML</strong> / <strong>Converti in JSON</strong> per popolare l'editor.
+ 
+3. <strong>Modifica</strong> nell'editor della pagina. Accanto alla barra degli strumenti compare un indicatore di modifiche non applicate.
+ 
+4. Fai clic su <strong>Converti in ICC</strong>. Il wrapper crea un nuovo profilo, ripete la convalida e aggiorna le schede Intestazione / Tag / Convalida.
+ 
+5. Accanto al nome del file, nella barra della scheda Profilo, compare l'etichetta <strong>● Modificato — non salvato</strong>.
+ 
+6. Fai clic su <strong>Salva profilo ICC</strong>. I byte modificati vengono scaricati come <code><original>-edited.icc</code>.
+</p>
+<p>I due editor sono indipendenti — modificare l'XML e poi il JSON non mescola i due percorsi. Viene salvato l'ultimo insieme di byte ICC prodotto.</p>
+<div class="note">
+<strong>Attenzione:</strong> la fedeltà della conversione dipende da ciò che IccLibXML / il wrapper JSON supportano per ciascun tipo di tag. Se un tipo di tag non è rappresentabile, il round-trip perderà dettagli; dopo la riconversione controlla la scheda Convalida per verificare che tutto venga ancora analizzato correttamente.
+</div>
+<p>La scheda Tag evidenzia ogni tag i cui byte differiscono da quelli caricati in origine, così è facile vedere che cosa hanno cambiato le tue modifiche.</p>
+<hr>
+<h2 id="6-launching-from-chardata">6. Avvio da chardata</h2>
+<p>In <strong>chardata</strong>, dopo aver caricato un profilo ICC, fai clic su <strong>Display File</strong> per aprire il visualizzatore nella pagina, poi fai clic su <strong>Launch editor</strong>. Si apre qui una nuova scheda con <code>?source=chardata</code> nell'URL.</p>
+<p>Il passaggio avviene interamente nel browser:</p>
+<p>
+1. profiletool si apre, rileva <code>?source=chardata</code> e invia <code>{type:'profiletool:ready'}</code> a <code>window.opener</code> tramite <code>postMessage</code>.
+ 
+2. chardata risponde con <code>{type:'profiletool:load', filename, bytes}</code>.
+ 
+3. profiletool accetta i byte (dopo aver verificato l'origine del mittente rispetto a una allowlist e la dimensione rispetto al limite di 256 MB), esegue la convalida e mostra il profilo.
+</p>
+<p>Nessun caricamento, nessun passaggio dal server. Il flusso è a senso unico — le modifiche fatte qui si salvano facendo clic su <strong>Salva profilo ICC</strong>, non vengono restituite a chardata.</p>
+<hr>
+<h2 id="7-launching-with-a-url">7. Avvio con un URL</h2>
+<p>Puoi aprire lo strumento con un link che indica un profilo da caricare — e la scheda su cui arrivare — usando un <strong>frammento dell'URL</strong> (la parte dopo <code>#</code>):</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=&lt;profile-url&gt;&amp;tab=&lt;tab&gt;</code></pre>
+<p>Entrambi i parametri sono facoltativi:</p>
+<ul>
+<li><strong><code>url=</code></strong> — l'indirizzo web da cui viene scaricato il profilo. I byte vengono scaricati nel tuo browser e poi seguono esattamente lo stesso percorso di un file locale: il controllo dell'intestazione <code>acsp</code>, la <code>ValidateIccProfile</code> completa, il limite di dimensione di 256 MB e il ripiego al meglio delle possibilità per i profili non analizzabili. Nulla viene caricato su un server — i byte scaricati alimentano solo il validatore e non vengono mai reinviati.</li>
+<li><strong><code>tab=</code></strong> — quale vista aprire dopo il caricamento del profilo.</li>
+</ul>
+<p>Un esempio completo:</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRGB.icc&amp;tab=VAL</code></pre>
+<div class="note">
+<strong>Perché un frammento e non una query string?</strong> La parte dopo <code>#</code> non viene mai inviata a un server web, quindi l'indirizzo del profilo che stai ispezionando resta sul tuo computer.
+</div>
+<h3 id="tab-names">Nomi delle schede</h3>
+<p><code>tab=</code> accetta due schemi di denominazione intercambiabili e insensibili a maiuscole/minuscole. I codici <strong>brevi</strong> sono la forma preferita:</p>
+<table><thead>
+<tr><th>Vista</th><th>Codice breve</th><th>Nome lungo</th></tr></thead><tbody>
+<tr><td>Intestazione</td><td><code>HEADER</code></td><td><code>Header</code></td></tr>
+<tr><td>Tag</td><td><code>TAGS</code></td><td><code>Tags</code></td></tr>
+<tr><td>Convalida</td><td><code>VAL</code></td><td><code>Validation</code></td></tr>
+<tr><td>Analisi</td><td><code>ANALYSIS</code></td><td><code>Analysis</code></td></tr>
+<tr><td>XML</td><td><code>XML</code></td><td><code>XML</code></td></tr>
+<tr><td>JSON</td><td><code>JSON</code></td><td><code>JSON</code></td></tr>
+</tbody></table>
+<p>I nomi lunghi sono le etichette inglesi delle schede senza spazi. Entrambi gli schemi restano stabili anche se le etichette visibili vengono rinominate, così i link esistenti continuano a funzionare. La scheda Convalida risponde anche al codice storico <code>PAWG</code> (in precedenza era etichettata "Profile Assessment WG"). Un valore di <code>tab=</code> non riconosciuto viene ignorato e si apre la vista Intestazione.</p>
+<div class="note">
+<strong>Requisiti per <code>url=</code>:</strong> il profilo deve essere servito tramite <strong>HTTPS</strong> e il server che lo ospita deve consentire le letture cross-origin (un'intestazione <code>Access-Control-Allow-Origin</code> / CORS permissiva). Se manca una delle due condizioni, il browser blocca il download e lo strumento mostra un errore di recupero. Se l'URL del profilo contiene a sua volta <code>&</code> o <code>#</code> (una propria query string), codifica in percentuale l'intero valore di <code>url=</code>, così quei caratteri non chiudono anzitempo il frammento.
+</div>
+<hr>
+<h2 id="8-mobile">8. Dispositivi mobili</h2>
+<p>Sugli schermi più stretti di 700 px:</p>
+<ul>
+<li>Il pannello Impostazioni diventa un cassetto che scorre da destra.</li>
+<li>Un pulsante flottante <strong>⚙</strong> in alto a destra apre / chiude le Impostazioni.</li>
+<li>Un pulsante <strong>?</strong> sotto ⚙ apre questa guida nel suo pannello a scorrimento.</li>
+<li>Un pulsante <strong>✉</strong> apre il modulo di contatto in una nuova scheda del browser.</li>
+<li>Toccando lo sfondo oscurato si chiude il cassetto aperto.</li>
+<li>La tabella dei tag passa da una griglia larga a schede impilate, così ogni colonna resta leggibile senza scorrimento orizzontale; un tag si espande comunque sul posto.</li>
+<li><strong>Il tocco sostituisce il trascinamento.</strong> iOS non supporta il trascinamento, quindi lì non si può trascinare un profilo dal pool su una scheda. Invece, <strong>tocca i profili per selezionarli, poi tocca la scheda</strong> su cui li vuoi — con lo stesso risultato del trascinamento. Il pool mostra questo promemoria quando si usa uno schermo touch.</li>
+<li><strong>Su iPhone e iPad i selettori di file elencano tutti i file.</strong> iOS confronta il filtro per tipo di file con i tipi che conosce, e non ne conosce nessuno per <code>.icc</code>, <code>.icm</code>, <code>.cube</code> o <code>.exr</code>, quindi il filtro renderebbe grigi proprio i file che vuoi aprire. Scegli il profilo per nome; tutto ciò che non è un profilo viene comunque rifiutato con un motivo dopo il caricamento.</li>
+</ul>
+<p>Tutte le funzioni sono disponibili; il layout si adatta allo schermo più piccolo.</p>
+<hr>
+<h2 id="9-limits-and-security">9. Limiti e sicurezza</h2>
+<p>profiletool non effettua richieste di rete dopo il caricamento iniziale della pagina. Il validatore, il convertitore XML, il convertitore JSON e i codec delle immagini sono tutti in WebAssembly, compilati da sorgenti C++, ed eseguiti interamente lato client. La scheda HDR mostra un'immagine rilasciata tramite un URL di oggetto locale, quindi l'immagine non lascia mai la scheda. <strong>Identifica i display</strong> chiede al browser, non a un server, su quale monitor si trova la finestra.</p>
+<table><thead>
+<tr><th>Limite</th><th>Dove</th><th>Note</th></tr></thead><tbody>
+<tr><td><strong>256 MB</strong></td><td>postMessage / caricamento file</td><td>Rifiuta di caricare file più grandi; impedisce l'esaurimento dell'heap da parte di una finestra di origine ostile</td></tr>
+<tr><td><strong>32 MB</strong></td><td>Convertitori XML e JSON</td><td>Lo applicano sia il controllo JS (<code>MAX_XML_BYTES</code> / <code>MAX_JSON_BYTES</code>) sia i wrapper C++ (<code>kMaxXmlBytes</code> / <code>kMaxJsonBytes</code>); il lato C++ fa fede in modo indipendente</td></tr>
+<tr><td><strong>Protezione da entity bomb XML</strong></td><td>Convertitore XML</td><td>Qualsiasi XML che contenga <code><!DOCTYPE</code> o <code><!ENTITY</code>, o un byte NUL, viene rifiutato prima che libxml2 lo veda. Sono attivi anche i limiti di espansione delle entità propri di libxml2, quindi questo è un secondo livello di difesa contro input di tipo billion-laughs</td></tr>
+<tr><td><strong>512 MB</strong></td><td>File della scheda HDR</td><td>Verificato sulla dimensione del file prima di leggerne qualsiasi parte; rispecchia il limite di ingresso di 512 MB dei codec delle immagini</td></tr>
+<tr><td><strong>40 megapixel</strong>, <strong>64 pixel per byte</strong></td><td>Decodifica Radiance HDR (scheda HDR)</td><td>Entrambi verificati dall'intestazione e dalla dimensione del file prima di allocare memoria per i pixel; il secondo respinge le bombe di decompressione basate su marcatori di ripetizione</td></tr>
+<tr><td><strong>Budget di decodifica EXR</strong></td><td>Decodifica OpenEXR</td><td>Larghezza × altezza × canali × 4 byte deve stare in 512 MB, verificato dall'intestazione prima che il decoder allochi qualsiasi cosa</td></tr>
+<tr><td><strong>Scansione dei box HEIC/AVIF</strong></td><td>Estrazione del profilo</td><td>Le dimensioni dei box sono verificate senza overflow, l'annidamento è limitato a 8, un profilo a 64 MB (per file, in totale) e le associazioni degli elementi a 65 536</td></tr>
+<tr><td><strong>Allowlist delle origini</strong></td><td>Avvio tramite postMessage</td><td>Solo la stessa origine e le origini dell'host di sviluppo di chardata possono inviare byte <code>profiletool:load</code></td></tr>
+<tr><td><strong>HTTPS + CORS</strong></td><td>Avvio tramite <code>#url=</code></td><td>Un profilo avviato tramite URL deve essere servito in HTTPS da un host che consenta le letture cross-origin; i byte scaricati alimentano solo il validatore e non vengono mai reinviati</td></tr>
+</tbody></table>
+<p>L'avvio tramite <code>#url=</code> (aggiunto nella 1.1.5) è l'unico caso in cui lo strumento effettua una richiesta verso un'altra origine dopo il caricamento della pagina: estende <code>connect-src</code> della Content-Security-Policy a <code>https:</code> così da poter scaricare il profilo indicato. Il caricamento degli script <strong>non</strong> viene esteso — solo il recupero dei dati.</p>
+<p>Se devi ispezionare un profilo che supera questi limiti, compila iccDEV dai sorgenti e usa gli strumenti CLI nativi — non hanno limiti lato JS.</p>
+<h3 id="licence">Licenza</h3>
+<p>profiletool è distribuito con licenza MIT. L'app include anche componenti di terze parti soggetti alle rispettive licenze: IccProfLib di iccDEV (International Color Consortium), LibTIFF, libpng, zlib, libxml2, JSON for Modern C++, il runtime di Emscripten e pacchetti JavaScript tra cui React, Plotly e CodeMirror. Questo software si basa in parte sul lavoro dell'Independent JPEG Group. Le note complete si trovano in <a href="THIRD-PARTY-NOTICES.txt">THIRD-PARTY-NOTICES.txt</a>.</p>
+<h3 id="icc-2-iccmax-coverage">Copertura ICC.2 (iccMAX)</h3>
+<p>Sono supportati sia i profili <strong>ICC.1</strong> sia quelli <strong>ICC.2</strong>, ma la copertura ICC.2 è <strong>incompleta</strong>. Il caricamento, le viste dell'intestazione e dei tag, la convalida, il round-trip XML/JSON e i motori di trasformazione comprendono tutti ICC.2; le lacune note sono i flussi di interscambio <strong>ICS</strong> in più parti, la scelta di un <strong>sotto-profilo</strong> V5 quando si applica una trasformazione e la ricerca inversa su alcuni profili ICC.2. Un profilo che usa un costrutto ICC.2 non supportato viene segnalato dalla scheda Convalida invece di essere letto erroneamente in silenzio.</p>
+
+</div>
+</body>
+</html>

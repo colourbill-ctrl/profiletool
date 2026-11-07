@@ -1,0 +1,23 @@
+{
+  "page": {
+    "title": "ICC 設定檔工具 — 說明",
+    "subtitle": "以瀏覽器執行的 ICC.1 與 ICC.2 (iccMAX) 設定檔檢視、驗證與往返編輯工具",
+    "stale": "<strong>此章節最近已更新。</strong>在其翻譯更新之前，將以英文顯示。"
+  },
+  "diagram": {
+    "drag a row onto a tab →": "將列拖到分頁上 →",
+    "Based on iccDEV demo implementation": "基於 iccDEV 示範實作",
+    "Modified — unsaved": "已修改 — 尚未儲存",
+    "Save profile": "儲存 ICC 設定檔",
+    "System default (English)": "系統預設 (中文（繁體）)",
+    "Drag into the chain →": "拖入鏈條 →",
+    "Combine — Link Pipeline": "連結 — 連結管線",
+    "Chain profiles, then make a DeviceLink or transform an image / dataset.": "串接設定檔，再產生 DeviceLink 或轉換影像／資料集。",
+    "Drop an image (TIFF/PNG/JPEG)": "拖放影像（TIFF/PNG/JPEG）",
+    "Drop a dataset (CGATS/CSV/CxF)": "拖放資料集（CGATS/CSV/CxF）",
+    "Chain:": "鏈條：",
+    "CMM interp.": "CMM 內插",
+    "Per-stage intent": "各階段意圖",
+    "iccApplyProfiles output knobs": "iccApplyProfiles 輸出選項"
+  }
+}

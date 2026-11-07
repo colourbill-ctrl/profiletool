@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICC プロファイルツール — ヘルプ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, 'Noto Sans SC', 'Hiragino Sans', 'Microsoft YaHei', 'Apple SD Gothic Neo', sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
+    .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-size: 24px; color: #1a5a8a; margin-bottom: 6px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+    h2 { font-size: 17px; color: #1a5a8a; margin: 36px 0 10px; padding-bottom: 5px; border-bottom: 2px solid #d0e6f5; }
+    h3 { font-size: 14px; font-weight: bold; color: #333; margin: 20px 0 6px; }
+    h4 { font-size: 13px; font-weight: bold; color: #555; margin: 14px 0 4px; }
+    p { font-size: 14px; margin-bottom: 10px; }
+    ul, ol { font-size: 14px; margin: 8px 0 10px 24px; }
+    li { margin-bottom: 4px; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 1px 5px; border-radius: 3px; }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 13px; }
+    th { background: #e8edf2; text-align: left; padding: 6px 10px; border: 1px solid #ccd6e0; font-weight: bold; color: #444; }
+    td { padding: 5px 10px; border: 1px solid #dde4ec; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f9fb; }
+    .note { background: #fff8e6; border-left: 3px solid #f0b429; padding: 8px 12px; font-size: 13px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+    nav { background: #fff; border: 1px solid #dde; border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; font-size: 13px; }
+    nav ol { margin-left: 18px; }
+    pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 8px 12px; border-radius: 4px; margin: 8px 0 12px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
+    nav li { margin-bottom: 3px; }
+    nav a { color: #1a5a8a; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    hr { border: none; border-top: 1px solid #dde; margin: 32px 0; }
+    strong { color: #222; }
+    section { margin-bottom: 8px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1c1f; color: #d0d4da; }
+      h1 { color: #7ab8e8; }
+      h2 { color: #7ab8e8; border-bottom-color: #2a4a60; }
+      h3 { color: #c8cdd4; }
+      h4 { color: #9aa0a8; }
+      code { background: #2a2e35; color: #a8d4f0; }
+      pre { background: #2a2e35; }
+      table { color: #c8cdd4; }
+      th { background: #252930; border-color: #3a4048; color: #9aa0a8; }
+      td { border-color: #2e3440; }
+      tr:nth-child(even) td { background: #1e2128; }
+      .note { background: #2a2410; border-left-color: #c08820; color: #c8b880; }
+      nav { background: #22262e; border-color: #333a44; }
+      nav a { color: #7ab8e8; }
+      hr { border-top-color: #2e3440; }
+      strong { color: #e0e4ea; }
+      .subtitle { color: #666e7a; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>ICC プロファイルツール — ヘルプ</h1>
+  <p class="subtitle">ICC.1 および ICC.2 (iccMAX) プロファイルのためのブラウザベースの検査・検証・ラウンドトリップ編集ツール</p>
+
+<p><strong>ICC プロファイルツール</strong>（ICC Profile Tool、profiletool）は、<strong>ICC.1</strong> および <strong>ICC.2 (iccMAX)</strong> カラープロファイルの検査、検証、ラウンドトリップ編集を行うブラウザベースのツールです。ICC 公式の IccProfLib デモ実装である <a href="https://github.com/InternationalColorConsortium/iccDEV">iccDEV</a> の WebAssembly ビルドを使い、すべてブラウザ内で動作します。アップロードもインストールも不要です。</p>
+<p><strong>できること：</strong></p>
+<ul>
+<li><strong>ヘッダーの閲覧</strong> — 128 バイトのプロファイルヘッダーの全フィールドを、人が読める文字列にデコードして表示します。</li>
+<li><strong>タグディレクトリの閲覧</strong> — すべてのタグについて、シグネチャ、型、バイトオフセット、サイズ、パディングバイトを表示します。タグをクリックすると型ごとの詳細な説明（iccDEV の <code>wxProfileDump</code> の「Describe」ビューと同じ出力）が展開され、対応するタグではインラインの<strong>可視化</strong>も表示されます。トーンレスポンスカーブ、色度図、CLUT 画像と色域画像、名前付きカラーの散布図、さらに単一点の<strong>変換評価機能</strong>です。</li>
+<li><strong>検証</strong> — ICC Profile Assessment Working Group のチェックリスト（セキュリティ / 適合性 / 品質）を実行します。各チェックには判定が付き、カテゴリーで絞り込めます。</li>
+<li><strong>ラウンドトリップ編集</strong> — プロファイルを XML または JSON に変換し、内蔵のコードエディターで編集して ICC に戻し、再検証します。保存ボタンで編集後のバイナリをダウンロードできます。</li>
+<li><strong>プロファイルのチェーン</strong> — <strong>リンク</strong> タブで、プール内のプロファイルを順序付きのチェーンにドラッグし、それを <strong>DeviceLink</strong> に焼き込む、チェーンを通して<strong>画像を変換する</strong>（出力のエンコーディング、圧縮、プレーナー配置、ICC 埋め込みを細かく指定可能）、または<strong>カラーデータセットを変換する</strong>ことができます。</li>
+<li><strong>HDR の扱い</strong> — プロファイルを ICC.1 の HDR ColorSpace Profile の規則（箇条 8.7.1）に照らしてチェックし、cICP のコードポイントを読み取り、任意のディスプレイヘッドルームでのアダプティブゲインカーブをプロットします。<strong>HDR</strong> タブでは HDR 画像を 1 枚ディスプレイに表示でき、<strong>設定 → 環境</strong> ではこのブラウザとディスプレイで何ができるかを確認できます。</li>
+<li><strong>chardata から起動</strong> — <a href="https://chardata.colourbill.com/">chardata</a> で読み込んだプロファイルを、そのままここで開きます。バイト列はブラウザ内で <code>postMessage</code> により受け渡されます。</li>
+<li><strong>URL で起動</strong> — Web 上のプロファイルをツールに指定するリンクを開きます。必要に応じて最初に表示するタブも指定できます（例：<code>…/profiletool#url=…&tab=VAL</code>）。</li>
+</ul>
+<p>すべてクライアント側で動作します。プロファイルのバイト列がブラウザのタブの外に出ることはありません。</p>
+<div class="note">
+<strong>ICC.2 (iccMAX) のサポートは部分的です。</strong> ICC.2 プロファイルも ICC.1 と同様に読み込み、検査、検証、ラウンドトリップができます。検証チェックリストには iccMAX 固有のチェックが含まれ、スペクトル PCS やマルチプロセッシングエレメントのタグはデコードされ、変換エンジンは iccMAX の全機能を対象にビルドされています。未対応なのは、マルチパートの <strong>ICS</strong>（Interchange Color Space）ワークフロー、変換適用時の V5 <em>サブプロファイル</em>の選択、一部の ICC.2 プロファイルでの逆探索です。より特殊な ICC.2 機能には未対応の部分があると考えてください。リリースごとに順次対応しています。
+</div>
+<div class="note">
+<strong>HDR ColorSpace Profile のサポートはドラフトに準拠しています。</strong> HDR チェック、<code>headroomAdaptiveGainCurveTag</code> のビュー、HDR タブは、現時点での ICC.1 HDR 改訂版を実装したものです。この改訂版はまだ発行されていないため、発行までに詳細が変わる可能性があります。
+</div>
+
+  <nav>
+    <strong>目次</strong>
+    <ol>
+      <li><a href="#1-the-workspace">ワークスペース</a></li>
+      <li><a href="#2-settings-panel">設定パネル</a></li>
+      <li><a href="#3-profile-views">プロファイルビュー</a>
+        <ol>
+          <li><a href="#3-1-header">ヘッダー</a></li>
+          <li><a href="#3-2-tags">タグ</a></li>
+          <li><a href="#3-3-validation">検証</a></li>
+          <li><a href="#3-4-analysis">分析</a></li>
+          <li><a href="#3-5-xml">XML</a></li>
+          <li><a href="#3-6-json">JSON</a></li>
+        </ol>
+      </li>
+      <li><a href="#4-combine-tab">リンクタブ</a>
+        <ol>
+          <li><a href="#4-1-building-a-chain">チェーンの構築</a></li>
+          <li><a href="#4-2-make-devicelink">DeviceLinkを作成</a></li>
+          <li><a href="#4-3-transform-image">画像を変換</a></li>
+          <li><a href="#4-4-transform-data">データを変換</a></li>
+          <li><a href="#4-5-observer-change">観察者の変更</a></li>
+          <li><a href="#4-6-compare-and-spectral-tabs">比較タブとスペクトルタブ</a></li>
+          <li><a href="#4-7-hdr-tab">HDR タブ</a></li>
+        </ol>
+      </li>
+      <li><a href="#5-round-trip-editing">ラウンドトリップ編集</a></li>
+      <li><a href="#6-launching-from-chardata">chardata からの起動</a></li>
+      <li><a href="#7-launching-with-a-url">URL での起動</a></li>
+      <li><a href="#8-mobile">モバイル</a></li>
+      <li><a href="#9-limits-and-security">制限とセキュリティ</a></li>
+    </ol>
+  </nav>
+
+<h2 id="1-the-workspace">1. ワークスペース</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 780 470"
+  style="width:100%;max-width:780px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="780" height="470" rx="0" class="bg"/><rect x="10" y="10" width="172" height="450" rx="8" class="pnl"/><rect x="10" y="10" width="172" height="28" rx="8" class="hd"/><text x="22" y="29" text-anchor="start" class="tB" textLength="48" lengthAdjust="spacingAndGlyphs">プロファイル</text><rect x="74" y="17" width="18" height="14" rx="7" class="act"/><text x="83" y="28" text-anchor="middle" class="tW">3</text><text x="138" y="29" text-anchor="start" class="t3">A–Z ↕</text><text x="172" y="29" text-anchor="end" class="t3">‹</text><rect x="22" y="46" width="110" height="20" rx="5" class="act"/><text x="77" y="60" text-anchor="middle" class="tW tB" textLength="102" lengthAdjust="spacingAndGlyphs">プロファイルを読み込む</text><text x="22" y="84" text-anchor="start" class="tA">＋ .cube から新規作成</text><text x="22" y="106" text-anchor="start" class="t3 tB">▾ 出力</text><text x="168" y="106" text-anchor="end" class="t3">2</text><rect x="20" y="114" width="152" height="32" rx="5" class="sec"/><text x="28" y="127" text-anchor="start" class="t2 mono">Coated.icc</text><text x="28" y="140" text-anchor="start" class="t3">prtr · CMYK · v4.3</text><text x="164" y="130" text-anchor="end" class="t3">×</text><rect x="20" y="152" width="152" height="32" rx="5" class="sec"/><text x="28" y="165" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="28" y="178" text-anchor="start" class="t3">mntr · RGB · v4.2</text><text x="164" y="168" text-anchor="end" class="t3">×</text><text x="22" y="206" text-anchor="start" class="t3 tB">▸ 表示</text><text x="168" y="206" text-anchor="end" class="t3">1</text><text x="22" y="232" text-anchor="start" class="t3">行をタブへドラッグ →</text><text x="194" y="30" text-anchor="start" class="tT">ICC プロファイルツール</text><text x="194" y="46" text-anchor="start" class="t3">iccDEV のデモ実装に基づく</text><line x1="194" y1="54" x2="634" y2="54" class="div"/><line x1="194" y1="78" x2="268" y2="78" stroke="var(--act)" stroke-width="3"/><text x="231" y="72" text-anchor="middle" class="tA" textLength="50" lengthAdjust="spacingAndGlyphs">プロファイル</text><rect x="254" y="62" width="16" height="12" rx="6" class="act"/><text x="262" y="72" text-anchor="middle" class="tW">1</text><text x="313" y="72" text-anchor="middle" class="t2">比較</text><rect x="336" y="62" width="16" height="12" rx="6" class="act"/><text x="344" y="72" text-anchor="middle" class="tW">2</text><text x="395" y="72" text-anchor="middle" class="t2">リンク</text><text x="477" y="72" text-anchor="middle" class="t2">スペクトル</text><line x1="194" y1="80" x2="634" y2="80" class="div"/><rect x="194" y="90" width="116" height="20" rx="9" class="lnbd"/><text x="204" y="104" text-anchor="start" class="t3">Coated.icc   ×</text><text x="194" y="133" text-anchor="start" class="tB">Coated.icc</text><rect x="270" y="121" width="122" height="16" rx="8" class="amber"/><text x="331" y="133" text-anchor="middle" class="tW">● 変更あり — 未保存</text><rect x="544" y="119" width="90" height="22" rx="5" class="act"/><text x="589" y="134" text-anchor="middle" class="tW tB" textLength="84" lengthAdjust="spacingAndGlyphs">プロファイルを保存</text><rect x="194" y="150" width="440" height="306" rx="6" class="pnl"/><rect x="194" y="150" width="440" height="26" rx="6" class="sec"/><text x="204" y="167" text-anchor="start" class="tB mono">Coated.icc</text><text x="280" y="167" text-anchor="start" class="t3">· 1,838,244 bytes · IccProfLib 2.3.1</text><rect x="582" y="156" width="44" height="14" rx="3" class="green"/><text x="604" y="167" text-anchor="middle" class="tW tB">合格</text><line x1="204" y1="202" x2="262" y2="202" stroke="var(--act)" stroke-width="3"/><text x="233" y="194" text-anchor="middle" class="tA">ヘッダー</text><text x="291" y="194" text-anchor="middle" class="t2">タグ</text><rect x="304" y="184" width="18" height="12" rx="6" class="act"/><text x="313" y="194" text-anchor="middle" class="tW">14</text><text x="356" y="194" text-anchor="middle" class="t2">検証</text><text x="429" y="194" text-anchor="middle" class="t2">分析</text><text x="485" y="194" text-anchor="middle" class="t2">XML</text><text x="529" y="194" text-anchor="middle" class="t2">JSON</text><line x1="204" y1="204" x2="624" y2="204" class="div"/><rect x="204" y="216" width="420" height="20" rx="4" class="sec"/><text x="212" y="229" text-anchor="start" class="t3 tB">PROFILE ID</text><text x="284" y="229" text-anchor="start" class="tA mono">9efa8dc6c12f4e0b8b3a04e6c5a6e51c</text><rect x="204" y="242" width="420" height="18" rx="0" class="sec"/><text x="212" y="254" text-anchor="start" class="t3">Profile Class</text><text x="344" y="254" text-anchor="start" class="t2">Output Profile</text><text x="212" y="272" text-anchor="start" class="t3">Data Color Space</text><text x="344" y="272" text-anchor="start" class="t2">CMYK</text><rect x="204" y="278" width="420" height="18" rx="0" class="sec"/><text x="212" y="290" text-anchor="start" class="t3">PCS</text><text x="344" y="290" text-anchor="start" class="t2">Lab</text><text x="212" y="308" text-anchor="start" class="t3">Profile Version</text><text x="344" y="308" text-anchor="start" class="t2">4.30.00</text><rect x="204" y="314" width="420" height="18" rx="0" class="sec"/><text x="212" y="326" text-anchor="start" class="t3">Rendering Intent</text><text x="344" y="326" text-anchor="start" class="t2">Perceptual</text><text x="212" y="344" text-anchor="start" class="t3">Creation Date</text><text x="344" y="344" text-anchor="start" class="t2">2025-08-14 10:24 UTC</text><rect x="766" y="10" width="6" height="450" rx="0" class="pnl"/><rect x="728" y="30" width="38" height="32" rx="5" class="btn"/><text x="747" y="51" text-anchor="middle" class="t2 tB">⚙</text><rect x="728" y="68" width="38" height="32" rx="5" class="btn"/><text x="747" y="89" text-anchor="middle" class="t2 tB">?</text><rect x="728" y="106" width="38" height="32" rx="5" class="btn"/><text x="747" y="127" text-anchor="middle" class="t2">✉</text><line x1="747" y1="46" x2="712" y2="42" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="39" text-anchor="end" class="t3">⚙ 設定</text><line x1="747" y1="84" x2="712" y2="80" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="77" text-anchor="end" class="t3">? ヘルプ</text><line x1="747" y1="122" x2="712" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="115" text-anchor="end" class="t3">✉ お問い合わせ</text>
+</svg><p>profiletool は<strong>複数のプロファイルを扱うワークベンチ</strong>です。ウィンドウは 3 つの部分で構成されます。</p>
+<ul>
+<li>左側の<strong>プロファイル</strong>ペイン — 読み込んだすべてのものを入れておく<em>プール</em>です。</li>
+<li>右側の<strong>キャンバス</strong> — 上部に <strong>プロファイル</strong>、<strong>比較</strong>、<strong>リンク</strong>、<strong>スペクトル</strong>、<strong>HDR</strong> の 5 つのタブがあります。</li>
+<li>右端の<strong>設定</strong>ブレード（<a href="#2-settings-panel">設定パネル</a>を参照）。</li>
+</ul>
+<h3 id="loading-profiles">プロファイルの読み込み</h3>
+<p>ファイルは次のどちらかの方法で読み込みます。</p>
+<ul>
+<li>プロファイルペインの上部にある<strong>プロファイルを読み込む</strong>をクリックし、1 つ以上のファイルを選択する。</li>
+<li>ファイルをプロファイルペインに<strong>ドラッグ＆ドロップ</strong>する。</li>
+</ul>
+<p><code>.icc</code> / <code>.icm</code> プロファイル<em>だけでなく</em>画像も読み込めます。<strong>TIFF、PNG、JPEG、HEIC、AVIF</strong> をドロップすると、ツールはその<strong>埋め込み ICC プロファイル</strong>を抽出してプールに追加します。読み取るのはファイルのメタデータだけで、ピクセルは読みません。HEIC と AVIF ではファイルのボックス構造をたどるため、これらの形式を表示できないブラウザを含め、どのブラウザでも動作します。<strong>JPEG XL</strong> ファイルは受け付けません。プロファイルがコードストリーム内で圧縮されており、profiletool はまだその展開に対応していないためです。HEIC と同じコンテナを使う動画やカメラ RAW ファイル（MP4、QuickTime、Canon CR3）は画像として扱われません。<strong>OpenEXR</strong> と <strong>Radiance HDR</strong>（<code>.hdr</code>）ファイルは理由を示して拒否されます。どちらの形式にも ICC プロファイルを格納する場所がないためです。OpenEXR は色度座標で、Radiance HDR は任意の <code>PRIMARIES</code> ヘッダー行で色を表します。画像を<em>表示</em>するには <a href="#4-7-hdr-tab">HDR タブ</a>を使います。<strong>＋ .cube から新規作成</strong>ボタンでは、<code>.cube</code> LUT から DeviceLink を作成できます。結果はプールに追加され、<strong>プロファイル</strong>タブで開かれます。<strong>ICC プロファイルを保存</strong>をクリックするまで何もダウンロードされません。</p>
+<p>プロファイルとして受け付けられるのは、先頭 36 バイトに <code>acsp</code> シグネチャを含み、IccProfLib の <code>ValidateIccProfile</code> で解析できるファイルです。受け付けられなかったファイルは具体的な理由とともに拒否の一覧に表示され、そのバイト列は保持されません。</p>
+<h3 id="the-profiles-pane">プロファイルペイン</h3>
+<p>読み込んだプロファイルは、<strong>プロファイルクラス</strong>（Input、Display、Output、DeviceLink、ColorSpace、Abstract、Named Color など）ごとに、折りたたみ可能なセクションにまとめられます。ただし ICC.1 箇条 8.7.1 の <strong>HDR ColorSpace プロファイル</strong>は、一番上の専用セクションに表示されます（ColorSpace クラスのプロファイルなので、ColorSpace セクションから取り出して表示されます）。このセクションは伝達関数によって<strong>リニア伝達関数</strong>と<strong>非リニア伝達関数（PQ、HLG）</strong>に分かれ、各行には伝達関数がバッジで表示されます。この区別は <a href="#4-7-hdr-tab">HDR タブ</a>で意味を持ちます。OpenEXR や Radiance HDR の画像に割り当てられるのは、リニア伝達関数のプロファイルだけだからです。各行にはファイル名と、クラス、色空間、バージョン、サイズのバッジが表示され、一部しか解析できなかったプロファイルにはフラグが付きます。<strong>A–Z</strong> ボタンで並べ替え順を切り替え（読み込み順 → 昇順 → 降順）、行の <strong>×</strong> で削除し、ペイン右端のハンドルで幅を変更できます。ペイン全体を折りたたむこともできます。</p>
+<p>行をクリックすると選択され、Ctrl/Cmd+クリックで選択の切り替え、Shift+クリックで範囲選択ができます。<strong>行をプールからタブへドラッグ</strong>すると、そのタブで使えるようになります。</p>
+<div class="note">
+<strong>プールはそのセッション限りです。</strong> 何もアップロードされず、何も保存されません。永続的な保存先はあくまでお使いのファイルシステムです。ページを再読み込みするとプールは空になります。
+</div>
+<h3 id="the-tabs">タブ</h3>
+<table><thead>
+<tr><th>タブ</th><th>機能</th></tr></thead><tbody>
+<tr><td><strong>プロファイル</strong></td><td><strong>1 つ</strong>のプロファイルを検査します（ヘッダー、タグ、検証、分析、XML、JSON）。ここに新しいプロファイルをドロップすると、現在のプロファイルと置き換わります。</td></tr>
+<tr><td><strong>比較</strong></td><td><strong>2 つ以上</strong>のプロファイルの色域を重ねて表示します。</td></tr>
+<tr><td><strong>リンク</strong></td><td>プロファイルをチェーンにして DeviceLink を作成するか、それを通して画像 / データセットを変換します。</td></tr>
+<tr><td><strong>スペクトル</strong></td><td>単一チャンネルのスペクトル画像を 1 つのマルチチャンネル TIFF にまとめます。</td></tr>
+<tr><td><strong>HDR</strong></td><td><strong>1 枚</strong>の HDR 画像をディスプレイに表示し、SDR ↔ HDR を切り替えられます。<a href="#4-7-hdr-tab">HDR タブ</a>を参照してください。</td></tr>
+</tbody></table>
+<p>スペクトルタブと HDR タブは、プール内のプロファイルではなく画像ファイルを直接受け取ります。その他の各タブはそれぞれ独自のプロファイルの組を持ち、それらはタブストリップの下に削除可能なチップとして表示され、タブ自体には件数のバッジが付きます。最初に読み込んだプロファイルは自動的に<strong>プロファイル</strong>タブで開かれます。それ以降は、プールから目的のタブへドラッグしてください。ファイルを直接タブにドロップすると、プールへの読み込み<em>と</em>そのタブへの配置が一度に行われます。</p>
+<div class="note">
+<strong>サイズ上限：</strong>256 MB を超えるファイルは読み込まれません。実際のプロファイルは通常 10 MB を大きく下回ります。この上限は、悪意のあるドロップや postMessage によってタブの WASM ヒープが使い果たされるのを防ぐためだけのものです。
+</div>
+<hr>
+<h2 id="2-settings-panel">2. 設定パネル</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 380 186"
+  style="width:100%;max-width:380px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="380" height="186" rx="0" class="bg"/><rect x="8" y="8" width="364" height="170" rx="8" class="pnl"/><rect x="8" y="24" width="38" height="34" rx="5" class="btn"/><text x="27" y="45" text-anchor="middle" class="t2 tB">⚙</text><rect x="8" y="64" width="38" height="34" rx="5" class="btn"/><text x="27" y="85" text-anchor="middle" class="t2 tB">?</text><rect x="8" y="104" width="38" height="34" rx="5" class="btn"/><text x="27" y="125" text-anchor="middle" class="t2">✉</text><line x1="46" y1="8" x2="46" y2="178" class="div"/><text x="54" y="32" text-anchor="start" class="tT">設定</text><line x1="50" y1="44" x2="366" y2="44" class="div"/><text x="54" y="69" text-anchor="start" class="tA tB">表示</text><text x="54" y="91" text-anchor="start" class="t3 tB">背景</text><rect x="232" y="78" width="130" height="22" rx="4" class="btn"/><text x="242" y="93" text-anchor="start" class="t2">システム</text><text x="352" y="93" text-anchor="end" class="t3">▾</text><text x="54" y="121" text-anchor="start" class="t3 tB">数値形式</text><rect x="232" y="108" width="130" height="22" rx="4" class="btn"/><text x="242" y="123" text-anchor="start" class="t2">16 進数</text><text x="352" y="123" text-anchor="end" class="t3">▾</text><text x="54" y="151" text-anchor="start" class="t3 tB">言語</text><rect x="232" y="138" width="130" height="22" rx="4" class="btn"/><text x="242" y="153" text-anchor="start" class="t2" textLength="104" lengthAdjust="spacingAndGlyphs">システム既定 (日本語)</text><text x="352" y="153" text-anchor="end" class="t3">▾</text>
+</svg><p>画面右端の <strong>⚙</strong> ボタン（モバイルでは右上の歯車アイコン）をクリックすると設定が開きます。パネルはコンテンツの大きさを変えずに、その上にスライドして表示されます。</p>
+<p>⚙ の下には、さらに 2 つのボタンがあります。</p>
+<ul>
+<li><strong>?</strong> はこのガイドを<strong>アプリ内で</strong>、ウィンドウの上にスライドインするペインとして開きます。ヘッダーには検索ボックスがあり、入力すると一致箇所がハイライトされます。<code>Enter</code> / <code>Shift+Enter</code>（または <code>˄</code> <code>˅</code> ボタン）で一致箇所を順に移動でき、<code>Escape</code> で検索をクリア、もう一度 <code>Escape</code> を押すとペインが閉じます。</li>
+<li><strong>✉</strong> は colourbill.com のお問い合わせフォームを新しいブラウザタブで開きます。</li>
+</ul>
+<p>パネルには<strong>表示</strong>と<strong>環境</strong>の 2 つのグループがあります。パネルの幅は左端をドラッグして変更でき（220–560 px）、その幅は記憶されます。</p>
+<h3 id="background">背景</h3>
+<p>アプリのテーマを<strong>ライト</strong>、<strong>ダーク</strong>、<strong>システム</strong>（OS の設定に従う）から選びます。選択はセッションをまたいで保持されます。<strong>システム</strong>モードでは、アプリが <code>prefers-color-scheme</code> を監視し、OS のテーマが変わると自動的に切り替わります。ライトまたはダークを明示的に選ぶと、この監視は解除されます。</p>
+<h3 id="number-format">数値形式</h3>
+<p>プロファイルビュー全体での数値の表示方法を、<strong>16 進数</strong>または <strong>10 進数</strong>から選びます。</p>
+<h3 id="language">言語</h3>
+<p>インターフェースの言語を指定します。<strong>システム既定 (…)</strong> はブラウザのロケールを検出し、対応言語のうち最も近いものを使います。括弧内にはその言語の自言語名が表示されるので、どの言語が選ばれたかがわかります。翻訳の対象はアプリの UI 部分です：プロファイルペイン、タブのラベル、リンク・スペクトル・HDR の各ツール、タグ内の HDR ゲインカーブのビュー、環境とその理由表示を含む設定パネル、このガイドの UI 部分。翻訳されないテキストもあります。</p>
+<ul>
+<li>IccProfLib が生成する文字列（タグの説明、検証メッセージ、ヘッダーのフィールド名）は、C++ ライブラリから英語のまま出力されます。</li>
+<li>ブラウザフラグの名前は、ブラウザ自身のフラグページと一致するよう英語のままです。</li>
+<li>環境パネルの<strong>ディスプレイイベント</strong>（Display events）のログは、そのままバグ報告に貼り付けられるよう英語のままです。</li>
+<li>このガイドも同じ設定に従いますが、HDR のセクションは例外です。HDR サポートはベータ版で本文がまだ変わり続けているため、英語のままです。また、翻訳の最終更新以降に英語版が改訂されたセクションも、翻訳が追いつくまで注記付きで英語で表示されます。</li>
+</ul>
+<p>対応言語：English、Français、Deutsch、Italiano、Español、Português (PT)、Português (BR)、Svenska、中文（简体）、中文（繁體）、日本語、한국어。chardata の設定パネルも同じ言語に対応しているため、一方のアプリで言語を切り替えると、もう一方でも一貫した表示になります。</p>
+<h3 id="environment">環境</h3>
+<p><strong>この</strong>ブラウザ、プラットフォーム、ディスプレイで何ができるかを表示します。形式や HDR 機能が使えないときに、その理由を確認できます。上から順に：</p>
+<ul>
+<li><strong>概要</strong> — ブラウザとオペレーティングシステム、およびディスプレイが HDR を報告しているかどうか。</li>
+<li><strong>ブラウザのフラグ</strong>（Chrome、Edge、Opera、Brave）— <em>Experimental Web Platform features</em> が有効かどうか。このフラグは HDR キャンバスを有効にし、ページがディスプレイの HDR ヘッドルームを読み取れるようにします。</li>
+<p>
+  - フラグが無効だと判明している場合は、ボックスがハイライトされます。このブラウザで使用できる WebGPU がない場合は、HDR キャンバスが HDR を描画する唯一の手段となるため<strong>必須</strong>と表示されます。それ以外の場合は<strong>任意</strong>です。
+ 
+  - プロファイルの検査には一切必要ありません。
+ 
+  - Web ページからブラウザのフラグを開いたり変更したりすることはできません。<strong>コピー</strong>をクリックし、そのアドレスをアドレスバーに貼り付け、フラグを <em>Enabled</em> に設定してから、ブラウザを再起動してください。
+<li><strong>ディスプレイ情報</strong> — <strong>HDR ディスプレイ</strong>、<strong>広色域</strong>（sRGB、Display P3、Rec. 2020）、<strong>ピクセル比</strong>、および使用中の <strong>HDR キャンバス経路</strong>（<code>float16-canvas</code>、<code>webgpu</code>、またはなし）。条件の異なる画面へウィンドウをドラッグすると、これらは自動的に更新されます。切り替わるのは、ウィンドウの大部分が新しい画面に移ったときです。</li>
+<li><strong>ディスプレイを識別</strong>（Chromium 系ブラウザ）— ウィンドウがどのモニター上にあるかを確認する許可を求めます。許可すると、見た目の似たモニター間でもパネルが更新され、<strong>現在のモニター</strong>の名前と、ブラウザが公開している場合（上記のフラグを有効にした Chrome）は <strong>HDR ヘッドルーム</strong>が表示されます。例：<em>1.35 段（≈ SDR 白の 2.55 倍）</em>。許可を拒否した場合は、サイトの設定で変更してください。</li>
+ 
+  - ヘッドルームは SDR 白より上の余裕なので、ノートパソコン内蔵の HDR パネルでは<strong>輝度を上げると小さくなり</strong>（SDR 白が明るくなる一方、パネルのピークは変わらないため）、輝度を下げると大きくなります。HDR を見るときは輝度を下げてください。
+ 
+  - Windows では、輝度を変更してから数秒後、ディスプレイドライバーが値を報告した時点で新しい値が反映されます。ウィンドウが別の画面に移動したときや、Chrome が再びアクティブなアプリになったときにも更新されます。
+<li><strong>ディスプレイイベント</strong> — 直近 20 回の更新と、それぞれのきっかけを記録した折りたたみ式のログです。ディスプレイの問題を報告するときに役立ちます。</li>
+<li><strong>形式の表</strong> — 形式ごとに 1 行（ICC プロファイル、TIFF、PNG、JPEG、OpenEXR、Radiance HDR、AVIF、HEIC/HEIF、JPEG XL）で、次の 3 つの問いに答えます：</li>
+ 
+  - <strong>検査</strong>：埋め込みプロファイルを読み取れるか。
+ 
+  - <strong>表示</strong>：ピクセルを表示できるか。
+ 
+  - <strong>HDR</strong>：白より明るく描画できるか。
+</ul>
+</p>
+<p>  ✕ の理由は、行にポインターを重ねると表示されます。表示できない形式は、表の下に理由とともに一覧表示されます。ドットの付いた形式は profiletool 自身がデコードするもので、どのブラウザでも同じように動作します。<strong>検査</strong>は、プロファイルがコードストリーム内で圧縮されている JPEG XL を除き、すべての形式で ✓ です。</p>
+<hr>
+<h2 id="3-profile-views">3. プロファイルビュー</h2>
+<p>プロファイルを検査するには、プールから<strong>プロファイル</strong>タブへドラッグします。タブの上部には、ファイル名と <strong>ICC プロファイルを保存</strong> ボタン（編集後は <em>● 変更あり — 未保存</em> のピルも）を表示するバーがあり、その下にビューアーがあります。ビューアーにはタイトルバー（ファイル名 · バイト単位のサイズ · IccProfLib のバージョン · 有効性バッジ）と独自のタブストリップがあります。</p>
+<p>バッジは<strong>検証</strong>レポートの要約です：失敗や警告のチェックが 1 つもなければ緑の<strong>合格</strong>、警告のチェックが 1 つ以上あれば黄色の<strong>警告</strong>、失敗したチェックが 1 つでもあれば赤の<strong>不合格</strong>です。</p>
+<div class="note">
+<strong>一部しか解析できなかったプロファイル：</strong>プロファイルの損傷が大きく、バリデーターが構造しか読み取れない場合は警告バナーが表示され、<strong>ヘッダー</strong>と<strong>タグ</strong>のタブだけが使えます。検証、分析、XML、JSON は非表示になります。そのプロファイルを適用してはならないためです。
+</div>
+<h3 id="3-1-header">3.1 ヘッダー</h3>
+<p>ICC プロファイルの 128 バイトのバイナリヘッダーの全フィールドを 2 列の表で表示します。値は IccProfLib の <code>CIccInfo</code> を使って人が読める文字列にデコードされます（シグネチャの展開、日付の整形、固定小数点値の変換）。<strong>プロファイル ID</strong>（ヘッダー内の MD5 ハッシュ）は、上部のハイライトされた帯に表示されます。</p>
+<h3 id="3-2-tags">3.2 タグ</h3>
+<p>プロファイルのタグディレクトリにあるすべてのタグを 6 列のグリッドで表示します。</p>
+<table><thead>
+<tr><th>列</th><th>意味</th></tr></thead><tbody>
+<tr><td><code>#</code></td><td>ディレクトリ内の位置（1 から始まる）</td></tr>
+<tr><td><code>Name</code></td><td>人が読める長い名前（例：<code>profileDescriptionTag</code>）</td></tr>
+<tr><td><code>ID</code></td><td>4 文字のシグネチャ（例：<code>desc</code>）</td></tr>
+<tr><td><code>Offset</code></td><td>ファイル先頭からのバイトオフセット</td></tr>
+<tr><td><code>Size</code></td><td>タグデータのバイトサイズ</td></tr>
+<tr><td><code>Pad</code></td><td>このタグと次のタグの間のパディングバイト</td></tr>
+</tbody></table>
+<p>タグの<strong>型</strong>シグネチャ（例：<code>descType</code>、<code>mft2</code>、<code>mAB</code>）は、展開したタグの上部にオフセットとサイズとともに表示されます。</p>
+<p>タグはオフセット順に並びます。<strong>パディング</strong>列は色分けされ、<code>Pad < 0</code>（タグの重なり、規格非準拠）は赤、<code>Pad > 3</code>（仕様を超えるパディング）は黄色で表示されます。</p>
+<p><strong>行をクリック</strong>すると、その場で展開されます（アコーディオン形式で、一度に開けるタグは 1 つ）。展開した詳細の最後には、必ず型ごとの完全な説明が表示されます。これは IccProfLib の <code>CIccTag::Describe(verbosity = 100)</code> を実行した結果と同じです。大きな CLUT やカーブを含むタグ（例：<code>A2B0</code>、<code>B2A0</code>）では、すべてのグリッドセルやカーブ点が含まれます。</p>
+<p>その説明の上には、可視化できるデータを持つタグについて、1 つ以上の<strong>インライン可視化</strong>が、それぞれ折りたたみ可能なセクションとして表示されます。</p>
+<table><thead>
+<tr><th>タグの種類</th><th>可視化</th></tr></thead><tbody>
+<tr><td>トーンカーブ（<code>rTRC</code>/<code>gTRC</code>/<code>bTRC</code>/<code>kTRC</code>）</td><td>トーンレスポンスカーブを恒等直線とともにプロットします。カーブ表はその下に折りたたまれています。</td></tr>
+<tr><td>RGB 色材（<code>rXYZ</code>/<code>gXYZ</code>/<code>bXYZ</code>）と白色点（<code>wtpt</code>）</td><td>該当する原色（または白色点）をハイライトした CIE 1931 色度図。色材 / 白色点のデータはその下に表示されます。</td></tr>
+<tr><td>LUT 変換（<code>A2B0–3</code>、<code>B2A0–3</code>、<code>gamt</code>、<code>pre0–2</code>）</td><td>入力側と出力側のトーンカーブ（重ねて表示し、色材ごとに色分け。凡例で各トレースの表示を切り替え可能）、画像化した CLUT 格子、<strong>色域画像</strong>（プロファイルの <code>gamutTag</code> 用。ニュートラル = 色域内、赤 = 色域外で色分け）、<strong>評価機能</strong>（後述）、折りたたまれた生データの表。</td></tr>
+<tr><td>名前付きカラー / 色材テーブル（<code>ncl2</code>/<code>nmcl</code>/<code>clrt</code>/<code>clot</code>）</td><td>CIELAB a*b* 図（および CIE xy 図）上の色の散布図。テーブルはその下に折りたたまれています。</td></tr>
+<tr><td>符号化非依存コードポイント（<code>cicp</code>）</td><td><strong>コードポイント</strong>：色の原色、伝達特性、マトリクス係数、フルレンジフラグを、それぞれ ITU-T H.273 の定義どおりの名前で表示します。H.273 で割り当てられていない値や、ゼロでない予約バイトにはフラグが付きます。</td></tr>
+<tr><td>アダプティブゲインカーブ（<code>headroomAdaptiveGainCurveTag</code>）</td><td><strong>指定ディスプレイヘッドルームでのゲイン</strong>と、タグが代替画像を保持している場合は<strong>ゲインカーブ</strong>。後述の <em>HDR gain curves (HAGC)</em> を参照してください。</td></tr>
+</tbody></table>
+<div class="note">
+<strong>不正なデータも隠しません。</strong> カーブなどの可視化要素が IccProfLib の検証に通らない場合（例：ガンマが 0 に縮退したトーンカーブ）でも、グラフを黙って省略するのではなく、描画できる部分を描画し、ライブラリが示す正確な理由とともに ⚠ 警告を表示します。
+</div>
+<h4 id="the-transform-evaluator">変換の評価機能</h4>
+<p>LUT 変換（<code>A2B<em></code> / <code>B2A</em></code> / プレビュータグ）では、<strong>評価</strong>セクションで、そのタグの変換を指定した単一の色に適用できます。外部のカラーエンジンは使わず、IccProfLib を直接使います。方向はタグに従い（<code>A2B<em></code> はデバイス → PCS、<code>B2A</em></code> は PCS → デバイス）、レンダリングインテントもタグで決まります（<code>…0</code> は知覚的、<code>…1</code> は相対比色、<code>…2</code> は彩度）。</p>
+<ul>
+<li>入力は<strong>浮動小数点</strong>値（デバイスチャンネル、または人が読める Lab/XYZ 単位の PCS）で指定するか、タグに CLUT がある場合は<strong>グリッド点</strong>のインデックス（格子上のノード位置）で指定します。</li>
+<li>出力は、内部の正規化された 0–1 エンコーディングと、人が読める単位（PCS の結果なら Lab/XYZ）の<strong>両方</strong>で表示されます。</li>
+</ul>
+<p>色域タグ（<code>gamt</code>）には評価機能はありません。可逆な変換ではなく、1 チャンネルの色域内 / 色域外マップだからです。代わりに色域画像が表示されます。</p>
+<h4 id="hdr-gain-curves-hagc">HDR gain curves (HAGC)</h4>
+<div class="note"><strong>This section is in English only.</strong> It describes HDR support, a beta feature that follows a draft ICC amendment and is still changing. It will be translated once the feature and its text are stable.</div>
+<p>A <code>headroomAdaptiveGainCurveTag</code> says how an HDR ColorSpace Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:</p>
+<ul>
+<li><strong>Gain curve</strong> plots the control points exactly as stored in the file, one line per alternate image. It is absent when the tag stores no alternate images. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.</li>
+<li><strong>Gain at a display headroom</strong> shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag <strong>Display headroom</strong> from 0 to 6 stops; it starts at the tag's baseline, and <strong>Baseline</strong> returns there. Two plots follow the slider:</li>
+<p>
+  - <strong>Gain applied at this headroom</strong>: the blended curve, drawn against every curve in the tag;
+ 
+  - <strong>Grey tone curve at this headroom</strong>: what a grey input becomes, drawn against <em>no change</em> and the display peak.
+</ul>
+</p>
+<p>
+  Three more views make the adaptation visible:
+ 
+  - <strong>Preview through the colour engine</strong> runs one test strip through IccProfLib's HDR transform twice: a grey ramp, then pure R, G, B, Y, C and M bands, all rising left to right in the profile's own signal (PQ, HLG, or Linear on a log scale). The top strip is <strong>as authored</strong>, at the baseline headroom where the tag applies no gain. The bottom strip is <strong>tone-mapped</strong> for the slider's headroom. Both are capped at that headroom's peak, the way a display with that much headroom would show them. Where the top strip clips to flat, the gain curve rolls the highlights off. Ticks mark where the ramp reaches <strong>reference white</strong> and the <strong>display peak</strong>. The strips use the same HDR output as the <a href="#4-7-hdr-tab">HDR tab</a>: on an HDR display, values above SDR white look brighter than it.
+ 
+  - <strong>Gain across every headroom</strong> is a heatmap of the gain on a grey input. The horizontal axis is input brightness, in stops relative to HDR reference white; the vertical axis is display headroom from 0 to 6 stops. Blue compresses, red expands, white leaves the input unchanged. Dotted lines mark the curves stored in the tag, the solid line the baseline, the amber line the slider, and the dashed diagonal where the input reaches the display peak. <strong>Click</strong> the heatmap to move the slider to that headroom.
+ 
+  - <strong>Grey tone curves by headroom</strong> overlays the tone curve at each headroom the tag stores, shaded from blue (low) to red (high), with the slider's curve in amber. Both axes are in stops, so the diagonal means no change.
+</p>
+<p>  A note appears when slopes or whole curves are derived rather than stored. Another appears when the headroom is outside the tag's range, in which case the nearest curve is used unchanged.</p>
+<p>
+  Two cases have no curves to draw, and the view still explains them:
+ 
+  - <strong>Tone mapping on, no alternate images.</strong> The tag asks for no tone mapping, only a clamp to what the display can show. The gain is zero at every headroom, and the preview strip shows the clamp.
+ 
+  - <strong>Tone mapping off</strong> (the tag's <em>Headroom Adaptive Tone Map</em> flag is clear), or a tag IccProfLib cannot apply. The view says why IccProfLib declines, and a colour engine falls back to the next tone-mapping method (clause 8.7.1.3).
+</p>
+<h3 id="3-3-validation">3.3 検証</h3>
+<p>読み込んだプロファイルに対して <strong>ICC Profile Assessment Working Group</strong> のチェックリストを実行し、レポートとして表示します。チェックは iccDEV の <code>iccPawgReport</code> ツールに由来し、別の WebAssembly モジュールとしてコンパイルされていて、このタブを初めて開いたときにだけ取得されます。（同じレポートがタイトルバーの有効性バッジにも使われ、URL 起動では <code>VAL</code> または従来の <code>PAWG</code> で指定できます。）</p>
+<p>各チェックは<strong>セキュリティ</strong>、<strong>適合性</strong>、<strong>品質</strong>のいずれかに分類され、それぞれ 1 つの判定を持ちます。HDR コンテンツを含むプロファイルには、4 つ目のグループ <strong>HDR</strong> が加わります。その最初のチェックは、プロファイルが ICC.1 に適合する <strong>HDR ColorSpace プロファイル</strong>（箇条 8.7.1）かどうかを報告し、残りのチェックはこの箇条が依拠する HDR メタデータを確認します。</p>
+<table><thead>
+<tr><th>判定</th><th>意味</th></tr></thead><tbody>
+<tr><td><strong>合格 (PASS)</strong></td><td>チェックに成功しました</td></tr>
+<tr><td><strong>警告 (WARN)</strong></td><td>確認が望ましい、致命的ではない懸念事項です</td></tr>
+<tr><td><strong>不合格 (FAIL)</strong></td><td>プロファイルがチェックを満たしていません</td></tr>
+<tr><td><strong>ギャップ (GAP)</strong></td><td>チェックを完全には評価できませんでした（例：未実装）</td></tr>
+<tr><td><strong>該当なし (N/A)</strong></td><td>このチェックはこのプロファイルに適用されません</td></tr>
+<tr><td><strong>未実行 (NOT RUN)</strong></td><td>チェックはスキップされました</td></tr>
+</tbody></table>
+<p>上部の要約行には、各判定の件数が色付きのピルで表示されます。<strong>ピルをクリックすると</strong>下のレポートを絞り込めます。青いハローは現在表示中のカテゴリーを示し、件数がゼロのピルは無効になります。たとえば <strong>合格 (PASS)</strong> と <strong>該当なし (N/A)</strong> をオフにすると、警告と不合格だけに集中できます。</p>
+<h3 id="3-4-analysis">3.4 分析</h3>
+<p>プロファイルのカラー変換から導き出す、プロファイル全体の品質分析です。専用の WebAssembly モジュール（iccDEV の可視化エンジン）で計算され、このモジュールはこのタブを初めて開いたときにだけ取得されます。結果はアプリ独自のスタイルでプロットされます。</p>
+<p>各分析は折りたたみ可能なセクションで、<strong>最初はすべて閉じています</strong>。これは意図的なものです。どのセクションもプロファイル全体に対する変換処理を 1 回分必要とするため、タブを切り替えた瞬間に 6 つの分析が一斉に走るのではなく、開くかどうかを明示的に選べるようにしています。結果はキャッシュされるので、セクションを開き直すと即座に表示されます。読み込んだプロファイルに該当しないセクションには、代わりに短い<em>該当なし</em>の注記が表示されます（たとえば matrix/TRC のディスプレイプロファイルには、分析対象となるデバイス↔PCS の CLUT がありません）。</p>
+<h4 id="profile-statistics">プロファイル統計</h4>
+<p><strong>1 つ</strong>の選択したレンダリングインテントについて、プロファイル全体の指標を表示します。2 つのリストボックスと 1 つのチェックボックスで操作します。</p>
+<ul>
+<li><strong>レンダリングインテント</strong> — 知覚的 / 相対比色 / 彩度 / 絶対比色。</li>
+<li><strong>ラウンドトリップの種類</strong> — 報告する精度指標（後述）。</li>
+<li><strong>MPE（カラー）タグを使用</strong> — オフでは測色用のルックアップテーブルを、オンではマルチプロセッシングエレメント / カラータグを使います。色域内の概要には影響しないため、その場合は無効になります。</li>
+</ul>
+<p>表には、<strong>色域体積</strong>（ΔE*ab³ 単位。デバイス → PCS の <code>A2B</code> 変換が囲む体積で、境界をボクセル化して内部のセルを数えて測定）と、選択したラウンドトリップの<strong>最小 / 平均 / 標準偏差 / P90 / 最大</strong> ΔE*ab が並んで表示されます。その下には ΔE 分布のヒストグラム（相対度数の棒グラフと累積度数の折れ線）があり、さらに誤差が最大となる <code>L, a, b</code> と、PRMG の場合はプロファイルが Perceptual Reference Medium Gamut を示しているかどうかが表示されます。</p>
+<p>4 種類のラウンドトリップ：</p>
+<ul>
+<li><strong>色域内の概要 (RT0)</strong> — デバイス値のグリッドを PCS へ変換し、デバイスへ戻し、再び PCS へ変換して、2 回の PCS 値の間で ΔE*ab を測定します。高速な色域内の安定性チェックです。</li>
+<li><strong>反転 + 色域 (RT1)</strong> — 各デバイス色の PCS 値と、Lab → デバイス → Lab のラウンドトリップを 1 回行った後の PCS 値との ΔE*ab。反転の精度<em>と</em>色域マッピングの両方を反映します。</li>
+<li><strong>再現性 (RT2)</strong> — 1 回目と 2 回目のラウンドトリップの間の ΔE*ab。1 回目の色域クリッピングとは無関係に、ラウンドトリップを繰り返したときの安定性を示します。</li>
+<li><strong>PRMG 相互運用性</strong> — Perceptual Reference Medium Gamut 内の PCS 色を 1 回ラウンドトリップさせます。その ΔE 分布が、プロファイル間の相互運用性を示します。</li>
+</ul>
+<p>ヒストグラムの下にある<strong>明度別のラウンドトリップ ΔE</strong> は、要約値では答えられない問い、つまり反転がトーンスケールの<em>どこで</em>うまくいっていないのか、そして問題が<em>色域のどこまで内側に</em>及んでいるのかに答えます。</p>
+<p>32 段階の明度をサンプリングします。各明度で<strong>色域境界上</strong>の 64 点を取り、それらを中性軸に向けてクロマの 80 %、50 %、20 % まで縮めた点でも繰り返します。合計 8,192 点をそれぞれ個別にプロットし、明度レベルの間は点線で区切ります。</p>
+<p>帯ごとに読んでください。1 つの帯の中では、点が左の色域表面から右のニュートラルへ並ぶため、誤差は帯の中で<strong>下がっていく</strong>はずです。境界付近の色は最も反転が難しく、ニュートラル付近の色は最も容易です。ニュートラルまで誤差が高いままの帯は、その明度でプロファイルに問題があることを意味します。最も高いスパイクは、色域境界そのものの反転が最もうまくいっていない明度レベルを示します。</p>
+<p>すべてのシードは構成上色域内にあるため、見えているのは到達できない色がクリップされた結果ではなく、<code>B2A</code>/<code>A2B</code> の本当の不一致です。このプロットは<strong>独自の</strong>サンプリング（意図的に色域境界寄りに重み付け）を使うため、その平均と最大は上の表より高くなり、表とは比較できません。レンダリングインテントの選択には従いますが、ラウンドトリップの種類には従いません。</p>
+<p>指標に必要なデバイス↔PCS 変換を持たないプロファイルには<em>該当なし</em>の注記が表示されます。サンプリングするには広すぎるデバイス空間は、エラーではなくスキップとして報告されます。</p>
+<h4 id="extrema-colorimetry">極値の測色</h4>
+<p>プロファイルの再現範囲の両端、つまり印刷オペレーターが通常まず確認する数値です。</p>
+<ul>
+<li><strong>白色点</strong> — <strong>色材ゼロ</strong>、つまり素地そのものの色。</li>
+<li><strong>黒色点</strong> — PCS の黒（L*=0、a*=b*=0）を選択した <code>B2A</code> テーブルに通して、プロファイルが黒として<em>選ぶ</em>インキングを求め、そのインキングを <code>A2B1</code> で読み戻して求めます。</li>
+<li>どちらも<strong>相対</strong>と<strong>絶対</strong>の測色値で表示されます。絶対は素地そのものの色を示し（青みがかった白い紙なら L* 95、b* −4 のような値になります）、相対は完全な白を基準に参照し直した値です。2 つの列が同じでも正常です。メディアの白が光源と一致しているだけです。メディア白色点タグのないプロファイルでは、相対のみが表示されます。</li>
+<li><strong>黒色点でのインキング</strong>と <strong>TAC</strong> — その黒における各チャンネルのインキ量と、その合計である総面積率（インキ制限の値）です。</li>
+</ul>
+<p><code>B2A</code> テーブルはそれぞれ独自に黒のインキングを選ぶため、黒色点はインテントによって実際に異なります。レンダリングインテントのセレクターがあるのはそのためです。</p>
+<p>その下の<strong>ベタとクロマ最大点</strong>は、各インキのコーナー（C、M、Y、R、G、B、K）について、色相 / クロマ / 明度のどこに到達するかと、素地からそこへ向かう途中で見つかった最もクロマの高い点を示します。これらの行は <code>A2B1</code> を通して測定されるため、<strong>インテントのセレクターでは変わりません</strong>。素直なプロファイルでは 2 つの行が一致します。ベタより<em>前に</em>クロマ最大に達した場合は、その行にフラグが付きます。その点を過ぎると、インキを増やしてもクロマは上がらず、暗くなるだけだからです。</p>
+<p><strong>出力（プリンター）プロファイルのみ</strong> — この分析は、色材ゼロ = 素地であることを前提としています。色相ごとの表には、さらに <strong>CMYK または CMY</strong> のデバイス空間が必要です。n 色（nCLR）プロファイルはチャンネルを任意の順序で命名するため、どのチャンネルが「シアン」かを判別できません。その場合、表は推測せずにその旨を報告します。</p>
+<h4 id="neutral-axis-inking">中立軸インキング</h4>
+<p>中性軸（a*=b*=0）を白（L*=100）から黒（L*=0）まで、プロファイルの <code>B2A</code>（PCS → デバイス）テーブルを通してスイープし、その間にプロファイルが各デバイス色材をどれだけ置くかをプロットします。古典的な GCR / ニュートラルビルドのカーブです。デバイスチャンネルごとに 1 本のカーブを、色材ごとに色分けして表示します。</p>
+<p>分版の上には、さらに 1 本のカーブが描かれます：</p>
+<ul>
+<li><strong>L* 出力（トーン）</strong> — トーンレスポンス、つまりプロファイルをラウンドトリップした後に中性軸が実際にどの明度に着地するかです。その形から 2 つのことが読み取れます。対角線より下にたわんでいれば、グレーは指定より暗く再現されます。さらに有用なのは、カーブが<strong>プロファイルが到達できる最も暗い明度で平坦になる</strong>ことです。この平坦部<em>こそが</em>メディアの黒色点であり、上の「極値の測色」セクションの値と一致するはずです。</li>
+</ul>
+<p><strong>出力（プリンター）プロファイルのみ</strong>。その他のプロファイルクラスでは注記が表示されます。</p>
+<h4 id="ink-usage-in-shadows">シャドウ部のインキ使用量</h4>
+<p>意図的に暗くした一定の明度で、a*b* 平面を横切る 4 本の直線経路（0°、45°、90°、135°）を選択した <code>B2A</code> テーブルに通し、得られた分版をそれぞれプロットします。</p>
+<p>経路上のすべてのサンプルが同じ L* を持つため、色材に急な段差や反転があれば、それは色相とクロマの処理だけに起因します。これはシャドウ部の色域マッピングのアーティファクトの特徴であり、印刷では暗部のバンディングや急な色ずれとして現れる類のものです。経路は色域のはるか外側から色域を通り抜けて反対側の外まで伸びるので、プロファイルがどこでクランプし始めるかもわかります。</p>
+<p>明度の平面は自動的に選ばれます。プロファイルのブルーのコーナーと、C、M、Y、R、G のうち最も暗いものとの中間です。知覚的テーブルと彩度テーブルでは、まず明度をメディアの黒色点から PCS の黒まで引き伸ばします（これらのテーブルはそこに黒があることを前提としているためです）。セクションには、補償後の平面と元の平面の両方が表示されます。</p>
+<p><strong>出力（プリンター）プロファイルのみ</strong>で、上の色相ごとの表と同じ CMYK/CMY の制限があります（平面はインキのコーナーから導き出されるため）。</p>
+<h4 id="primary-inking-paths-through-neutral">中性軸を通る一次色インキ経路</h4>
+<p>3 本の経路（シアン→レッド、マゼンタ→グリーン、イエロー→ブルー）は、それぞれ一方の原色コーナーから、両端点の中間の明度で<strong>中性軸を通って</strong>反対側のコーナーへ向かいます。各経路を選択した <code>B2A</code> テーブルに通し、分版としてプロットします。</p>
+<p>これは「シャドウ部のインキ使用量」の色域内版です。あちらでは経路が意図的に色域外を通り、色域マッピングのアーティファクトをあぶり出しますが、こちらでは<strong>すべてのサンプルが構成上色域内にあります</strong>。両端点はプロファイル自身の原色で、ピボットは中性軸上にあるからです。したがって、これらの経路上で色材に段差、折れ、反転があれば、それは色域クリッピングのせいではなく、CLUT の滑らかさの欠陥です。ニュートラルのピボットは各プロットの中点にあり、そこではバランスの取れたニュートラルビルドが見えるはずです。</p>
+<p>知覚的テーブルと彩度テーブルでは、「シャドウ部のインキ使用量」とまったく同じように、明度がインテントに合わせて黒点補償されます。</p>
+<p><strong>出力（プリンター）プロファイルのみ</strong>で、同じ CMYK/CMY の制限があります（コーナーは色相ごとの表と同じソースから得られるため）。</p>
+<h4 id="ink-usage-statistics">インキ使用量の統計</h4>
+<p>プロファイルが各色材をどれだけ置くかを、平均被覆率と<strong>全体に占める割合</strong>で示します。分版のインキ消費の特徴を表すものです。</p>
+<p>表は中性軸全体で各色材を合計し、その平均被覆率と、置かれた全インキに対する割合を報告します。診断に役立つのは割合の列です。これはプロファイルのニュートラルビルドの指紋のようなもので（シアンの多いグレーバランスとブラックの多いグレーバランスでは値が異なります）、サンプル数にも依存しません。</p>
+<p>2 つ目の表である<strong>色域上および色域内のすべての色</strong>にわたるインキ使用量は、<em>保留中</em>として表示されています。まだ実装されていない色域境界の構築が必要なためです。</p>
+<p><strong>出力（プリンター）プロファイルのみ。</strong></p>
+<h4 id="clut-image">CLUT 画像</h4>
+<p>デバイス↔PCS 変換のカラールックアップテーブルを画像としてタイル表示します。どのレンダリングインテントのテーブルを表示するかを選ぶセレクター（<code>A2B0</code>–<code>A2B3</code>、<code>B2A0</code>–<code>B2A3</code>、プレビューテーブル）があります。テーブルの構造的な破損をひと目で見つけるのに役立ちます。ズーム、パン、リセットはキャンバス上のコントロールで行います。</p>
+<p><strong><code>B2A</code>（PCS → デバイス）テーブル</strong>を選ぶと、格子の下に<strong>色材ごとのインキ被覆率画像</strong>がグレースケールで表示されます。インキごとの分版で、暗いほどそのインキが多いことを示します。セクションは <code>A2B</code> テーブル（出力はインキではなく L*a*b*）を表示した状態で開くため、セクション上部のヒントでこれらの画像を案内しています。単純なカラープレビューができない <strong>n 色（nCLR）出力</strong>（5 色、6 色、7 色）では、メイン画像が<strong>プロファイルの順方向 <code>A2B</code> でカラーマネジメント</strong>されるため、単一チャンネルのグレーではなく実際の色で描画されます。</p>
+<h4 id="gamut-image">色域画像</h4>
+<p>色域タグの色域内 / 色域外マップです。PCS の色が再現可能な箇所はニュートラル、デバイスの色域外にある箇所は赤で表示されます。プロファイルに <code>gamt</code> タグがある場合にのみ表示されます。</p>
+<h3 id="3-5-xml">3.5 XML</h3>
+<p>プロファイルを XML に変換し（iccDEV の <code>iccToXml</code> CLI と同じライターである IccLibXML を使用）、シンタックスハイライト付きの CodeMirror エディターで表示します。XML を編集して <strong>ICC に変換</strong> をクリックすると、バイナリに戻せます。ビューアーが再検証し、プロファイルタブのバーにある <strong>ICC プロファイルを保存</strong> ボタンで結果をダウンロードできます。</p>
+<p>エディターのテキストが最後の変換出力と異なると<strong>未保存</strong>のインジケーターが表示されるので、編集が反映済みかどうかがひと目でわかります。変換に失敗した場合は、IccLibXML の解析エラーが問題のある行 / 列とともにエディターの上に表示されます。</p>
+<h3 id="3-6-json">3.6 JSON</h3>
+<p>XML タブと同じ考え方ですが、バリデーターのラッパー（<code>json-wrapper.cpp</code>）が生成するプロファイルの JSON 表現を使います。編集し、<strong>ICC に変換</strong> をクリックして保存します。JSON 形式はよりコンパクトでスクリプトから扱いやすく、XML 形式は iccDEV の CLI ツールを使ったことがあれば馴染みがあるでしょう。</p>
+<hr>
+<h2 id="4-combine-tab">4. リンクタブ</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 780 452"
+  style="width:100%;max-width:780px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="780" height="452" rx="0" class="bg"/><rect x="16" y="12" width="150" height="428" rx="8" class="pnl"/><rect x="16" y="12" width="150" height="26" rx="8" class="hd"/><text x="28" y="29" text-anchor="start" class="tB">プロファイル</text><rect x="26" y="48" width="130" height="28" rx="5" class="sec"/><text x="36" y="66" text-anchor="start" class="t2 mono">sRGB.icc</text><rect x="26" y="82" width="130" height="28" rx="5" class="sec"/><text x="36" y="100" text-anchor="start" class="t2 mono">Coated.icc</text><text x="26" y="132" text-anchor="start" class="t3">チェーンへドラッグ →</text><rect x="186" y="12" width="578" height="428" rx="8" class="pnl"/><text x="202" y="32" text-anchor="start" class="tT">リンク — リンクパイプライン</text><text x="202" y="48" text-anchor="start" class="t3">プロファイルをつなぎ、DeviceLink を作成するか画像 / データセットを変換します。</text><line x1="202" y1="56" x2="748" y2="56" class="div"/><rect x="202" y="64" width="270" height="32" rx="6" class="sec"/><text x="214" y="84" text-anchor="start" class="t2">🖼  画像をドロップ（TIFF/PNG/JPEG）</text><rect x="482" y="64" width="266" height="32" rx="6" class="sec"/><text x="494" y="84" text-anchor="start" class="t2" textLength="242" lengthAdjust="spacingAndGlyphs">🔢  データセットをドロップ（CGATS/CSV/CxF）</text><text x="202" y="116" text-anchor="start" class="t3" textLength="130" lengthAdjust="spacingAndGlyphs">レンダリングインテント（すべて）</text><rect x="336" y="104" width="150" height="18" rx="4" class="btn"/><text x="342" y="116" text-anchor="start" class="t2">相対比色</text><rect x="202" y="130" width="546" height="38" rx="6" class="sec"/><text x="216" y="153" text-anchor="start" class="t3">⠿</text><rect x="230" y="141" width="16" height="16" rx="4" class="act"/><text x="238" y="153" text-anchor="middle" class="tW tB">1</text><text x="256" y="153" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="614" y="153" text-anchor="start" class="t3">RGB → Lab</text><rect x="706" y="140" width="42" height="18" rx="4" class="btn"/><text x="727" y="153" text-anchor="middle" class="t2">Rel</text><line x1="238" y1="168" x2="238" y2="180" stroke="var(--ln)" stroke-width="2"/><rect x="451" y="170" width="48" height="14" rx="7" class="lnbd"/><text x="475" y="181" text-anchor="middle" class="t3">Lab</text><rect x="202" y="184" width="546" height="38" rx="6" class="sec"/><text x="216" y="207" text-anchor="start" class="t3">⠿</text><rect x="230" y="195" width="16" height="16" rx="4" class="act"/><text x="238" y="207" text-anchor="middle" class="tW tB">2</text><text x="256" y="207" text-anchor="start" class="t2 mono">Coated.icc</text><text x="614" y="207" text-anchor="start" class="t3">Lab → CMYK</text><rect x="706" y="194" width="42" height="18" rx="4" class="btn"/><text x="727" y="207" text-anchor="middle" class="t2">Perc</text><text x="202" y="244" text-anchor="start" class="t3" textLength="40" lengthAdjust="spacingAndGlyphs">チェーン：</text><text x="244" y="244" text-anchor="start" class="tA">RGB → CMYK</text><rect x="202" y="256" width="124" height="24" rx="5" class="act"/><text x="264" y="272" text-anchor="middle" class="tW tB">DeviceLinkを作成</text><rect x="334" y="256" width="124" height="24" rx="5" class="act"/><text x="396" y="272" text-anchor="middle" class="tW tB">画像を変換</text><rect x="466" y="256" width="124" height="24" rx="5" class="act"/><text x="528" y="272" text-anchor="middle" class="tW tB">データを変換</text><rect x="202" y="296" width="546" height="96" rx="6" class="sec"/><text x="214" y="314" text-anchor="start" class="tB">画像出力オプション</text><text x="214" y="330" text-anchor="start" class="t3">エンコーディング</text><rect x="214" y="336" width="96" height="16" rx="4" class="btn"/><text x="262" y="348" text-anchor="middle" class="t2">元と同じ</text><text x="326" y="330" text-anchor="start" class="t3">圧縮</text><rect x="326" y="336" width="96" height="16" rx="4" class="btn"/><text x="374" y="348" text-anchor="middle" class="t2">なし</text><text x="438" y="330" text-anchor="start" class="t3">プレーナー</text><rect x="438" y="336" width="96" height="16" rx="4" class="btn"/><text x="486" y="348" text-anchor="middle" class="t2">コンポジット</text><text x="214" y="366" text-anchor="start" class="t3">CMM補間</text><rect x="214" y="372" width="96" height="16" rx="4" class="btn"/><text x="262" y="384" text-anchor="middle" class="t2">四面体</text><text x="326" y="366" text-anchor="start" class="t3">ICCを埋め込む</text><rect x="326" y="372" width="96" height="16" rx="4" class="btn"/><text x="374" y="384" text-anchor="middle" class="t2">☑ あり</text><line x1="727" y1="138" x2="644" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="644" y="115" text-anchor="end" class="t3">段ごとのインテント</text><line x1="704" y1="276" x2="704" y2="298" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/><text x="748" y="272" text-anchor="end" class="t3">iccApplyProfiles の出力設定</text>
+</svg><p>profiletool は、読み込んだすべてのプロファイルを左側の<strong>プロファイルプール</strong>に保持します。上部には 5 つのタブ、<strong>プロファイル</strong>（前述の単一プロファイルビューアー）、<strong>比較</strong>、<strong>リンク</strong>、<strong>スペクトル</strong>、<strong>HDR</strong> があります。<strong>リンク</strong> タブでは、プロファイルをチェーンにつないで活用します。チェーンから <strong>DeviceLink</strong> を作成したり、チェーンを通して<strong>画像を変換</strong>したり、<strong>カラーデータセットを変換</strong>したりできます。</p>
+<h3 id="4-1-building-a-chain">4.1 チェーンの構築</h3>
+<p>プールから 1 つ以上のプロファイルをリンクパイプラインのカードにドラッグすると、順番にチェーンへ追加されます。チェーンは<strong>縦方向のスタック</strong>で、ソースが上、シンクが下です。各プロファイルは<strong>変換 1 つ</strong>を担い、ツールはそこに入る色空間と出る色空間（例：<code>RGB → Lab</code>）を表示し、段と段の間の線には<strong>接続空間</strong>がラベル表示されます。エンジンはチェーン全体をリアルタイムで検証し、端から端までの流れ（例：<em>チェーン：RGB → CMYK</em>）を報告するか、接続できない箇所を段ごとに説明します。</p>
+<ul>
+<li>段の<strong>並べ替え</strong>は、グリップ（<code>⠿</code>）をドラッグするか ▲ / ▼ ボタンで行います。× で削除します。</li>
+<li><strong>方向の反転</strong> — 先頭の変換の ⇅ ボタンでチェーンの方向が反転し、後続の段にも順に反映されます。</li>
+<li><strong>レンダリングインテント</strong> — <em>レンダリングインテント（すべて）</em> でチェーン全体に 1 つを選ぶか、各段のリストボックスで個別に上書きします。どちらのコントロールもポインターを重ねると、選択中のインテントの説明が表示されます。4 つの基本インテントに加えて、必要なテーブルを持つプロファイルでは <em>no D2Bx/B2Dx</em> と <em>+ BPC</em>（黒点補償）のバリエーションも選べます。</li>
+</ul>
+<div class="note">
+<strong>チェーン内の HDR ColorSpace プロファイル。</strong> ICC.1 の HDR ColorSpace Profile には TRC タグがありません（箇条 8.7 は ColorSpace プロファイルに TRC タグを定義していません）。そのため、これを通る変換には <code>AToB0Tag</code> が使われます。このテーブルは、HDR 処理を持たないソフトウェアのために箇条 8.7.1.5 が要求する HDR&#8594;SDR レンダリングです。チェーンに HDR ColorSpace Profile が含まれる場合は、カードにその旨が表示されます。作成される DeviceLink、画像、データは、プロファイルの HDR の振る舞いではなく、この SDR フォールバックを反映したものになります。
+</div>
+<h3 id="4-2-make-devicelink">4.2 DeviceLinkを作成</h3>
+<p>チェーン全体を 1 つの <strong>DeviceLink</strong> プロファイルに焼き込みます（iccDEV の <code>iccApplyToLink</code> をブラウザに移植したもの）。名前を付けて <strong>DeviceLinkを作成</strong> をクリックすると、結果は他のプロファイルと同様にプールとリンクのアキュムレーターに追加され、プロファイルタブで検査したり、別のチェーンで再利用したりできます。</p>
+<h3 id="4-3-transform-image">4.3 画像を変換</h3>
+<p>画像スロットにラスター画像（TIFF、PNG、JPEG）を 1 つドロップし、<strong>画像を変換</strong> をクリックすると、チェーンを通して変換されます（<code>iccApplyProfiles</code> をブラウザに移植したもの）。画像はまずヘッダーだけを調べて検証され、その色空間がチェーンの入力と一致している必要があります。結果は<strong>ダウンロード</strong>されます。画像がプールに保存されることはありません。</p>
+<p>有効な画像が読み込まれると <strong>画像出力オプション</strong> パネルが表示され、<code>iccApplyProfiles</code> CLI に対応する出力側の設定が並びます：</p>
+<ul>
+<li><strong>エンコーディング</strong> — <em>元と同じ</em>、8 ビット、16 ビット、<strong>浮動小数点（32ビット）</strong>。</li>
+<li><strong>圧縮</strong> — なし、<strong>LZW</strong>、<strong>ZIP</strong>（Deflate）。</li>
+<li><strong>プレーナー</strong> — <strong>コンポジット</strong>（チャンキー）または<strong>セパレート</strong>のプレーン。</li>
+<li><strong>CMM補間</strong> — <strong>四面体</strong>または<strong>線形</strong>。</li>
+<li><strong>ICCを埋め込む</strong> — チェーンの最後の（出力空間の）プロファイルを出力にタグ付けします。</li>
+</ul>
+<p>既定では RGB/グレーの出力は PNG のままです。TIFF 専用の設定（浮動小数点、LZW/ZIP、セパレートプレーン）を選ぶと、コンテナが TIFF に切り替わります。</p>
+<div class="note">
+<strong>埋め込みプロファイル：</strong>ドロップした画像に ICC プロファイルが埋め込まれている場合は、それを<strong>抽出</strong>するよう促すバナーが表示されます。ワンクリックで、プロファイルがプールに追加され、チェーンの先頭（ソース空間）に配置されます。
+</div>
+<h3 id="4-4-transform-data">4.4 データを変換</h3>
+<p>データスロットにカラーデータセット（CGATS/IT8、CSV、CxF、JSON）をドロップし、<strong>データを変換</strong> をクリックすると、すべてのパッチがチェーンを通して変換されます（<code>iccApplyNamedCmm</code> 相当）。ツールはデータセットに含まれるデータの種類（デバイス / Lab / XYZ / スペクトル）を読み取り、チェーンの入力に必要なものを渡します。<strong>スペクトル</strong>入力は、選択した<strong>観測者</strong>と<strong>光源</strong>を使い、iccDEV の標準の計算器で測色値に変換されます。重複パッチは除外できます（中央値または平均値）。結果は表で開かれ、CSV として<strong>保存</strong>できます。</p>
+<h3 id="4-5-observer-change">4.5 観察者の変更</h3>
+<p>リンクタブには<strong>2 つ</strong>のメーカーカードがあります。リンクパイプラインの上にある <strong>観察者の変更</strong> カードは、V5 RGB ディスプレイプロファイルと V5 観測者（PCC）プロファイルから、v4.3 の matrix/TRC ディスプレイプロファイルを作成します。両方をカードにドラッグすると、プロファイルクラスに応じて <strong>V5 RGB ディスプレイ</strong> と <strong>V5 オブザーバー (PCC)</strong> のスロットに自動的に振り分けられます。次に <strong>V4 ディスプレイプロファイルを作成</strong> をクリックし、名前を付けて <strong>作成</strong> をクリックします。結果はプールとこのタブに追加されます。どちらにも当てはまらないプロファイルは、警告とともに無視されます。</p>
+<h3 id="4-6-compare-and-spectral-tabs">4.6 比較タブとスペクトルタブ</h3>
+<p><strong>比較</strong> タブは、プール内の 2 つ以上のプロファイルの色域境界を重ねて表示し（3D シェルと 2D の明度スライス）、どこが違うかを確認できます。プロファイルが HDR ColorSpace Profile の場合は <strong>SDR フォールバックを表示中</strong> という注記が表示され、各色域がプロファイルの HDR レンジではなく <code>AToB0Tag</code> の SDR レンダリングから構築されていることを説明します。HDR レンジは有界な PCS では描画できないためです。<strong>スペクトル</strong> タブは、単一チャンネルのスペクトル画像のセット（チャンネル順にドロップ）を 1 つのマルチチャンネル TIFF にまとめます（<code>iccSpecSepToTiff</code>）。</p>
+<h3 id="4-7-hdr-tab">4.7 HDR tab</h3>
+<div class="note"><strong>This section is in English only.</strong> It describes HDR support, a beta feature that follows a draft ICC amendment and is still changing. It will be translated once the feature and its text are stable.</div>
+<p>Drop <strong>one</strong> image on the <strong>HDR</strong> tab, or click the drop area to choose one. A new image replaces the current one, and nothing is added to the Profiles pool. What happens depends on who can decode the image:</p>
+<table><thead>
+<tr><th>File</th><th>Shown by</th><th>SDR ↔ HDR control</th></tr></thead><tbody>
+<tr><td><strong>AVIF</strong>, <strong>JPEG</strong> (including gain-map JPEG), <strong>PNG</strong> (including cICP-tagged), <strong>HEIC</strong> and <strong>JPEG XL</strong> on Safari</td><td>the browser</td><td><strong>SDR</strong> / <strong>HDR</strong> buttons, plus a <strong>Dynamic range</strong> slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only.</td></tr>
+<tr><td><strong>OpenEXR</strong>, <strong>Radiance HDR</strong> (<code>.hdr</code>, RGBE)</td><td>profiletool</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
+<tr><td><strong>TIFF</strong></td><td>profiletool, once a profile is assigned (a TIFF's own embedded profile is assigned automatically); a TIFF with no profile shows a note</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
+</tbody></table>
+<p>The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the <strong>brightest pixel</strong> as a multiple of SDR white (whenever profiletool renders the pixels), its chromaticities, any <strong>gain map</strong>, and any <strong>embedded ICC profile</strong>. <strong>Open in Profile tab</strong> loads that profile for inspection.</p>
+<p><strong>Radiance HDR.</strong> profiletool reads run-length-encoded and flat RGBE files in any orientation. A <code>PRIMARIES</code> header line sets the chromaticities; without one (or with Photoshop's all-zero line) Rec. 709 is assumed, as for OpenEXR. The stored values are shown as they are: an <code>EXPOSURE</code> line is not undone. XYZE files are refused, and so is any image over 40 megapixels. So is a file whose pixel data is too small for its size: at most 64 pixels per byte, four times what run-length encoding reaches on a flat scanline. Old-style repeat markers could otherwise describe a 40-megapixel image in about 75 KB.</p>
+<p>
+<strong>Outputs for OpenEXR and Radiance HDR.</strong> profiletool renders the pixels itself, through the first of these that works:
+ 
+1. <strong>HDR canvas (float16)</strong>: needs <code>chrome://flags/#enable-experimental-web-platform-features</code> (see <a href="#environment">Environment</a>).
+ 
+2. <strong>WebGPU (extended range)</strong>: needs no flag, but needs a working GPU adapter.
+ 
+3. <strong>SDR canvas (tone-mapped)</strong>: always available. It cannot show brighter-than-white, so the slider is hidden.
+</p>
+<p>On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops), shown beside the slider.</p>
+<p><strong>Matching the display.</strong> The panel tracks the monitor the window is on: drag it to another screen and the facts and notes update.</p>
+<ul>
+<li><strong>Display peak</strong> says how bright this display can go, as a multiple of SDR white. It comes from the headroom the browser reports; see <a href="#environment">Environment</a>, where <strong>Identify displays</strong> grants the permission (the button also appears here). An SDR display reads <em>1× — SDR display</em>. When the browser does not report a peak, the panel says so rather than guessing.</li>
+<li>When an OpenEXR or Radiance HDR image asks for more than the display shows, a note says so — for example <em>asks for 4.93×, this display shows up to 2.23×</em>. Values above the display's peak then <strong>clip</strong> to flat white, which is why the SDR and HDR ends can look alike even on an HDR monitor.</li>
+<li><strong>Fit to display</strong> sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.</li>
+<li>An <strong>SDR white patch</strong> — plain white — sits against the image's right edge, for comparison by eye. <strong>Drag</strong> it anywhere over the viewer (or focus it and use the arrow keys; Shift for bigger steps), and <strong>double-click</strong> it to put it back beside the image. The <strong>SDR white patch</strong> button above the image turns it on and off. Its position and on/off state are remembered. On an HDR display with real HDR output, highlights look brighter than the patch; at the SDR end the brightest pixels sit just below it, because the SDR rendering eases highlights in under white. If highlights never look brighter, the output is being clamped.</li>
+</ul>
+<p><strong>When Fit to display is available.</strong> The button is always shown. When it cannot work it is greyed out, with the reason beside it:</p>
+<table><thead>
+<tr><th>The panel shows…</th><th>Fit to display</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>Shown by: the browser</strong> (AVIF, JPEG, PNG, HEIC, JPEG XL)</td><td>not available</td><td>The browser renders the image, and CSS can only show it at the SDR end, the HDR end, or a blend of the two. It has no setting for "cap at this display's peak".</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, <strong>Output: SDR canvas</strong></td><td>not available</td><td>This output cannot show anything above SDR white, so there is nothing to fit. The Dynamic range slider is hidden too.</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, <strong>Display peak: not known</strong></td><td>not available</td><td>There is no peak to fit to. Click <strong>Identify displays</strong> in the <strong>Display peak</strong> row.</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, an HDR output and a known peak</td><td>available</td><td>Sets the limit to the display's peak.</td></tr>
+</tbody></table>
+<p>The <strong>Fit to display</strong> beside <strong>Target headroom</strong>, when a profile is assigned, needs only a known display peak.</p>
+<p><strong>Image details.</strong> Click <strong>Image details</strong> to fold away the facts from <strong>Embedded ICC profile</strong> down to <strong>HDR reference white</strong>, including <strong>Assign profile</strong>, and leave more room for the image. Click again to unfold. The choice is remembered.</p>
+<p><strong>Zoom, pan and resize.</strong> The image opens at actual size (100%), or shrunk to fit if it is larger than the view. Zooming is a display transform only: the pixel values sent to the display do not change.</p>
+<ul>
+<li><strong>+</strong> and <strong>−</strong> zoom, as does <strong>Ctrl</strong> (⌘ on a Mac) with the mouse wheel, toward the pointer. The percentage is the scale: 100% is one image pixel per CSS pixel. Above 200%, pixels show as sharp squares.</li>
+<li><strong>Fit image</strong> fills the view with the image; <strong>1:1</strong> returns to actual pixels. <strong>Double-click</strong> the image to go back to the opening view.</li>
+<li><strong>Drag</strong> the image to pan. With the view focused, the arrow keys pan, and <strong>+</strong>, <strong>−</strong>, <strong>0</strong> (opening view) and <strong>1</strong> (1:1) work too.</li>
+<li>Drag the <strong>corner grip</strong> at the bottom right to resize the view; double-click the grip for the default size. The size is remembered.</li>
+<li>The <strong>SDR white patch</strong> is not zoomed: it stays the same size wherever the image moves, and a docked patch follows the image's right edge.</li>
+</ul>
+<p><strong>Assigning an HDR profile.</strong> For TIFF, PNG, JPEG, OpenEXR and Radiance HDR, <strong>Assign profile</strong> chooses a profile to interpret the image's pixel values:</p>
+<ul>
+<li>the image's <strong>embedded profile</strong>;</li>
+<li>any <strong>HDR ColorSpace Profile in the pool</strong> (load one in the Profiles pane first);</li>
+<li><strong>None</strong>, to go back to what the file itself signals.</li>
+</ul>
+<p>A TIFF starts with its embedded profile selected, since without one its values mean nothing.</p>
+<p>With a profile assigned, profiletool decodes the image itself and runs it through IccProfLib's HDR colour-management path, as the ICC.1 HDR amendment (clause 8.7.1) describes. The profile's transfer function (PQ, HLG or Linear) converts the code values to light, its gain curve tone-maps them, and its <code>cicpTag</code> primaries set the colour. 1.0 lands on the profile's <strong>HDR reference white</strong>, which is shown at the display's SDR white.</p>
+<ul>
+<li><strong>Target headroom</strong> (0 to 6 stops) is the display the image is being prepared for. The profile's gain curve is evaluated there, the same curve <strong>Gain at a display headroom</strong> plots in the Tags tab. <strong>Fit to display</strong> sets it to this display's peak.</li>
+<li><strong>Tone mapping</strong> chooses the method: <strong>Auto</strong> (the clause 8.7.1.3 recommended ranking), <strong>Gain curve</strong> only, the profile's <strong>Baked SDR fallback</strong> (<code>AToB0Tag</code>), or <strong>Off</strong>, which behaves like a colour engine that predates the amendment. The baked fallback is only as good as the table the profile carries. A table baked from the gain curve (for example by iccDEV's <code>iccHdrFallback</code>) gives a proper SDR rendering. A placeholder table of identity curves passes the raw PQ or HLG signal values through, and the image looks flat and too bright.</li>
+<li>The panel reports what the colour engine actually did: which <strong>path</strong> (HDR with the gain curve applied, HDR without a curve, or the baked table), the <strong>transfer</strong>, and the <strong>HDR reference white</strong>. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the <strong>Dynamic range</strong> limit is what keeps its highlights within the display.</li>
+<li>Pooled HDR ColorSpace Profiles appear in two groups, <strong>Linear transfer</strong> and <strong>PQ / HLG transfer</strong>, matching the Profiles pane. OpenEXR and Radiance HDR store linear light, so for those images only the <strong>Linear transfer</strong> group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.</li>
+<li>A profile whose <code>cicpTag</code> declares <strong>ColourPrimaries 2 (Unspecified)</strong> is listed with the note <em>Unspecified primaries: no HDR path in this build</em>. Clause 8.7.1.1 takes such a profile's primaries from a <code>cicpType</code> chromaticity extension (clause 10.3) whose format is not yet available to profiletool, so no policy can give it an HDR rendering. Every policy renders it through its <code>AToB0Tag</code> instead — <strong>Auto</strong> and <strong>Gain curve</strong> fall back to the same SDR rendering as <strong>Baked SDR fallback</strong> and <strong>Off</strong> — and <strong>Colour engine path</strong> says <em>Baked AToB0 — not the HDR path</em>. That fallback is a temporary measure in IccProfLib while the ICC settles how such a profile should be handled.</li>
+<li><strong>Linear values</strong> (OpenEXR, Radiance HDR and floating-point TIFF only) says what a file value of 1.0 means. The two conventions disagree. These files usually put SDR white at 1.0, but an ICC Linear transfer reads 1.0 as 1 cd/m² (ICC.1 clause 8.7.1.2 a) and then divides by the HDR reference white, so an unscaled image comes out a few hundred times too dark.</li>
+<p>
+  - <strong>File 1.0 = HDR reference white</strong> (the default) multiplies the pixels by the profile's HDR reference white first, so file 1.0 lands on it. The <strong>Input scale</strong> fact shows the factor, for example <em>×300</em>.
+ 
+  - <strong>File 1.0 = 1 cd/m²</strong> passes the values unscaled, as the clause reads them. Use it for files whose values really are in cd/m².
+</ul>
+</p>
+<p>  The choice is remembered.</p>
+<div class="note">
+<strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.7.1 HDR ColorSpace Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
+</div>
+<div class="note">
+<strong>Refusals name the reason.</strong> For example, HEIC display needs Safari: Chrome and Firefox decode HEIC on no platform. The image's profile can still be opened in the Profile tab.
+</div>
+<p><strong>Gain curves.</strong> An HDR ColorSpace Profile's adaptive gain curve is not shown here but in <strong>Profile → Tags</strong>. See <em>HDR gain curves (HAGC)</em> under <a href="#3-2-tags">Tags</a>.</p>
+<hr>
+<h2 id="5-round-trip-editing">5. ラウンドトリップ編集</h2>
+<p>XML タブと JSON タブは、どちらもプロファイルを ICC バイナリに書き戻せます。典型的な手順は次のとおりです：</p>
+<p>
+1. ICC プロファイルを<strong>読み込みます</strong>。
+ 
+2. <strong>XML</strong> または <strong>JSON</strong> タブを開きます。<strong>XML に変換</strong> / <strong>JSON に変換</strong> をクリックしてエディターに内容を表示します。
+ 
+3. ページ内のエディターで<strong>編集</strong>します。ツールバーの横に未保存のインジケーターが表示されます。
+ 
+4. <strong>ICC に変換</strong> をクリックします。ラッパーが新しいプロファイルを生成し、検証を再実行して、ヘッダー / タグ / 検証の各タブを更新します。
+ 
+5. プロファイルタブのバーで、ファイル名の横に <strong>● 変更あり — 未保存</strong> のピルが表示されます。
+ 
+6. <strong>ICC プロファイルを保存</strong> をクリックします。編集後のバイト列が <code><original>-edited.icc</code> としてダウンロードされます。
+</p>
+<p>2 つのエディターは独立しています。XML を編集してから JSON を編集しても、2 つの経路が混ざることはありません。保存されるのは、最後に生成された ICC バイト列です。</p>
+<div class="note">
+<strong>注意：</strong>変換の忠実度は、IccLibXML / JSON ラッパーが各タグ型をどこまでサポートしているかに依存します。表現できないタグ型があると、ラウンドトリップで情報が失われます。書き戻した後に検証タブを確認し、すべて問題なく解析されることを確かめてください。
+</div>
+<p>タグタブでは、読み込み時からバイト列が変わったタグがハイライトされるので、編集で何が変わったかを簡単に確認できます。</p>
+<hr>
+<h2 id="6-launching-from-chardata">6. chardata からの起動</h2>
+<p><strong>chardata</strong> で ICC プロファイルを読み込んだ後、<strong>Display File</strong> をクリックしてページ内ビューアーを開き、<strong>Launch editor</strong> をクリックします。URL に <code>?source=chardata</code> が付いた新しいタブで、このツールが開きます。</p>
+<p>受け渡しはすべてブラウザ内で行われます：</p>
+<p>
+1. profiletool が開き、<code>?source=chardata</code> を検出して、<code>postMessage</code> で <code>window.opener</code> に <code>{type:'profiletool:ready'}</code> を送ります。
+ 
+2. chardata が <code>{type:'profiletool:load', filename, bytes}</code> で応答します。
+ 
+3. profiletool は（送信元のオリジンを許可リストと照合し、サイズを 256 MB の上限と照合した後で）バイト列を受け取り、検証を実行してプロファイルを表示します。
+</p>
+<p>アップロードもサーバーとの往復もありません。流れは一方向です。ここで行った編集は <strong>ICC プロファイルを保存</strong> をクリックして保存するもので、chardata に返されることはありません。</p>
+<hr>
+<h2 id="7-launching-with-a-url">7. URL での起動</h2>
+<p><strong>URL フラグメント</strong>（<code>#</code> の後ろの部分）を使うと、読み込むプロファイルと最初に表示するタブを指定したリンクでツールを開けます：</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=&lt;profile-url&gt;&amp;tab=&lt;tab&gt;</code></pre>
+<p>どちらのパラメーターも省略可能です：</p>
+<ul>
+<li><strong><code>url=</code></strong> — プロファイルを取得する Web アドレス。バイト列はブラウザ内でダウンロードされ、ローカルファイルとまったく同じ経路で処理されます：<code>acsp</code> ヘッダーのチェック、完全な <code>ValidateIccProfile</code>、256 MB のサイズ上限、解析できないプロファイルに対するベストエフォートのフォールバック。何もアップロードされません。取得したバイト列はバリデーターに渡されるだけで、再送信されることはありません。</li>
+<li><strong><code>tab=</code></strong> — プロファイルの読み込み後に開くビュー。</li>
+</ul>
+<p>完全な例：</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRGB.icc&amp;tab=VAL</code></pre>
+<div class="note">
+<strong>なぜクエリ文字列ではなくフラグメントなのか？</strong> <code>#</code> 以降の部分は Web サーバーに送信されないため、検査しているプロファイルのアドレスはお使いのマシンの外に出ません。
+</div>
+<h3 id="tab-names">タブ名</h3>
+<p><code>tab=</code> には、大文字と小文字を区別しない、互いに置き換え可能な 2 つの命名方式を使えます。推奨は<strong>短い</strong>コードです：</p>
+<table><thead>
+<tr><th>ビュー</th><th>短いコード</th><th>長い名前</th></tr></thead><tbody>
+<tr><td>ヘッダー</td><td><code>HEADER</code></td><td><code>Header</code></td></tr>
+<tr><td>タグ</td><td><code>TAGS</code></td><td><code>Tags</code></td></tr>
+<tr><td>検証</td><td><code>VAL</code></td><td><code>Validation</code></td></tr>
+<tr><td>分析</td><td><code>ANALYSIS</code></td><td><code>Analysis</code></td></tr>
+<tr><td>XML</td><td><code>XML</code></td><td><code>XML</code></td></tr>
+<tr><td>JSON</td><td><code>JSON</code></td><td><code>JSON</code></td></tr>
+</tbody></table>
+<p>長い名前は、英語の画面上のタブラベルからスペースを除いたものです。表示ラベルが変更されてもどちらの方式も変わらないため、既存のリンクは引き続き機能します。検証タブは従来のコード <code>PAWG</code> にも対応しています（以前は「Profile Assessment WG」というラベルでした）。認識できない <code>tab=</code> の値は無視され、ヘッダービューが開きます。</p>
+<div class="note">
+<strong><code>url=</code> の要件：</strong>プロファイルは <strong>HTTPS</strong> で配信されている必要があり、配信元のサーバーがクロスオリジンの読み取りを許可している（許可する <code>Access-Control-Allow-Origin</code> / CORS ヘッダーがある）必要があります。どちらかが欠けているとブラウザがダウンロードをブロックし、ツールは取得エラーを表示します。プロファイルの URL 自体に <code>&</code> や <code>#</code>（独自のクエリ文字列）が含まれる場合は、それらの文字でフラグメントが途中で終わらないよう、<code>url=</code> の値全体をパーセントエンコードしてください。
+</div>
+<hr>
+<h2 id="8-mobile">8. モバイル</h2>
+<p>幅 700 px 未満の画面では：</p>
+<ul>
+<li>設定パネルは、右からスライドインするドロワーに収納されます。</li>
+<li>右上の <strong>⚙</strong> フローティングボタンで設定を開閉します。</li>
+<li>⚙ の下の <strong>?</strong> ボタンで、このガイドがスライドインペインで開きます。</li>
+<li><strong>✉</strong> ボタンで、お問い合わせフォームが新しいブラウザタブで開きます。</li>
+<li>暗くなった背景をタップすると、開いているドロワーが閉じます。</li>
+<li>タグの表は横長のグリッドから縦に積み重ねたカードに再配置されるので、横スクロールなしですべての列を読めます。タグはこれまでどおりその場で展開できます。</li>
+<li><strong>ドラッグ＆ドロップの代わりにタップを使います。</strong> iOS にはドラッグ＆ドロップがないため、プールからタブへプロファイルをドラッグすることはできません。代わりに<strong>プロファイルをタップして選択し、送りたいタブをタップ</strong>してください。ドラッグと同じ結果になります。タッチスクリーンの使用中は、プールにこの案内が表示されます。</li>
+<li><strong>iPhone と iPad では、ファイル選択画面にすべてのファイルが表示されます。</strong> iOS はファイルの種類によるフィルターを既知の種類とだけ照合しますが、<code>.icc</code>、<code>.icm</code>、<code>.cube</code>、<code>.exr</code> の種類を認識しないため、フィルターをかけると開きたいファイルそのものがグレーアウトされてしまいます。プロファイルは名前で選んでください。プロファイルでないものは、読み込み後に理由を示して拒否されます。</li>
+</ul>
+<p>すべての機能が利用でき、レイアウトは小さな画面に合わせて調整されます。</p>
+<hr>
+<h2 id="9-limits-and-security">9. 制限とセキュリティ</h2>
+<p>profiletool は、最初のページ読み込みの後はネットワークリクエストを行いません。バリデーター、XML コンバーター、JSON コンバーター、画像コーデックはすべて C++ ソースからコンパイルされた WebAssembly で、完全にクライアント側で動作します。HDR タブはドロップされた画像をローカルのオブジェクト URL を通して表示するため、画像がタブの外に出ることはありません。<strong>ディスプレイを識別</strong>がウィンドウのあるモニターを問い合わせる相手は、サーバーではなくブラウザです。</p>
+<table><thead>
+<tr><th>制限</th><th>対象</th><th>備考</th></tr></thead><tbody>
+<tr><td><strong>256 MB</strong></td><td>postMessage / ファイル読み込み</td><td>これより大きいものは読み込みを拒否し、悪意のある opener によるヒープ枯渇を防ぎます</td></tr>
+<tr><td><strong>32 MB</strong></td><td>XML および JSON コンバーター</td><td>JS 側のガード（<code>MAX_XML_BYTES</code> / <code>MAX_JSON_BYTES</code>）と C++ ラッパー（<code>kMaxXmlBytes</code> / <code>kMaxJsonBytes</code>）の両方がこの上限を適用します。C++ 側は JS 側に依存せず単独で上限を保証します</td></tr>
+<tr><td><strong>XML エンティティ爆弾ガード</strong></td><td>XML コンバーター</td><td><code><!DOCTYPE</code> や <code><!ENTITY</code>、または NUL バイトを含む XML は、libxml2 に渡る前に拒否されます。libxml2 自身のエンティティ展開制限も有効なので、これは billion laughs 型の入力に対する第二の防御層です</td></tr>
+<tr><td><strong>512 MB</strong></td><td>HDR タブのファイル</td><td>ファイルを読み始める前に、そのサイズで確認します。画像コーデック自身の 512 MB の入力上限と同じ値です</td></tr>
+<tr><td><strong>40 メガピクセル</strong>、<strong>1 バイトあたり 64 ピクセル</strong></td><td>Radiance HDR のデコード（HDR タブ）</td><td>どちらもピクセル用のメモリを確保する前に、ヘッダーとファイルサイズから確認します。後者は反復マーカーによる展開爆弾を拒否します</td></tr>
+<tr><td><strong>EXR デコード予算</strong></td><td>OpenEXR のデコード</td><td>幅 × 高さ × チャンネル数 × 4 バイトが 512 MB に収まる必要があり、デコーダーが何かを確保する前にヘッダーから確認します</td></tr>
+<tr><td><strong>HEIC/AVIF ボックス走査</strong></td><td>プロファイル抽出</td><td>ボックスサイズはオーバーフローを起こさない方法で確認され、入れ子は 8 段、プロファイルは 64 MB（ファイルごとの合計）、アイテムの関連付けは 65 536 件が上限です</td></tr>
+<tr><td><strong>オリジン許可リスト</strong></td><td>postMessage による起動</td><td><code>profiletool:load</code> のバイト列を送信できるのは、同一オリジンと chardata の開発ホストのオリジンだけです</td></tr>
+<tr><td><strong>HTTPS + CORS</strong></td><td><code>#url=</code> による起動</td><td>URL 起動のプロファイルは、クロスオリジンの読み取りを許可するホストから HTTPS で配信されている必要があります。取得したバイト列はバリデーターにだけ渡され、再送信されることはありません</td></tr>
+</tbody></table>
+<p><code>#url=</code> による起動（1.1.5 で追加）は、ページ読み込み後にツールが別オリジンへのリクエストを行う唯一のケースです。指定されたプロファイルを取得できるよう、Content-Security-Policy の <code>connect-src</code> を <code>https:</code> に広げています。スクリプトの読み込み元は広げて<strong>いません</strong>。広げているのはデータの取得だけです。</p>
+<p>これらの制限を超えるプロファイルを検査する必要がある場合は、iccDEV をソースからビルドしてネイティブの CLI ツールを使ってください。それらには JS 側の上限はありません。</p>
+<h3 id="licence">ライセンス</h3>
+<p>profiletool は MIT License のもとで公開されています。アプリには、それぞれ独自のライセンスに従うサードパーティーのコンポーネントも含まれています：iccDEV の IccProfLib（International Color Consortium）、LibTIFF、libpng、zlib、libxml2、JSON for Modern C++、Emscripten ランタイム、および React、Plotly、CodeMirror を含む JavaScript パッケージ。本ソフトウェアの一部は Independent JPEG Group の成果に基づいています。告知の全文は <a href="THIRD-PARTY-NOTICES.txt">THIRD-PARTY-NOTICES.txt</a> にあります。</p>
+<h3 id="icc-2-iccmax-coverage">ICC.2 (iccMAX) の対応範囲</h3>
+<p><strong>ICC.1</strong> と <strong>ICC.2</strong> の両方のプロファイルに対応していますが、ICC.2 への対応は<strong>不完全</strong>です。読み込み、ヘッダーとタグのビュー、検証、XML/JSON のラウンドトリップ、変換エンジンはいずれも ICC.2 を理解します。既知の不足は、マルチパートの <strong>ICS</strong> 交換ワークフロー、変換適用時の V5 <strong>サブプロファイル</strong>の選択、一部の ICC.2 プロファイルでの逆探索です。サポートされていない ICC.2 の構造を使うプロファイルは、誤って読み取られることなく、検証タブで報告されます。</p>
+
+</div>
+</body>
+</html>

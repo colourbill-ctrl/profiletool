@@ -24,6 +24,8 @@
     .note { background: #fff8e6; border-left: 3px solid #f0b429; padding: 8px 12px; font-size: 13px; margin: 10px 0; border-radius: 0 4px 4px 0; }
     nav { background: #fff; border: 1px solid #dde; border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; font-size: 13px; }
     nav ol { margin-left: 18px; }
+    pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 8px 12px; border-radius: 4px; margin: 8px 0 12px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
     nav li { margin-bottom: 3px; }
     nav a { color: #1a5a8a; text-decoration: none; }
     nav a:hover { text-decoration: underline; }
@@ -37,6 +39,7 @@
       h3 { color: #c8cdd4; }
       h4 { color: #9aa0a8; }
       code { background: #2a2e35; color: #a8d4f0; }
+      pre { background: #2a2e35; }
       table { color: #c8cdd4; }
       th { background: #252930; border-color: #3a4048; color: #9aa0a8; }
       td { border-color: #2e3440; }
@@ -56,8 +59,6 @@
   <h1>ICC Profile Tool — Help</h1>
   <p class="subtitle">Browser-based inspector, validator and round-trip editor for ICC.1 and ICC.2 (iccMAX) profiles</p>
 
-<p><!-- (c) 2026 William Li --></p>
-<h1>ICC Profile Tool — User Manual</h1>
 <p><strong>ICC Profile Tool</strong> (profiletool) is a browser-based tool for inspecting, validating, and round-trip editing <strong>ICC.1</strong> and <strong>ICC.2 (iccMAX)</strong> colour profiles. It runs entirely in your browser — no upload, no install — using a WebAssembly build of <a href="https://github.com/InternationalColorConsortium/iccDEV">iccDEV</a>, the ICC's official demo implementation of IccProfLib.</p>
 <p><strong>What you can do:</strong></p>
 <ul>
@@ -101,6 +102,7 @@
           <li><a href="#4-4-transform-data">Transform Data</a></li>
           <li><a href="#4-5-observer-change">Observer Change</a></li>
           <li><a href="#4-6-compare-and-spectral-tabs">Compare and Spectral tabs</a></li>
+          <li><a href="#4-7-hdr-tab">HDR tab</a></li>
         </ol>
       </li>
       <li><a href="#5-round-trip-editing">Round-trip editing</a></li>
@@ -247,7 +249,7 @@ body.dark .diag {
 .diag text.tA    { fill:var(--txA); font-weight:bold; }
 .diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
 </style>
-<rect x="0" y="0" width="380" height="186" rx="0" class="bg"/><rect x="8" y="8" width="364" height="170" rx="8" class="pnl"/><rect x="8" y="24" width="38" height="34" rx="5" class="btn"/><text x="27" y="45" text-anchor="middle" class="t2 tB">⚙</text><rect x="8" y="64" width="38" height="34" rx="5" class="btn"/><text x="27" y="85" text-anchor="middle" class="t2 tB">?</text><rect x="8" y="104" width="38" height="34" rx="5" class="btn"/><text x="27" y="125" text-anchor="middle" class="t2">✉</text><line x1="46" y1="8" x2="46" y2="178" class="div"/><text x="54" y="32" text-anchor="start" class="tT">Settings</text><line x1="50" y1="44" x2="366" y2="44" class="div"/><text x="54" y="69" text-anchor="start" class="tA tB">Display</text><text x="54" y="91" text-anchor="start" class="t3 tB">Background</text><rect x="232" y="78" width="130" height="22" rx="4" class="btn"/><text x="242" y="93" text-anchor="start" class="t2">System</text><text x="352" y="93" text-anchor="end" class="t3">▾</text><text x="54" y="121" text-anchor="start" class="t3 tB">Number format</text><rect x="232" y="108" width="130" height="22" rx="4" class="btn"/><text x="242" y="123" text-anchor="start" class="t2">Hexadecimal</text><text x="352" y="123" text-anchor="end" class="t3">▾</text><text x="54" y="151" text-anchor="start" class="t3 tB">Language</text><rect x="232" y="138" width="130" height="22" rx="4" class="btn"/><text x="242" y="153" text-anchor="start" class="t2">System default (English)</text><text x="352" y="153" text-anchor="end" class="t3">▾</text>
+<rect x="0" y="0" width="380" height="186" rx="0" class="bg"/><rect x="8" y="8" width="364" height="170" rx="8" class="pnl"/><rect x="8" y="24" width="38" height="34" rx="5" class="btn"/><text x="27" y="45" text-anchor="middle" class="t2 tB">⚙</text><rect x="8" y="64" width="38" height="34" rx="5" class="btn"/><text x="27" y="85" text-anchor="middle" class="t2 tB">?</text><rect x="8" y="104" width="38" height="34" rx="5" class="btn"/><text x="27" y="125" text-anchor="middle" class="t2">✉</text><line x1="46" y1="8" x2="46" y2="178" class="div"/><text x="54" y="32" text-anchor="start" class="tT">Settings</text><line x1="50" y1="44" x2="366" y2="44" class="div"/><text x="54" y="69" text-anchor="start" class="tA tB">Display</text><text x="54" y="91" text-anchor="start" class="t3 tB">Background</text><rect x="232" y="78" width="130" height="22" rx="4" class="btn"/><text x="242" y="93" text-anchor="start" class="t2">System</text><text x="352" y="93" text-anchor="end" class="t3">▾</text><text x="54" y="121" text-anchor="start" class="t3 tB">Number format</text><rect x="232" y="108" width="130" height="22" rx="4" class="btn"/><text x="242" y="123" text-anchor="start" class="t2">Hexadecimal</text><text x="352" y="123" text-anchor="end" class="t3">▾</text><text x="54" y="151" text-anchor="start" class="t3 tB">Language</text><rect x="232" y="138" width="130" height="22" rx="4" class="btn"/><text x="242" y="153" text-anchor="start" class="t2" textLength="104" lengthAdjust="spacingAndGlyphs">System default (English)</text><text x="352" y="153" text-anchor="end" class="t3">▾</text>
 </svg><p>Open Settings by clicking the <strong>⚙</strong> button on the right edge of the screen (or the gear icon at the top-right on mobile). The panel slides over the content without resizing it.</p>
 <p>Two more buttons sit below ⚙:</p>
 <ul>
@@ -265,6 +267,7 @@ body.dark .diag {
 <li>Strings produced by IccProfLib — tag descriptions, validation messages, header field names — come from the C++ library in English.</li>
 <li>The browser-flag name stays in English so it matches the browser's own flags page.</li>
 <li>The Environment panel's <strong>Display events</strong> log stays in English, so it can be pasted into a bug report as-is.</li>
+<li>This guide follows the same setting, except its HDR sections, which stay in English while HDR support is in beta and its text is still changing. A section revised in English since its translation was last updated also shows in English, with a note, until the translation catches up.</li>
 </ul>
 <p>Supported languages: English, Français, Deutsch, Italiano, Español, Português (PT), Português (BR), Svenska, 中文（简体）, 中文（繁體）, 日本語, 한국어. The chardata Settings panel offers the same set, so toggling Language in one app gives a consistent reading experience in the other.</p>
 <h3 id="environment">Environment</h3>
@@ -331,14 +334,14 @@ body.dark .diag {
 <div class="note">
 <strong>Malformed data is never hidden.</strong> If a curve or other visualizable element fails IccProfLib's validation — for example a tone curve with a degenerate gamma of 0 — the section still renders what it can and shows a ⚠ warning with the exact reason from the library, rather than silently omitting the graph.
 </div>
-<h4>The transform evaluator</h4>
+<h4 id="the-transform-evaluator">The transform evaluator</h4>
 <p>For LUT transforms (<code>A2B<em></code> / <code>B2A</em></code> / preview tags) the <strong>Evaluate</strong> section applies that specific tag's transform to a single colour you supply, using IccProfLib directly — no external colour engine. The direction follows the tag (<code>A2B<em></code> maps device → PCS; <code>B2A</em></code> maps PCS → device), and the rendering intent is implied by the tag (<code>…0</code> perceptual, <code>…1</code> relative colorimetric, <code>…2</code> saturation).</p>
 <ul>
 <li>Enter input either as <strong>floating-point</strong> values (device channels, or PCS in human Lab/XYZ units) or, when the tag has a CLUT, by <strong>grid-point</strong> index (a node position on the lattice).</li>
 <li>The output is shown in <strong>both</strong> the internal normalized 0–1 encoding and human units (Lab/XYZ for a PCS result).</li>
 </ul>
 <p>The gamut tag (<code>gamt</code>) has no evaluator — it is a one-channel in/out-of-gamut map rather than an invertible transform; its gamut image is shown instead.</p>
-<h4>HDR gain curves (HAGC)</h4>
+<h4 id="hdr-gain-curves-hagc">HDR gain curves (HAGC)</h4>
 <p>A <code>headroomAdaptiveGainCurveTag</code> says how an HDR ColorSpace Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:</p>
 <ul>
 <li><strong>Gain curve</strong> plots the control points exactly as stored in the file, one line per alternate image. It is absent when the tag stores no alternate images. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.</li>
@@ -382,7 +385,7 @@ body.dark .diag {
 <h3 id="3-4-analysis">3.4 Analysis</h3>
 <p>Whole-profile quality analyses derived from the profile's colour transforms — computed by a dedicated WebAssembly module (the iccDEV visualization engine) that's fetched only when you first open this tab, and plotted in the app's own style.</p>
 <p>Each analysis is a collapsible section and <strong>all of them start closed</strong>. That's deliberate: every section costs a full transform pass over the profile, so opening one is your explicit choice rather than six analyses firing the moment you switch tabs. Results are cached, so re-opening a section is instant. A section that doesn't apply to the loaded profile shows a short <em>not applicable</em> note instead (for example, a matrix/TRC display profile has no device↔PCS CLUTs to analyse).</p>
-<h4>Profile Statistics</h4>
+<h4 id="profile-statistics">Profile Statistics</h4>
 <p>Whole-profile metrics for <strong>one</strong> selected rendering intent, driven by two listboxes and a checkbox:</p>
 <ul>
 <li><strong>Rendering intent</strong> — Perceptual / Relative Colorimetric / Saturation / Absolute Colorimetric.</li>
@@ -402,7 +405,7 @@ body.dark .diag {
 <p>Read it band by band. Within one band the points run from the gamut surface on the left to neutral on the right, so the error should <strong>fall away</strong> across the band: colours near the boundary are the hardest to invert, colours near neutral the easiest. A band whose error stays high all the way to neutral is a profile in trouble at that lightness. The tallest spikes mark the lightness levels where the gamut boundary itself is least well inverted.</p>
 <p>Every seed is inside the gamut by construction, so what you see is genuine <code>B2A</code>/<code>A2B</code> disagreement rather than colours being clipped for being unreachable. Note that this plot has its <strong>own</strong> sampling — deliberately weighted toward the gamut boundary — so its mean and maximum are higher than, and not comparable with, the table above. It follows the rendering intent but not the round-trip type.</p>
 <p>A profile lacking the device↔PCS transforms a metric needs shows a <em>not applicable</em> note; a device space too wide to sample is reported as skipped rather than as an error.</p>
-<h4>Extrema Colorimetry</h4>
+<h4 id="extrema-colorimetry">Extrema Colorimetry</h4>
 <p>The ends of the profile's reproduction range — the numbers a print operator usually reads first.</p>
 <ul>
 <li><strong>White point</strong> — the colour of <strong>zero colorant</strong>, i.e. bare substrate.</li>
@@ -413,32 +416,32 @@ body.dark .diag {
 <p>Because each <code>B2A</code> table picks its own inking for black, the black point genuinely differs between intents — hence the rendering-intent selector.</p>
 <p>Below that, <strong>Full tone vs maximum chroma</strong>: for each ink corner (C, M, Y, R, G, B and K), where it lands in hue / chroma / lightness, and the most chromatic point found on the way there from bare substrate. These rows are measured through <code>A2B1</code> and so <strong>do not change with the intent selector</strong>. On a well-behaved profile the two rows match. When maximum chroma arrives <em>before</em> full tone the row is flagged: past that point the extra ink is no longer adding chroma, only darkening.</p>
 <p><strong>Output (printer) profiles only</strong> — the analysis assumes zero colorant means bare substrate. The per-hue table additionally needs a <strong>CMYK or CMY</strong> device space: an n-colour (nCLR) profile names its channels in any order, so which channel is "cyan" cannot be known, and the table reports that rather than guessing.</p>
-<h4>Neutral Axis Inking</h4>
+<h4 id="neutral-axis-inking">Neutral Axis Inking</h4>
 <p>Sweeps the neutral axis (a*=b*=0) from white (L*=100) down to black (L*=0) through the profile's <code>B2A</code> (PCS → device) table and plots how much of each device colorant the profile lays down along the way — the classic GCR / neutral-build curve. One curve per device channel, colour-coded per colorant.</p>
 <p>A further curve is drawn over the separation:</p>
 <ul>
 <li><strong>L* out (tone)</strong> — the tone response: where the neutral axis actually lands in lightness after a round trip through the profile. Read two things from its shape. Sag below the diagonal means greys render darker than requested. More usefully, the curve <strong>flattens at the darkest lightness the profile can reach</strong> — that plateau <em>is</em> the media black point, and it should agree with the Extrema Colorimetry section above.</li>
 </ul>
 <p><strong>Output (printer) profiles only</strong>; other profile classes show a note.</p>
-<h4>Ink Usage in Shadows</h4>
+<h4 id="ink-usage-in-shadows">Ink Usage in Shadows</h4>
 <p>Four straight paths across the a*b* plane at one constant, deliberately dark lightness — 0°, 45°, 90° and 135° — run through the selected <code>B2A</code> table, with the resulting separation plotted for each.</p>
 <p>Because every sample on a path shares the same L*, any abrupt step or reversal in a colorant comes from hue and chroma handling alone. That's the signature of a shadow gamut-mapping artefact, and it's the kind of thing that shows up in print as banding or a sudden colour shift in dark areas. The paths sweep from far outside the gamut, through it, and out the other side, so you also see where the profile starts clamping.</p>
 <p>The lightness plane is chosen automatically: halfway between the profile's Blue corner and the darkest of C, M, Y, R and G. For the perceptual and saturation tables the lightness is first stretched from the media black point up to PCS black — those tables expect black there — and the section reports both the compensated plane and the raw one.</p>
 <p><strong>Output (printer) profiles only</strong>, and the same CMYK/CMY restriction as the per-hue table above (the plane is derived from the ink corners).</p>
-<h4>Primary-Inking Paths through Neutral</h4>
+<h4 id="primary-inking-paths-through-neutral">Primary-Inking Paths through Neutral</h4>
 <p>Three paths — Cyan→Red, Magenta→Green, Yellow→Blue — each routed from one primary corner, <strong>through the neutral axis</strong> at the midpoint lightness of its two endpoints, to the opposite corner, run through the selected <code>B2A</code> table and plotted as a separation.</p>
 <p>This is the in-gamut counterpart to Ink Usage in Shadows. There, the paths deliberately run outside the gamut to expose gamut-mapping artefacts; here, <strong>every sample is inside the gamut by construction</strong> — both endpoints are the profile's own primaries and the pivot sits on the neutral axis. So a step, kink or reversal in a colorant along one of these paths cannot be blamed on gamut clipping: it is a CLUT-smoothness defect. The neutral pivot is the midpoint of each plot, where you should see a balanced neutral build.</p>
 <p>For the perceptual and saturation tables the lightness is black-point compensated for the intent, exactly as in Ink Usage in Shadows.</p>
 <p><strong>Output (printer) profiles only</strong>, with the same CMYK/CMY restriction (the corners come from the same source as the per-hue table).</p>
-<h4>Ink Usage Statistics</h4>
+<h4 id="ink-usage-statistics">Ink Usage Statistics</h4>
 <p>How much of each colorant the profile lays down, as a mean coverage and as a <strong>share of the total</strong> — the ink-consumption signature of the separation.</p>
 <p>The table sums each colorant across the neutral axis and reports its mean coverage and its percentage of all ink laid down. The share column is the diagnostic: it is the profile's neutral-build fingerprint (a cyan-heavy grey balance reads differently from a black-heavy one), and it is independent of how many samples were taken.</p>
 <p>A second table — ink usage across <strong>all on-and-in-gamut colours</strong> — is listed as <em>pending</em>: it needs a gamut-boundary construction that is not yet built.</p>
 <p><strong>Output (printer) profiles only.</strong></p>
-<h4>CLUT Image</h4>
+<h4 id="clut-image">CLUT Image</h4>
 <p>The colour lookup table of a device↔PCS transform, tiled into an image, with a selector for which rendering-intent table to view (<code>A2B0</code>–<code>A2B3</code>, <code>B2A0</code>–<code>B2A3</code>, and the preview tables). Useful for spotting structural damage in a table at a glance. Zoom, pan and reset with the controls on the canvas.</p>
 <p>When you select a <strong><code>B2A</code> (PCS → device) table</strong>, a grayscale <strong>ink-coverage image for each colorant</strong> appears below the lattice — the per-ink separations, darker meaning more of that ink. A hint at the top of the section points you to them, since the section opens on an <code>A2B</code> table (whose output is L*a*b*, not inks). For an <strong>n-colour (nCLR) output</strong> — 5-, 6- or 7-colour — where there is no simple colour preview, the main image is <strong>colour-managed through the profile's forward <code>A2B</code></strong> so it still renders in real colour instead of a single-channel grey.</p>
-<h4>Gamut Image</h4>
+<h4 id="gamut-image">Gamut Image</h4>
 <p>The gamut tag's in/out-of-gamut map: neutral where a PCS colour is reproducible, red where it falls outside the device gamut. Only present when the profile carries a <code>gamt</code> tag.</p>
 <h3 id="3-5-xml">3.5 XML</h3>
 <p>Converts the profile to XML (via IccLibXML, the same writer the iccDEV <code>iccToXml</code> CLI uses) and shows it in a CodeMirror editor with syntax highlighting. Edit the XML and click <strong>Convert to ICC</strong> to round-trip back to binary; the viewer re-validates and the <strong>Save profile</strong> button in the Profile-tab bar downloads the result.</p>
@@ -496,8 +499,7 @@ body.dark .diag {
 .diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
 </style>
 <rect x="0" y="0" width="780" height="452" rx="0" class="bg"/><rect x="16" y="12" width="150" height="428" rx="8" class="pnl"/><rect x="16" y="12" width="150" height="26" rx="8" class="hd"/><text x="28" y="29" text-anchor="start" class="tB">Profiles</text><rect x="26" y="48" width="130" height="28" rx="5" class="sec"/><text x="36" y="66" text-anchor="start" class="t2 mono">sRGB.icc</text><rect x="26" y="82" width="130" height="28" rx="5" class="sec"/><text x="36" y="100" text-anchor="start" class="t2 mono">Coated.icc</text><text x="26" y="132" text-anchor="start" class="t3">Drag into the chain →</text><rect x="186" y="12" width="578" height="428" rx="8" class="pnl"/><text x="202" y="32" text-anchor="start" class="tT">Combine — Link Pipeline</text><text x="202" y="48" text-anchor="start" class="t3">Chain profiles, then make a DeviceLink or transform an image / dataset.</text><line x1="202" y1="56" x2="748" y2="56" class="div"/><rect x="202" y="64" width="270" height="32" rx="6" class="sec"/><text x="214" y="84" text-anchor="start" class="t2">🖼  Drop an image (TIFF/PNG/JPEG)</text><rect x="482" y="64" width="266" height="32" rx="6" class="sec"/><text x="494" y="84" text-anchor="start" class="t2">🔢  Drop a dataset (CGATS/CSV/CxF)</text><text x="202" y="116" text-anchor="start" class="t3">Rendering intent (all)</text><rect x="336" y="104" width="150" height="18" rx="4" class="btn"/><text x="342" y="116" text-anchor="start" class="t2">Relative Colorimetric</text><rect x="202" y="130" width="546" height="38" rx="6" class="sec"/><text x="216" y="153" text-anchor="start" class="t3">⠿</text><rect x="230" y="141" width="16" height="16" rx="4" class="act"/><text x="238" y="153" text-anchor="middle" class="tW tB">1</text><text x="256" y="153" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="614" y="153" text-anchor="start" class="t3">RGB → Lab</text><rect x="706" y="140" width="42" height="18" rx="4" class="btn"/><text x="727" y="153" text-anchor="middle" class="t2">Rel</text><line x1="238" y1="168" x2="238" y2="180" stroke="var(--ln)" stroke-width="2"/><rect x="451" y="170" width="48" height="14" rx="7" class="lnbd"/><text x="475" y="181" text-anchor="middle" class="t3">Lab</text><rect x="202" y="184" width="546" height="38" rx="6" class="sec"/><text x="216" y="207" text-anchor="start" class="t3">⠿</text><rect x="230" y="195" width="16" height="16" rx="4" class="act"/><text x="238" y="207" text-anchor="middle" class="tW tB">2</text><text x="256" y="207" text-anchor="start" class="t2 mono">Coated.icc</text><text x="614" y="207" text-anchor="start" class="t3">Lab → CMYK</text><rect x="706" y="194" width="42" height="18" rx="4" class="btn"/><text x="727" y="207" text-anchor="middle" class="t2">Perc</text><text x="202" y="244" text-anchor="start" class="t3">Chain:</text><text x="244" y="244" text-anchor="start" class="tA">RGB → CMYK</text><rect x="202" y="256" width="124" height="24" rx="5" class="act"/><text x="264" y="272" text-anchor="middle" class="tW tB">Make DeviceLink</text><rect x="334" y="256" width="124" height="24" rx="5" class="act"/><text x="396" y="272" text-anchor="middle" class="tW tB">Transform Image</text><rect x="466" y="256" width="124" height="24" rx="5" class="act"/><text x="528" y="272" text-anchor="middle" class="tW tB">Transform Data</text><rect x="202" y="296" width="546" height="96" rx="6" class="sec"/><text x="214" y="314" text-anchor="start" class="tB">Image output options</text><text x="214" y="330" text-anchor="start" class="t3">Encoding</text><rect x="214" y="336" width="96" height="16" rx="4" class="btn"/><text x="262" y="348" text-anchor="middle" class="t2">Same as source</text><text x="326" y="330" text-anchor="start" class="t3">Compression</text><rect x="326" y="336" width="96" height="16" rx="4" class="btn"/><text x="374" y="348" text-anchor="middle" class="t2">None</text><text x="438" y="330" text-anchor="start" class="t3">Planar</text><rect x="438" y="336" width="96" height="16" rx="4" class="btn"/><text x="486" y="348" text-anchor="middle" class="t2">Composite</text><text x="214" y="366" text-anchor="start" class="t3">CMM interp.</text><rect x="214" y="372" width="96" height="16" rx="4" class="btn"/><text x="262" y="384" text-anchor="middle" class="t2">Tetrahedral</text><text x="326" y="366" text-anchor="start" class="t3">Embed ICC</text><rect x="326" y="372" width="96" height="16" rx="4" class="btn"/><text x="374" y="384" text-anchor="middle" class="t2">☑ yes</text><line x1="727" y1="138" x2="644" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
-<text x="644" y="115" text-anchor="end" class="t3">Per-stage intent</text><line x1="624" y1="300" x2="594" y2="286" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
-<text x="594" y="283" text-anchor="end" class="t3">iccApplyProfiles output knobs</text>
+<text x="644" y="115" text-anchor="end" class="t3">Per-stage intent</text><line x1="704" y1="276" x2="704" y2="298" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/><text x="748" y="272" text-anchor="end" class="t3">iccApplyProfiles output knobs</text>
 </svg><p>profiletool keeps every loaded profile in a <strong>Profile Pool</strong> on the left. Across the top are five tabs — <strong>Profile</strong> (the single-profile viewer above), <strong>Compare</strong>, <strong>Combine</strong>, <strong>Spectral</strong> and <strong>HDR</strong>. The <strong>Combine</strong> tab is where you chain profiles together and put them to work: build a <strong>DeviceLink</strong>, <strong>transform an image</strong>, or <strong>transform a colour dataset</strong> through the chain.</p>
 <h3 id="4-1-building-a-chain">4.1 Building a chain</h3>
 <p>Drag one or more profiles from the pool into the Combine card to add them to the chain, in order. The chain is a <strong>vertical stack</strong>: the source is at the top, the sink at the bottom. Each profile contributes <strong>one transform</strong>, and the tool shows the colour space entering and leaving it (e.g. <code>RGB → Lab</code>), with the <strong>connecting space</strong> labelled on the line between stages. The engine validates the whole chain live and reports the end-to-end flow (e.g. <em>Chain: RGB → CMYK</em>) or explains, per stage, where it fails to connect.</p>
@@ -641,26 +643,14 @@ body.dark .diag {
 <hr>
 <h2 id="7-launching-with-a-url">7. Launching with a URL</h2>
 <p>You can open the tool with a link that names a profile to load — and the tab to land on — using a <strong>URL fragment</strong> (the part after <code>#</code>):</p>
-<p>
-```
- 
-https://chardata.colourbill.com/profiletool#url=<profile-url>&tab=<tab>
- 
-```
-</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=&lt;profile-url&gt;&amp;tab=&lt;tab&gt;</code></pre>
 <p>Both parameters are optional:</p>
 <ul>
 <li><strong><code>url=</code></strong> — the web address the profile is fetched from. The bytes are downloaded in your browser and then run through exactly the same path as a local file: the <code>acsp</code> header check, full <code>ValidateIccProfile</code>, the 256 MB size cap, and the best-effort fallback for unparseable profiles. Nothing is uploaded — the fetched bytes only feed the validator and are never re-sent.</li>
 <li><strong><code>tab=</code></strong> — which view to open once the profile has loaded.</li>
 </ul>
 <p>A complete example:</p>
-<p>
-```
- 
-https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRGB.icc&tab=VAL
- 
-```
-</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRGB.icc&amp;tab=VAL</code></pre>
 <div class="note">
 <strong>Why a fragment, not a query string?</strong> The part after <code>#</code> is never sent to a web server, so the address of the profile you are inspecting stays on your own machine.
 </div>

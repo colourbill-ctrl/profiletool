@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICC 配置文件工具 — 帮助</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, 'Noto Sans SC', 'Hiragino Sans', 'Microsoft YaHei', 'Apple SD Gothic Neo', sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
+    .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+    h1 { font-size: 24px; color: #1a5a8a; margin-bottom: 6px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 32px; }
+    h2 { font-size: 17px; color: #1a5a8a; margin: 36px 0 10px; padding-bottom: 5px; border-bottom: 2px solid #d0e6f5; }
+    h3 { font-size: 14px; font-weight: bold; color: #333; margin: 20px 0 6px; }
+    h4 { font-size: 13px; font-weight: bold; color: #555; margin: 14px 0 4px; }
+    p { font-size: 14px; margin-bottom: 10px; }
+    ul, ol { font-size: 14px; margin: 8px 0 10px 24px; }
+    li { margin-bottom: 4px; }
+    code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 1px 5px; border-radius: 3px; }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0 14px; font-size: 13px; }
+    th { background: #e8edf2; text-align: left; padding: 6px 10px; border: 1px solid #ccd6e0; font-weight: bold; color: #444; }
+    td { padding: 5px 10px; border: 1px solid #dde4ec; vertical-align: top; }
+    tr:nth-child(even) td { background: #f7f9fb; }
+    .note { background: #fff8e6; border-left: 3px solid #f0b429; padding: 8px 12px; font-size: 13px; margin: 10px 0; border-radius: 0 4px 4px 0; }
+    nav { background: #fff; border: 1px solid #dde; border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; font-size: 13px; }
+    nav ol { margin-left: 18px; }
+    pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 8px 12px; border-radius: 4px; margin: 8px 0 12px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
+    nav li { margin-bottom: 3px; }
+    nav a { color: #1a5a8a; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    hr { border: none; border-top: 1px solid #dde; margin: 32px 0; }
+    strong { color: #222; }
+    section { margin-bottom: 8px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1c1f; color: #d0d4da; }
+      h1 { color: #7ab8e8; }
+      h2 { color: #7ab8e8; border-bottom-color: #2a4a60; }
+      h3 { color: #c8cdd4; }
+      h4 { color: #9aa0a8; }
+      code { background: #2a2e35; color: #a8d4f0; }
+      pre { background: #2a2e35; }
+      table { color: #c8cdd4; }
+      th { background: #252930; border-color: #3a4048; color: #9aa0a8; }
+      td { border-color: #2e3440; }
+      tr:nth-child(even) td { background: #1e2128; }
+      .note { background: #2a2410; border-left-color: #c08820; color: #c8b880; }
+      nav { background: #22262e; border-color: #333a44; }
+      nav a { color: #7ab8e8; }
+      hr { border-top-color: #2e3440; }
+      strong { color: #e0e4ea; }
+      .subtitle { color: #666e7a; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>ICC 配置文件工具 — 帮助</h1>
+  <p class="subtitle">基于浏览器的 ICC.1 与 ICC.2 (iccMAX) 配置文件检查器、验证器和往返编辑器</p>
+
+<p><strong>ICC 配置文件工具</strong>（ICC Profile Tool，即 profiletool）是一款基于浏览器的工具，用于检查、验证和往返编辑 <strong>ICC.1</strong> 与 <strong>ICC.2 (iccMAX)</strong> 色彩配置文件。它完全在浏览器中运行——无需上传，无需安装——所用的是 <a href="https://github.com/InternationalColorConsortium/iccDEV">iccDEV</a> 的 WebAssembly 构建版本，即 ICC 官方的 IccProfLib 演示实现。</p>
+<p><strong>您可以：</strong></p>
+<ul>
+<li><strong>浏览标头</strong> — 128 字节配置文件标头中的每个字段，均解码为易读的文字。</li>
+<li><strong>浏览标签目录</strong> — 列出每个标签的签名、类型、字节偏移、大小和填充字节。点击任一标签即可展开完整的类型专属描述（与 iccDEV <code>wxProfileDump</code> 的 "Describe" 视图输出相同）；对于含有可视化数据的标签，还会显示内嵌的 <strong>可视化</strong>：色调响应曲线、色度图、CLUT 与色域图像、命名颜色散点图，以及单点 <strong>转换求值器</strong>。</li>
+<li><strong>验证</strong> — 运行 ICC 配置文件评估工作组（Profile Assessment Working Group）的检查清单（安全性 / 符合性 / 质量），每项检查给出一个判定结果，并可按类别筛选。</li>
+<li><strong>往返编辑</strong> — 将配置文件转换为 XML 或 JSON，在内置代码编辑器中编辑，再转换回 ICC 并重新验证。保存按钮会下载编辑后的二进制文件。</li>
+<li><strong>串联配置文件</strong> — 在 <strong>链接</strong> 标签页中，将池中的配置文件拖入有序链条，然后把链条烘焙为 <strong>DeviceLink</strong>、用它 <strong>转换图像</strong>（可完全控制输出编码、压缩、平面布局和 ICC 嵌入），或 <strong>转换色彩数据集</strong>。</li>
+<li><strong>处理 HDR</strong> — 按 ICC.1 HDR ColorSpace 配置文件规则（第 8.7.1 条）检查配置文件，读取其 cICP 代码点，并绘制任意显示余量下的自适应增益曲线。<strong>HDR</strong> 标签页可在您的显示器上显示一幅 HDR 图像，<strong>设置 → 环境</strong> 则报告当前浏览器和显示器的能力。</li>
+<li><strong>从 chardata 启动</strong> — 将 <a href="https://chardata.colourbill.com/">chardata</a> 中已加载的配置文件直接在此打开，字节数据通过 <code>postMessage</code> 在浏览器内传递。</li>
+<li><strong>通过 URL 启动</strong> — 打开一个链接，让工具加载网上托管的配置文件，并可选择指定要打开的标签页（例如 <code>…/profiletool#url=…&tab=VAL</code>）。</li>
+</ul>
+<p>所有处理均在客户端完成。配置文件的字节数据从不离开浏览器标签页。</p>
+<div class="note">
+<strong>ICC.2 (iccMAX) 的支持尚不完整。</strong> ICC.2 配置文件可以像 ICC.1 配置文件一样加载、检查、验证和往返编辑——验证清单包含 iccMAX 专属检查，光谱 PCS 和多处理元素标签均可解码，转换引擎也基于完整的 iccMAX 栈构建。尚未覆盖的内容：多部分 <strong>ICS</strong>（交换色空间，Interchange Color Space）工作流、应用转换时选择 V5 <em>子配置文件</em>，以及部分 ICC.2 配置文件的反向搜索。较为特殊的 ICC.2 功能可能仍有欠缺，这些将在后续版本中逐步补齐。
+</div>
+<div class="note">
+<strong>HDR ColorSpace 配置文件的支持依据的是草案。</strong> HDR 检查、<code>headroomAdaptiveGainCurveTag</code> 视图和 HDR 标签页实现的是 ICC.1 HDR 修订案的当前版本。该修订案尚未正式发布，因此在发布前细节可能会有变化。
+</div>
+
+  <nav>
+    <strong>目录</strong>
+    <ol>
+      <li><a href="#1-the-workspace">工作区</a></li>
+      <li><a href="#2-settings-panel">设置面板</a></li>
+      <li><a href="#3-profile-views">配置文件视图</a>
+        <ol>
+          <li><a href="#3-1-header">标头</a></li>
+          <li><a href="#3-2-tags">标签</a></li>
+          <li><a href="#3-3-validation">验证</a></li>
+          <li><a href="#3-4-analysis">分析</a></li>
+          <li><a href="#3-5-xml">XML</a></li>
+          <li><a href="#3-6-json">JSON</a></li>
+        </ol>
+      </li>
+      <li><a href="#4-combine-tab">链接标签页</a>
+        <ol>
+          <li><a href="#4-1-building-a-chain">构建链条</a></li>
+          <li><a href="#4-2-make-devicelink">生成 DeviceLink</a></li>
+          <li><a href="#4-3-transform-image">转换图像</a></li>
+          <li><a href="#4-4-transform-data">转换数据</a></li>
+          <li><a href="#4-5-observer-change">观察者变换</a></li>
+          <li><a href="#4-6-compare-and-spectral-tabs">比较与光谱标签页</a></li>
+          <li><a href="#4-7-hdr-tab">HDR 标签页</a></li>
+        </ol>
+      </li>
+      <li><a href="#5-round-trip-editing">往返编辑</a></li>
+      <li><a href="#6-launching-from-chardata">从 chardata 启动</a></li>
+      <li><a href="#7-launching-with-a-url">通过 URL 启动</a></li>
+      <li><a href="#8-mobile">移动设备</a></li>
+      <li><a href="#9-limits-and-security">限制与安全</a></li>
+    </ol>
+  </nav>
+
+<h2 id="1-the-workspace">1. 工作区</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 780 470"
+  style="width:100%;max-width:780px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="780" height="470" rx="0" class="bg"/><rect x="10" y="10" width="172" height="450" rx="8" class="pnl"/><rect x="10" y="10" width="172" height="28" rx="8" class="hd"/><text x="22" y="29" text-anchor="start" class="tB">配置文件</text><rect x="74" y="17" width="18" height="14" rx="7" class="act"/><text x="83" y="28" text-anchor="middle" class="tW">3</text><text x="138" y="29" text-anchor="start" class="t3">A–Z ↕</text><text x="172" y="29" text-anchor="end" class="t3">‹</text><rect x="22" y="46" width="110" height="20" rx="5" class="act"/><text x="77" y="60" text-anchor="middle" class="tW tB">加载配置文件</text><text x="22" y="84" text-anchor="start" class="tA">＋ 从 .cube 新建</text><text x="22" y="106" text-anchor="start" class="t3 tB">▾ 输出</text><text x="168" y="106" text-anchor="end" class="t3">2</text><rect x="20" y="114" width="152" height="32" rx="5" class="sec"/><text x="28" y="127" text-anchor="start" class="t2 mono">Coated.icc</text><text x="28" y="140" text-anchor="start" class="t3">prtr · CMYK · v4.3</text><text x="164" y="130" text-anchor="end" class="t3">×</text><rect x="20" y="152" width="152" height="32" rx="5" class="sec"/><text x="28" y="165" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="28" y="178" text-anchor="start" class="t3">mntr · RGB · v4.2</text><text x="164" y="168" text-anchor="end" class="t3">×</text><text x="22" y="206" text-anchor="start" class="t3 tB">▸ 显示</text><text x="168" y="206" text-anchor="end" class="t3">1</text><text x="22" y="232" text-anchor="start" class="t3">将行拖到标签页上 →</text><text x="194" y="30" text-anchor="start" class="tT">ICC 配置文件工具</text><text x="194" y="46" text-anchor="start" class="t3">基于 iccDEV 演示实现</text><line x1="194" y1="54" x2="634" y2="54" class="div"/><line x1="194" y1="78" x2="268" y2="78" stroke="var(--act)" stroke-width="3"/><text x="231" y="72" text-anchor="middle" class="tA">配置文件</text><rect x="254" y="62" width="16" height="12" rx="6" class="act"/><text x="262" y="72" text-anchor="middle" class="tW">1</text><text x="313" y="72" text-anchor="middle" class="t2">比较</text><rect x="336" y="62" width="16" height="12" rx="6" class="act"/><text x="344" y="72" text-anchor="middle" class="tW">2</text><text x="395" y="72" text-anchor="middle" class="t2">链接</text><text x="477" y="72" text-anchor="middle" class="t2">光谱</text><line x1="194" y1="80" x2="634" y2="80" class="div"/><rect x="194" y="90" width="116" height="20" rx="9" class="lnbd"/><text x="204" y="104" text-anchor="start" class="t3">Coated.icc   ×</text><text x="194" y="133" text-anchor="start" class="tB">Coated.icc</text><rect x="270" y="121" width="122" height="16" rx="8" class="amber"/><text x="331" y="133" text-anchor="middle" class="tW">● 已修改 — 尚未保存</text><rect x="544" y="119" width="90" height="22" rx="5" class="act"/><text x="589" y="134" text-anchor="middle" class="tW tB">保存配置文件</text><rect x="194" y="150" width="440" height="306" rx="6" class="pnl"/><rect x="194" y="150" width="440" height="26" rx="6" class="sec"/><text x="204" y="167" text-anchor="start" class="tB mono">Coated.icc</text><text x="280" y="167" text-anchor="start" class="t3">· 1,838,244 bytes · IccProfLib 2.3.1</text><rect x="582" y="156" width="44" height="14" rx="3" class="green"/><text x="604" y="167" text-anchor="middle" class="tW tB">通过</text><line x1="204" y1="202" x2="262" y2="202" stroke="var(--act)" stroke-width="3"/><text x="233" y="194" text-anchor="middle" class="tA">标头</text><text x="291" y="194" text-anchor="middle" class="t2">标签</text><rect x="304" y="184" width="18" height="12" rx="6" class="act"/><text x="313" y="194" text-anchor="middle" class="tW">14</text><text x="356" y="194" text-anchor="middle" class="t2">验证</text><text x="429" y="194" text-anchor="middle" class="t2">分析</text><text x="485" y="194" text-anchor="middle" class="t2">XML</text><text x="529" y="194" text-anchor="middle" class="t2">JSON</text><line x1="204" y1="204" x2="624" y2="204" class="div"/><rect x="204" y="216" width="420" height="20" rx="4" class="sec"/><text x="212" y="229" text-anchor="start" class="t3 tB">PROFILE ID</text><text x="284" y="229" text-anchor="start" class="tA mono">9efa8dc6c12f4e0b8b3a04e6c5a6e51c</text><rect x="204" y="242" width="420" height="18" rx="0" class="sec"/><text x="212" y="254" text-anchor="start" class="t3">Profile Class</text><text x="344" y="254" text-anchor="start" class="t2">Output Profile</text><text x="212" y="272" text-anchor="start" class="t3">Data Color Space</text><text x="344" y="272" text-anchor="start" class="t2">CMYK</text><rect x="204" y="278" width="420" height="18" rx="0" class="sec"/><text x="212" y="290" text-anchor="start" class="t3">PCS</text><text x="344" y="290" text-anchor="start" class="t2">Lab</text><text x="212" y="308" text-anchor="start" class="t3">Profile Version</text><text x="344" y="308" text-anchor="start" class="t2">4.30.00</text><rect x="204" y="314" width="420" height="18" rx="0" class="sec"/><text x="212" y="326" text-anchor="start" class="t3">Rendering Intent</text><text x="344" y="326" text-anchor="start" class="t2">Perceptual</text><text x="212" y="344" text-anchor="start" class="t3">Creation Date</text><text x="344" y="344" text-anchor="start" class="t2">2025-08-14 10:24 UTC</text><rect x="766" y="10" width="6" height="450" rx="0" class="pnl"/><rect x="728" y="30" width="38" height="32" rx="5" class="btn"/><text x="747" y="51" text-anchor="middle" class="t2 tB">⚙</text><rect x="728" y="68" width="38" height="32" rx="5" class="btn"/><text x="747" y="89" text-anchor="middle" class="t2 tB">?</text><rect x="728" y="106" width="38" height="32" rx="5" class="btn"/><text x="747" y="127" text-anchor="middle" class="t2">✉</text><line x1="747" y1="46" x2="712" y2="42" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="39" text-anchor="end" class="t3">⚙ 设置</text><line x1="747" y1="84" x2="712" y2="80" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="77" text-anchor="end" class="t3">? 帮助</text><line x1="747" y1="122" x2="712" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="712" y="115" text-anchor="end" class="t3">✉ 联系</text>
+</svg><p>profiletool 是一个 <strong>多配置文件工作台</strong>。窗口分为三部分：</p>
+<ul>
+<li>左侧的 <strong>配置文件</strong> 窗格——即您已加载的所有内容组成的 <em>池</em>；</li>
+<li>右侧的 <strong>画布</strong>，顶部有五个标签页——<strong>配置文件</strong>、<strong>比较</strong>、<strong>链接</strong>、<strong>光谱</strong>、<strong>HDR</strong>；</li>
+<li>右边缘的 <strong>设置</strong> 侧栏（参见<a href="#2-settings-panel">设置面板</a>）。</li>
+</ul>
+<h3 id="loading-profiles">加载配置文件</h3>
+<p>可通过以下两种方式之一加载文件：</p>
+<ul>
+<li>点击“配置文件”窗格顶部的 <strong>加载配置文件</strong>，选择一个或多个文件；或者</li>
+<li>将文件 <strong>拖放</strong> 到“配置文件”窗格上。</li>
+</ul>
+<p>您既可以加载 <code>.icc</code> / <code>.icm</code> 配置文件，<em>也</em>可以加载图像。拖入 <strong>TIFF、PNG、JPEG、HEIC 或 AVIF</strong> 文件时，工具会提取其中 <strong>嵌入的 ICC 配置文件</strong> 并加入池中。它只读取文件的元数据，从不读取像素。对于 HEIC 和 AVIF，工具会遍历文件的 box 结构，因此在任何浏览器中都可使用，包括无法显示这些格式的浏览器。<strong>JPEG XL</strong> 文件同样会被拒绝：其配置文件压缩在码流内部，而 profiletool 目前尚不能解压。与 HEIC 共用容器格式的视频和相机 RAW 文件（MP4、QuickTime、Canon CR3）不会被视为图像。<strong>OpenEXR</strong> 或 <strong>Radiance HDR</strong>（<code>.hdr</code>）文件会被拒绝并给出原因：这两种格式都没有存放 ICC 配置文件的位置。OpenEXR 通过色度坐标描述颜色，Radiance HDR 则通过可选的 <code>PRIMARIES</code> 标头行描述。如需 <em>查看</em> 图像，请使用 <a href="#4-7-hdr-tab">HDR 标签页</a>。<strong>＋ 从 .cube 新建</strong> 按钮可从 <code>.cube</code> LUT 构建 DeviceLink。结果会加入池中并在 <strong>配置文件</strong> 标签页中打开；在您点击 <strong>保存 ICC 配置文件</strong> 之前不会下载任何内容。</p>
+<p>只有当文件前 36 个字节中包含 <code>acsp</code> 签名，且能通过 IccProfLib 的 <code>ValidateIccProfile</code> 解析时，该配置文件才会被接受。未通过的文件会列在拒绝摘要中并注明具体原因；其字节数据不会保留。</p>
+<h3 id="the-profiles-pane">配置文件窗格</h3>
+<p>已加载的配置文件按 <strong>配置文件类别</strong>（输入、显示、输出、DeviceLink、ColorSpace、抽象、命名颜色……）分组到可折叠的分区中。ICC.1 第 8.7.1 条定义的 <strong>HDR ColorSpace 配置文件</strong> 则单独列在顶部的分区中（它们属于 ColorSpace 类配置文件，因此从 ColorSpace 分区中单独提出），并按传递函数分为 <strong>线性传递函数</strong> 和 <strong>非线性传递函数（PQ、HLG）</strong> 两组，每行以徽标标示其传递函数。这一划分在 <a href="#4-7-hdr-tab">HDR 标签页</a> 中很重要：只有线性传递函数的配置文件才能指定给 OpenEXR 或 Radiance HDR 图像。每行显示文件名，以及类别、色彩空间、版本和大小的徽标；只能部分解析的配置文件会被标记。使用 <strong>A–Z</strong> 按钮循环切换排序方式（加载顺序 → 升序 → 降序），点击行上的 <strong>×</strong> 将其移除，拖动窗格右边缘的手柄调整宽度——也可以将窗格完全收起。</p>
+<p>单击选中一行；按住 Ctrl/Cmd 单击可切换选中状态，按住 Shift 单击可选择一个范围。<strong>将行从池中拖到某个标签页上</strong>，即可在该标签页中使用它们。</p>
+<div class="note">
+<strong>池仅在当前会话中有效。</strong> 不会上传任何内容，也不会持久保存任何内容——您的文件系统才是永久存储。重新加载页面会清空池。
+</div>
+<h3 id="the-tabs">标签页</h3>
+<table><thead>
+<tr><th>标签页</th><th>功能</th></tr></thead><tbody>
+<tr><td><strong>配置文件</strong></td><td>检查 <strong>一个</strong> 配置文件——标头、标签、验证、分析、XML、JSON。在此拖入新的配置文件会替换当前配置文件。</td></tr>
+<tr><td><strong>比较</strong></td><td>叠加显示 <strong>两个或更多</strong> 配置文件的色域。</td></tr>
+<tr><td><strong>链接</strong></td><td>将配置文件串联成 DeviceLink，或通过它们转换图像 / 数据集。</td></tr>
+<tr><td><strong>光谱</strong></td><td>将多幅单通道光谱图像组装成一个多通道 TIFF。</td></tr>
+<tr><td><strong>HDR</strong></td><td>在您的显示器上显示 <strong>一幅</strong> HDR 图像，并提供 SDR ↔ HDR 控件。参见 <a href="#4-7-hdr-tab">HDR 标签页</a>。</td></tr>
+</tbody></table>
+<p>“光谱”和“HDR”标签页直接接收图像文件，而不是池中的配置文件。其他每个标签页各自保留一组配置文件，以可移除的标签片显示在标签栏下方，并在标签页上以计数徽标显示数量。加载的第一个配置文件会自动在 <strong>配置文件</strong> 标签页中打开；此后，请从池中拖到您需要的标签页上。直接将文件拖放到某个标签页上，可一步完成加载到池中 <em>并</em> 放置到该标签页上。</p>
+<div class="note">
+<strong>大小限制：</strong>加载器会拒绝任何大于 256 MB 的文件。实际的配置文件通常远小于 10 MB；设置这一上限只是为了防止恶意拖放或 postMessage 耗尽标签页的 WASM 堆。
+</div>
+<hr>
+<h2 id="2-settings-panel">2. 设置面板</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 380 186"
+  style="width:100%;max-width:380px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="380" height="186" rx="0" class="bg"/><rect x="8" y="8" width="364" height="170" rx="8" class="pnl"/><rect x="8" y="24" width="38" height="34" rx="5" class="btn"/><text x="27" y="45" text-anchor="middle" class="t2 tB">⚙</text><rect x="8" y="64" width="38" height="34" rx="5" class="btn"/><text x="27" y="85" text-anchor="middle" class="t2 tB">?</text><rect x="8" y="104" width="38" height="34" rx="5" class="btn"/><text x="27" y="125" text-anchor="middle" class="t2">✉</text><line x1="46" y1="8" x2="46" y2="178" class="div"/><text x="54" y="32" text-anchor="start" class="tT">设置</text><line x1="50" y1="44" x2="366" y2="44" class="div"/><text x="54" y="69" text-anchor="start" class="tA tB">显示</text><text x="54" y="91" text-anchor="start" class="t3 tB">背景</text><rect x="232" y="78" width="130" height="22" rx="4" class="btn"/><text x="242" y="93" text-anchor="start" class="t2">系统</text><text x="352" y="93" text-anchor="end" class="t3">▾</text><text x="54" y="121" text-anchor="start" class="t3 tB">数字格式</text><rect x="232" y="108" width="130" height="22" rx="4" class="btn"/><text x="242" y="123" text-anchor="start" class="t2">十六进制</text><text x="352" y="123" text-anchor="end" class="t3">▾</text><text x="54" y="151" text-anchor="start" class="t3 tB">语言</text><rect x="232" y="138" width="130" height="22" rx="4" class="btn"/><text x="242" y="153" text-anchor="start" class="t2" textLength="104" lengthAdjust="spacingAndGlyphs">系统默认 (中文（简体）)</text><text x="352" y="153" text-anchor="end" class="t3">▾</text>
+</svg><p>点击屏幕右边缘的 <strong>⚙</strong> 按钮（在移动设备上为右上角的齿轮图标）即可打开设置。面板会滑出覆盖在内容上方，而不会改变内容的尺寸。</p>
+<p>⚙ 下方还有两个按钮：</p>
+<ul>
+<li><strong>?</strong> 在 <strong>应用内</strong> 打开本指南，以窗格形式从窗口侧面滑入。其标题栏中有搜索框——输入文字即可高亮匹配项，然后用 <code>Enter</code> / <code>Shift+Enter</code>（或 <code>˄</code> <code>˅</code> 按钮）逐个跳转；<code>Escape</code> 清除搜索，再按一次 <code>Escape</code> 关闭窗格。</li>
+<li><strong>✉</strong> 在新的浏览器标签页中打开 colourbill.com 上的联系表单。</li>
+</ul>
+<p>面板分为两组：<strong>显示</strong> 和 <strong>环境</strong>。拖动面板左边缘可调整其宽度（220–560 px）；宽度会被记住。</p>
+<h3 id="background">背景</h3>
+<p>在 <strong>浅色</strong>、<strong>深色</strong> 和 <strong>系统</strong>（跟随操作系统偏好）主题之间切换。所选设置会跨会话保留。在 <strong>系统</strong> 模式下，应用会监听 <code>prefers-color-scheme</code>，并在操作系统主题变化时自动切换；明确选择“浅色”或“深色”则会取消该监听。</p>
+<h3 id="number-format">数字格式</h3>
+<p>选择数值在各配置文件视图中的显示方式——<strong>十六进制</strong> 或 <strong>十进制</strong>。</p>
+<h3 id="language">语言</h3>
+<p>覆盖界面语言。<strong>系统默认 (…)</strong> 会检测浏览器的区域设置并使用最接近的受支持语言，括号中显示该语言的本地名称，以便您看出选中的是哪一种。翻译范围涵盖应用界面：配置文件窗格、标签页名称、链接、光谱和 HDR 工具、标签视图中的 HDR 增益曲线视图、设置面板（包括“环境”及其中的原因说明），以及本指南的界面部分。部分文字不会翻译：</p>
+<ul>
+<li>由 IccProfLib 生成的文字——标签描述、验证消息、标头字段名——来自 C++ 库，保持英文。</li>
+<li>浏览器标志的名称保持英文，以便与浏览器自身的标志页面一致。</li>
+<li>“环境”面板中的 <strong>显示事件</strong> 日志保持英文，以便原样粘贴到错误报告中。</li>
+<li>本指南遵循同一设置，但其中的 HDR 章节除外：在 HDR 支持处于测试阶段、文字仍在修改期间，这些章节保持英文。自上次翻译更新以来英文原文有修订的章节也会以英文显示并附有说明，直到译文跟上为止。</li>
+</ul>
+<p>支持的语言：English、Français、Deutsch、Italiano、Español、Português (PT)、Português (BR)、Svenska、中文（简体）、中文（繁體）、日本語、한국어。chardata 的设置面板提供相同的语言集，因此在一个应用中切换语言后，在另一个应用中也能获得一致的阅读体验。</p>
+<h3 id="environment">环境</h3>
+<p>显示 <strong>当前</strong> 浏览器、平台和显示器的能力，以便在某种格式或 HDR 功能不可用时，您能看出原因。从上到下依次为：</p>
+<ul>
+<li><strong>摘要</strong> — 浏览器和操作系统，以及显示器是否报告支持 HDR。</li>
+<li><strong>浏览器标志</strong>（Chrome、Edge、Opera、Brave）— <em>Experimental Web Platform features</em> 是否已开启。该标志会启用 HDR 画布，并允许页面读取显示器的 HDR 余量。</li>
+<p>
+  - 当已知该标志处于关闭状态时，此框会高亮显示。如果此浏览器没有可用的 WebGPU，它会被标为 <strong>必需</strong>，因为此时 HDR 画布是渲染 HDR 的唯一途径；否则标为 <strong>可选</strong>。
+ 
+  - 检查配置文件从不需要它。
+ 
+  - 网页无法打开或更改浏览器标志。请点击 <strong>复制</strong>，将地址粘贴到地址栏，把该标志设为 <em>Enabled</em>，然后重新启动浏览器。
+<li><strong>显示器信息</strong> — <strong>HDR 显示器</strong>、<strong>广色域</strong>（sRGB、Display P3 或 Rec. 2020）、<strong>像素比</strong>，以及当前使用的 <strong>HDR 画布路径</strong>（<code>float16-canvas</code>、<code>webgpu</code> 或无）。当您把窗口拖到这些属性不同的屏幕上时，它们会自动刷新。切换发生在窗口的大部分移到新屏幕上时。</li>
+<li><strong>识别显示器</strong>（Chromium 系浏览器）— 请求权限以查看窗口位于哪台显示器上。获得许可后，即使在外观相同的显示器之间移动，面板也会刷新，并显示 <strong>当前显示器</strong> 的名称；在浏览器提供该信息时（开启上述标志的 Chrome）还会显示 <strong>HDR 余量</strong>，例如 <em>1.35 档（≈ SDR 白的 2.55 倍）</em>。如果您拒绝了该权限，请在网站设置中更改。</li>
+ 
+  - 余量是 SDR 白之上的空间，因此在笔记本电脑内置的 HDR 面板上，<strong>调高亮度时余量会减小</strong>（SDR 白变亮，而面板峰值不变），调低亮度时余量会增大。观看 HDR 内容时，请调低亮度。
+ 
+  - 在 Windows 上，亮度改变后需等待几秒钟，待显示驱动报告后才会得到新值。当窗口移到另一块屏幕，或 Chrome 重新成为活动应用时，也会刷新。
+<li><strong>显示事件</strong> — 可折叠的日志，记录最近 20 次刷新及其触发原因。报告显示问题时很有用。</li>
+<li><strong>格式表</strong> — 每种格式一行（ICC 配置文件、TIFF、PNG、JPEG、OpenEXR、Radiance HDR、AVIF、HEIC/HEIF、JPEG XL），回答三个问题：</li>
+ 
+  - <strong>检查</strong>：能否读取嵌入的配置文件？
+ 
+  - <strong>显示</strong>：能否显示像素？
+ 
+  - <strong>HDR</strong>：能否渲染高于白色的亮度？
+</ul>
+</p>
+<p>  将鼠标悬停在某行上可查看 ✕ 的原因；无法显示的格式及其原因会列在表格下方。圆点标记的是由 profiletool 自行解码的格式，它们在所有浏览器中表现一致。除 JPEG XL（其配置文件压缩在码流内部）外，所有格式的 <strong>检查</strong> 一栏均为 ✓。</p>
+<hr>
+<h2 id="3-profile-views">3. 配置文件视图</h2>
+<p>将配置文件从池中拖到 <strong>配置文件</strong> 标签页上即可检查它。该标签页会显示一个栏，其中包含文件名和 <strong>保存 ICC 配置文件</strong> 按钮（编辑后还会出现 <em>● 已修改 — 尚未保存</em> 标记），下方是查看器：标题栏（文件名 · 字节大小 · IccProfLib 版本 · 有效性徽标）以及它自己的标签栏。</p>
+<p>徽标汇总了 <strong>验证</strong> 报告：没有检查失败或警告时显示绿色 <strong>通过</strong>，至少一项检查给出警告时显示琥珀色 <strong>警告</strong>，任一检查失败时显示红色 <strong>失败</strong>。</p>
+<div class="note">
+<strong>部分解析的配置文件：</strong>如果配置文件损坏到验证器只能读取其结构，会出现警告横幅，且只有 <strong>标头</strong> 和 <strong>标签</strong> 标签页可用——验证、分析、XML 和 JSON 标签页会被隐藏，因为不得应用该配置文件。
+</div>
+<h3 id="3-1-header">3.1 标头</h3>
+<p>一个两列表格，列出 ICC 配置文件 128 字节二进制标头中的每个字段。数值通过 IccProfLib 的 <code>CIccInfo</code> 解码为易读的文字（展开签名、格式化日期、转换定点数值）。<strong>配置文件 ID</strong>（标头中的 MD5 哈希值）显示在顶部的高亮条中。</p>
+<h3 id="3-2-tags">3.2 标签</h3>
+<p>一个六列网格，列出配置文件标签目录中的每个标签：</p>
+<table><thead>
+<tr><th>列</th><th>含义</th></tr></thead><tbody>
+<tr><td><code>#</code></td><td>在目录中的位置（从 1 开始）</td></tr>
+<tr><td><code>Name</code></td><td>易读的完整名称（例如 <code>profileDescriptionTag</code>）</td></tr>
+<tr><td><code>ID</code></td><td>4 字符签名（例如 <code>desc</code>）</td></tr>
+<tr><td><code>Offset</code></td><td>相对于文件开头的字节偏移</td></tr>
+<tr><td><code>Size</code></td><td>标签数据的字节大小</td></tr>
+<tr><td><code>Pad</code></td><td>此标签与下一个标签之间的填充字节数</td></tr>
+</tbody></table>
+<p>标签 <strong>类型</strong> 签名（例如 <code>descType</code>、<code>mft2</code>、<code>mAB</code>）与偏移和大小一起显示在展开后标签的顶部。</p>
+<p>标签按偏移排序。<strong>填充</strong> 列按颜色区分——<code>Pad < 0</code>（标签重叠，不合规）显示为红色；<code>Pad > 3</code>（填充超出规范）显示为琥珀色。</p>
+<p><strong>点击任一行</strong> 即可就地展开（手风琴式——一次只展开一个标签）。展开的详情最后总是完整的类型专属描述——相当于运行 IccProfLib 的 <code>CIccTag::Describe(verbosity = 100)</code>。对于含有大型 CLUT 或曲线的标签（例如 <code>A2B0</code>、<code>B2A0</code>），描述中会包含每个网格单元或曲线点。</p>
+<p>在该描述上方，含有可视化数据的标签会显示一个或多个 <strong>内嵌可视化</strong>，各自位于可折叠的分区中：</p>
+<table><thead>
+<tr><th>标签类型</th><th>可视化</th></tr></thead><tbody>
+<tr><td>色调曲线（<code>rTRC</code>/<code>gTRC</code>/<code>bTRC</code>/<code>kTRC</code>）</td><td>色调响应曲线，与恒等线对照绘制；曲线表折叠在其下方。</td></tr>
+<tr><td>RGB 着色剂（<code>rXYZ</code>/<code>gXYZ</code>/<code>bXYZ</code>）和白点（<code>wtpt</code>）</td><td>CIE 1931 色度图，高亮显示相应的原色（或白点）；着色剂 / 白点数据显示在其下方。</td></tr>
+<tr><td>LUT 转换（<code>A2B0–3</code>、<code>B2A0–3</code>、<code>gamt</code>、<code>pre0–2</code>）</td><td>输入端和输出端的色调曲线（叠加显示，按着色剂区分颜色，可通过图例开关曲线）；以图像形式显示的 CLUT 网格；<strong>色域图像</strong>（用于配置文件的 <code>gamutTag</code>，按颜色区分——中性 = 色域内，红色 = 色域外）；<strong>求值器</strong>（见下文）；以及折叠的原始数据表。</td></tr>
+<tr><td>命名颜色 / 着色剂表（<code>ncl2</code>/<code>nmcl</code>/<code>clrt</code>/<code>clot</code>）</td><td>在 CIELAB a*b*（以及 CIE xy）图上的颜色散点图；表格折叠在其下方。</td></tr>
+<tr><td>与编码无关的代码点（<code>cicp</code>）</td><td><strong>代码点</strong>：色度基色、传递特性、矩阵系数和全范围标志，均按 ITU-T H.273 的定义命名。H.273 未分配的值会被标记，非零的保留字节也会被标记。</td></tr>
+<tr><td>自适应增益曲线（<code>headroomAdaptiveGainCurveTag</code>）</td><td><strong>指定显示余量下的增益</strong>，当标签中存有替代图像时还有 <strong>增益曲线</strong>。参见下文 <em>HDR gain curves (HAGC)</em>。</td></tr>
+</tbody></table>
+<div class="note">
+<strong>异常数据从不隐藏。</strong> 如果某条曲线或其他可视化元素未通过 IccProfLib 的验证——例如 gamma 退化为 0 的色调曲线——该分区仍会尽可能渲染，并显示 ⚠ 警告及库给出的确切原因，而不会悄悄省略图表。
+</div>
+<h4 id="the-transform-evaluator">转换求值器</h4>
+<p>对于 LUT 转换（<code>A2B<em></code> / <code>B2A</em></code> / 预览标签），<strong>求值</strong> 分区直接使用 IccProfLib（不借助外部色彩引擎），将该标签的转换应用于您提供的单个颜色。方向由标签决定（<code>A2B<em></code> 为设备 → PCS；<code>B2A</em></code> 为 PCS → 设备），渲染意图也由标签隐含（<code>…0</code> 感知，<code>…1</code> 相对比色，<code>…2</code> 饱和度）。</p>
+<ul>
+<li>输入可以是 <strong>浮点值</strong>（设备通道值，或以可读的 Lab/XYZ 单位表示的 PCS 值）；当标签含有 CLUT 时，也可以按 <strong>网格点</strong> 索引（网格上的节点位置）输入。</li>
+<li>输出 <strong>同时</strong> 以内部归一化的 0–1 编码和可读单位（PCS 结果为 Lab/XYZ）显示。</li>
+</ul>
+<p>色域标签（<code>gamt</code>）没有求值器——它是单通道的色域内 / 色域外映射，而不是可逆的转换；取而代之显示其色域图像。</p>
+<h4 id="hdr-gain-curves-hagc">HDR gain curves (HAGC)</h4>
+<div class="note"><strong>This section is in English only.</strong> It describes HDR support, a beta feature that follows a draft ICC amendment and is still changing. It will be translated once the feature and its text are stable.</div>
+<p>A <code>headroomAdaptiveGainCurveTag</code> says how an HDR ColorSpace Profile's image should be tone-mapped for displays with different amounts of headroom. Expanding the tag shows two views:</p>
+<ul>
+<li><strong>Gain curve</strong> plots the control points exactly as stored in the file, one line per alternate image. It is absent when the tag stores no alternate images. The x axis is the curve input: linear light, with 1.0 at the tag's HDR reference white. The y axis is the gain in stops, which is negative for an alternate that tones down.</li>
+<li><strong>Gain at a display headroom</strong> shows the curve as a colour-managed transform applies it, computed by IccProfLib's own evaluator. Drag <strong>Display headroom</strong> from 0 to 6 stops; it starts at the tag's baseline, and <strong>Baseline</strong> returns there. Two plots follow the slider:</li>
+<p>
+  - <strong>Gain applied at this headroom</strong>: the blended curve, drawn against every curve in the tag;
+ 
+  - <strong>Grey tone curve at this headroom</strong>: what a grey input becomes, drawn against <em>no change</em> and the display peak.
+</ul>
+</p>
+<p>
+  Three more views make the adaptation visible:
+ 
+  - <strong>Preview through the colour engine</strong> runs one test strip through IccProfLib's HDR transform twice: a grey ramp, then pure R, G, B, Y, C and M bands, all rising left to right in the profile's own signal (PQ, HLG, or Linear on a log scale). The top strip is <strong>as authored</strong>, at the baseline headroom where the tag applies no gain. The bottom strip is <strong>tone-mapped</strong> for the slider's headroom. Both are capped at that headroom's peak, the way a display with that much headroom would show them. Where the top strip clips to flat, the gain curve rolls the highlights off. Ticks mark where the ramp reaches <strong>reference white</strong> and the <strong>display peak</strong>. The strips use the same HDR output as the <a href="#4-7-hdr-tab">HDR tab</a>: on an HDR display, values above SDR white look brighter than it.
+ 
+  - <strong>Gain across every headroom</strong> is a heatmap of the gain on a grey input. The horizontal axis is input brightness, in stops relative to HDR reference white; the vertical axis is display headroom from 0 to 6 stops. Blue compresses, red expands, white leaves the input unchanged. Dotted lines mark the curves stored in the tag, the solid line the baseline, the amber line the slider, and the dashed diagonal where the input reaches the display peak. <strong>Click</strong> the heatmap to move the slider to that headroom.
+ 
+  - <strong>Grey tone curves by headroom</strong> overlays the tone curve at each headroom the tag stores, shaded from blue (low) to red (high), with the slider's curve in amber. Both axes are in stops, so the diagonal means no change.
+</p>
+<p>  A note appears when slopes or whole curves are derived rather than stored. Another appears when the headroom is outside the tag's range, in which case the nearest curve is used unchanged.</p>
+<p>
+  Two cases have no curves to draw, and the view still explains them:
+ 
+  - <strong>Tone mapping on, no alternate images.</strong> The tag asks for no tone mapping, only a clamp to what the display can show. The gain is zero at every headroom, and the preview strip shows the clamp.
+ 
+  - <strong>Tone mapping off</strong> (the tag's <em>Headroom Adaptive Tone Map</em> flag is clear), or a tag IccProfLib cannot apply. The view says why IccProfLib declines, and a colour engine falls back to the next tone-mapping method (clause 8.7.1.3).
+</p>
+<h3 id="3-3-validation">3.3 验证</h3>
+<p>针对已加载的配置文件运行 <strong>ICC 配置文件评估工作组</strong>（Profile Assessment Working Group）检查清单，并以报告形式显示。这些检查来自 iccDEV 的 <code>iccPawgReport</code> 工具，它被编译为单独的 WebAssembly 模块，仅在您首次打开此标签页时才会获取。（标题栏中的有效性徽标也由同一报告驱动；通过 URL 启动时，可用 <code>VAL</code> 或旧代码 <code>PAWG</code> 打开此标签页。）</p>
+<p>每项检查归入 <strong>安全性</strong>、<strong>符合性</strong> 或 <strong>质量</strong> 之一，并给出一个判定结果。含有 HDR 内容的配置文件还有第四组 <strong>HDR</strong>。其中第一项检查报告该配置文件是否为符合规范的 ICC.1 <strong>HDR ColorSpace 配置文件</strong>（第 8.7.1 条），其余各项检查该条所依赖的 HDR 元数据：</p>
+<table><thead>
+<tr><th>判定</th><th>含义</th></tr></thead><tbody>
+<tr><td><strong>通过</strong>（PASS）</td><td>检查成功</td></tr>
+<tr><td><strong>警告</strong>（WARN）</td><td>不致命但值得复查的问题</td></tr>
+<tr><td><strong>失败</strong>（FAIL）</td><td>配置文件不满足该检查</td></tr>
+<tr><td><strong>缺口</strong>（GAP）</td><td>该检查无法完整评估（例如尚未实现）</td></tr>
+<tr><td><strong>不适用</strong>（N/A）</td><td>该检查不适用于此配置文件</td></tr>
+<tr><td><strong>未运行</strong>（NOT RUN）</td><td>该检查被跳过</td></tr>
+</tbody></table>
+<p>顶部的汇总行以彩色标记统计每种判定的数量。<strong>点击标记即可筛选</strong> 下方的报告——蓝色光晕标示当前显示的类别，数量为零的标记处于非活动状态。例如，关闭 <strong>PASS</strong> 和 <strong>N/A</strong>，即可只关注警告和失败项。</p>
+<h3 id="3-4-analysis">3.4 分析</h3>
+<p>根据配置文件的色彩转换得出的整体质量分析——由专用的 WebAssembly 模块（iccDEV 可视化引擎）计算，该模块仅在您首次打开此标签页时获取，结果以应用自身的风格绘制。</p>
+<p>每项分析都是一个可折叠的分区，且 <strong>所有分区初始均为折叠状态</strong>。这是有意为之：每个分区都要对配置文件完整执行一遍转换计算，因此由您明确选择打开哪一个，而不是在切换标签页时同时启动六项分析。结果会被缓存，因此重新打开分区是即时的。不适用于已加载配置文件的分区会改为显示简短的 <em>不适用</em> 说明（例如，矩阵 / TRC 显示器配置文件没有可供分析的设备↔PCS CLUT）。</p>
+<h4 id="profile-statistics">特性文件统计</h4>
+<p>针对 <strong>一个</strong> 选定渲染意图的整体配置文件指标，由两个列表框和一个复选框控制：</p>
+<ul>
+<li><strong>渲染意图</strong> — 感知 / 相对比色 / 饱和度 / 绝对比色。</li>
+<li><strong>往返类型</strong> — 要报告的精度指标（见下文）。</li>
+<li><strong>使用 MPE（颜色）标签</strong> — 关闭 = 比色查找表；开启 = 多处理元素 / 颜色标签。它对色域内概览不起作用，在该模式下被禁用。</li>
+</ul>
+<p>表格显示 <strong>色域体积</strong>（单位为 ΔE*ab³，即设备 → PCS 的 <code>A2B</code> 转换所包围的体积，通过将边界体素化并统计被包围的单元计算），以及所选往返的 <strong>最小值 / 平均值 / 标准差 / P90 / 最大值</strong> ΔE*ab。下方是 ΔE 分布直方图——相对频率柱状图加累积频率曲线——以及误差最大处的 <code>L, a, b</code>；对于 PRMG，还会显示该配置文件是否隐含感知参考媒介色域。</p>
+<p>四种往返类型：</p>
+<ul>
+<li><strong>色域内概览 (RT0)</strong> — 将设备值网格转到 PCS、转回设备，再转到 PCS；在两次 PCS 结果之间测量 ΔE*ab。这是快速的色域内稳定性检查。</li>
+<li><strong>反演 + 色域 (RT1)</strong> — 每个设备颜色的 PCS 值，与其经过一次 Lab → 设备 → Lab 往返后的 PCS 值之间的 ΔE*ab。它同时反映反演精度 <em>和</em> 色域映射。</li>
+<li><strong>可重现性 (RT2)</strong> — 第一次与第二次往返之间的 ΔE*ab：反映重复往返的稳定程度，与第一次往返的色域裁剪无关。</li>
+<li><strong>PRMG 互操作性</strong> — 对感知参考媒介色域内的 PCS 颜色做一次往返；ΔE 分布反映跨配置文件的互操作性。</li>
+</ul>
+<p>直方图下方的 <strong>按明度的往返 ΔE</strong> 回答了汇总数字无法回答的问题：反演在色调范围的 <em>哪个位置</em> 出现困难，问题又 <em>深入色域多远</em>。</p>
+<p>它对 32 个明度级别进行采样。在每个级别上，先在 <strong>色域边界上</strong> 取 64 个点，然后将它们分别向中性轴收缩到其彩度的 80 %、50 % 和 20 % 再各取一遍——共 8,192 个点，每个点单独绘制，各级别之间以虚线分隔。</p>
+<p>请逐段阅读。在一段之内，点从左侧的色域表面排列到右侧的中性点，因此误差应在这一段内 <strong>逐渐下降</strong>：靠近边界的颜色最难反演，靠近中性的颜色最容易。如果某一段的误差一直到中性都居高不下，说明该配置文件在这一明度上有问题。最高的尖峰标示的是色域边界本身反演效果最差的明度级别。</p>
+<p>每个种子点按构造都位于色域内，因此您看到的是真实的 <code>B2A</code>/<code>A2B</code> 不一致，而不是颜色因无法达到而被裁剪。请注意，此图有其 <strong>自己的</strong> 采样方式——有意偏重色域边界——因此其平均值和最大值会高于上表，且不可与上表直接比较。它跟随渲染意图，但不跟随往返类型。</p>
+<p>缺少某项指标所需设备↔PCS 转换的配置文件会显示 <em>不适用</em> 说明；设备色彩空间太大而无法采样时，会报告为已跳过，而不是报错。</p>
+<h4 id="extrema-colorimetry">极值比色</h4>
+<p>配置文件再现范围的两端——印刷操作员通常最先查看的数字。</p>
+<ul>
+<li><strong>白点</strong> — <strong>零着色剂</strong> 的颜色，即裸露承印物的颜色。</li>
+<li><strong>黑点</strong> — 将 PCS 黑（L*=0，a*=b*=0）送入所选的 <code>B2A</code> 表，得到配置文件为黑色 <em>选择</em> 的墨量，再将该墨量经 <code>A2B1</code> 读回而求得。</li>
+<li>两者都以 <strong>相对</strong> 和 <strong>绝对</strong> 比色显示。绝对比色显示承印物本身的颜色（偏蓝的白纸读数约为 L* 95、b* −4）；相对比色则将其重新参照到理想白。如果两列完全相同，这是正常的——只是媒体白恰好与光源一致。没有媒体白点标签的配置文件只显示相对值。</li>
+<li><strong>黑点处的墨量</strong> 和 <strong>TAC</strong> — 该黑色下每个通道的墨量及其总和：总面积覆盖率，即墨量限制值。</li>
+</ul>
+<p>由于每个 <code>B2A</code> 表都为黑色选择自己的墨量，黑点在不同意图之间确实不同——因此提供了渲染意图选择器。</p>
+<p>其下方是 <strong>实地与最大彩度</strong>：对每个油墨角点（C、M、Y、R、G、B 和 K），给出它在色相 / 彩度 / 明度上的落点，以及从裸露承印物到该点的途中找到的彩度最高的点。这些行通过 <code>A2B1</code> 测量，因此 <strong>不随意图选择器变化</strong>。在表现良好的配置文件上，这两行一致。当最大彩度在实地 <em>之前</em> 就已达到时，该行会被标记：超过该点后，增加的墨量不再提高彩度，只会使颜色变暗。</p>
+<p><strong>仅适用于输出（打印机）配置文件</strong> — 该分析假定零着色剂即裸露承印物。按色相的表格还要求 <strong>CMYK 或 CMY</strong> 设备色彩空间：n 色（nCLR）配置文件的通道可按任意顺序命名，因此无法确定哪个通道是“青”，表格会如实报告这一点，而不是猜测。</p>
+<h4 id="neutral-axis-inking">中性轴墨量</h4>
+<p>沿中性轴（a*=b*=0）从白（L*=100）扫描到黑（L*=0），通过配置文件的 <code>B2A</code>（PCS → 设备）表，绘制配置文件沿途施加的每种设备着色剂的量——即经典的 GCR / 中性灰构成曲线。每个设备通道一条曲线，按着色剂区分颜色。</p>
+<p>在分色曲线之上还绘制了另一条曲线：</p>
+<ul>
+<li><strong>L* 输出（色调）</strong> — 色调响应：中性轴经过配置文件往返后实际落在的明度。从其形状可读出两点。低于对角线的下凹意味着灰色比要求的更暗。更有用的是，曲线 <strong>在配置文件可达到的最暗明度处变平</strong>——这个平台 <em>就是</em> 媒体黑点，它应与上文的极值比色分区一致。</li>
+</ul>
+<p><strong>仅适用于输出（打印机）配置文件</strong>；其他类别的配置文件会显示说明。</p>
+<h4 id="ink-usage-in-shadows">暗调中的用墨</h4>
+<p>在一个恒定且刻意选取的较暗明度上，沿 a*b* 平面上的四条直线路径——0°、45°、90° 和 135°——送入所选的 <code>B2A</code> 表，并为每条路径绘制得到的分色结果。</p>
+<p>由于路径上的每个样本都具有相同的 L*，某种着色剂出现的任何突变或反转都仅源于色相和彩度的处理。这是暗调色域映射瑕疵的特征，在印刷中会表现为暗部的条纹或突然的颜色偏移。路径从色域外很远处出发，穿过色域，再从另一侧穿出，因此您还能看到配置文件从哪里开始截断。</p>
+<p>明度平面自动选取：位于配置文件蓝色角点与 C、M、Y、R、G 中最暗者之间的中点。对于感知和饱和度表，明度会先从媒体黑点拉伸到 PCS 黑——这些表期望黑色位于该处——该分区会同时报告补偿后的平面和原始平面。</p>
+<p><strong>仅适用于输出（打印机）配置文件</strong>，且与上文按色相的表格有相同的 CMYK/CMY 限制（平面由油墨角点推导）。</p>
+<h4 id="primary-inking-paths-through-neutral">经中性轴的原色墨路</h4>
+<p>三条路径——青→红、品红→绿、黄→蓝——每条从一个原色角点出发，在两个端点的中点明度处 <strong>经过中性轴</strong>，到达相对的角点，送入所选的 <code>B2A</code> 表并以分色形式绘制。</p>
+<p>这是“暗调中的用墨”在色域内的对应分析。在那里，路径有意延伸到色域外以暴露色域映射瑕疵；而在这里，<strong>每个样本按构造都位于色域内</strong>——两个端点都是配置文件自身的原色，转折点位于中性轴上。因此，着色剂沿这些路径出现的台阶、拐折或反转不能归咎于色域裁剪：它是 CLUT 平滑性缺陷。中性转折点位于每幅图的中点，在那里您应看到平衡的中性灰构成。</p>
+<p>对于感知和饱和度表，明度会针对该意图进行黑场补偿，与“暗调中的用墨”完全相同。</p>
+<p><strong>仅适用于输出（打印机）配置文件</strong>，且有相同的 CMYK/CMY 限制（角点与按色相的表格来源相同）。</p>
+<h4 id="ink-usage-statistics">墨量统计</h4>
+<p>配置文件施加的每种着色剂的量，以平均覆盖率和 <strong>占总量的比例</strong> 表示——即分色的耗墨特征。</p>
+<p>表格沿中性轴对每种着色剂求和，并报告其平均覆盖率及其在全部用墨中所占的百分比。占比一栏最具诊断价值：它是配置文件中性灰构成的指纹（偏重青色的灰平衡与偏重黑色的灰平衡读数不同），且与采样数量无关。</p>
+<p>第二个表格——<strong>所有色域边界上及色域内颜色</strong> 的用墨——标为 <em>待定</em>：它需要尚未构建的色域边界构造。</p>
+<p><strong>仅适用于输出（打印机）配置文件。</strong></p>
+<h4 id="clut-image">CLUT 图像</h4>
+<p>设备↔PCS 转换的颜色查找表，平铺成一幅图像，并可选择要查看哪个渲染意图表（<code>A2B0</code>–<code>A2B3</code>、<code>B2A0</code>–<code>B2A3</code> 以及预览表）。可用于一眼发现表中的结构性损坏。使用画布上的控件进行缩放、平移和复位。</p>
+<p>选择 <strong><code>B2A</code>（PCS → 设备）表</strong> 时，网格下方会出现 <strong>每种着色剂的灰度墨量覆盖图像</strong>——即各油墨的分色图，越暗表示该油墨越多。由于该分区打开时显示的是 <code>A2B</code> 表（其输出为 L*a*b*，而非墨量），分区顶部会有提示引导您查看这些图像。对于 <strong>n 色（nCLR）输出</strong>——5、6 或 7 色——由于没有简单的彩色预览，主图像会 <strong>通过配置文件的正向 <code>A2B</code> 进行色彩管理</strong>，从而仍以真实颜色呈现，而不是单通道灰度。</p>
+<h4 id="gamut-image">色域图像</h4>
+<p>色域标签的色域内 / 色域外映射：PCS 颜色可再现处显示为中性，超出设备色域处显示为红色。仅当配置文件含有 <code>gamt</code> 标签时才会出现。</p>
+<h3 id="3-5-xml">3.5 XML</h3>
+<p>将配置文件转换为 XML（通过 IccLibXML，即 iccDEV <code>iccToXml</code> 命令行工具所用的同一写入器），并在带语法高亮的 CodeMirror 编辑器中显示。编辑 XML 后点击 <strong>转换为 ICC</strong> 即可往返转换回二进制；查看器会重新验证，配置文件标签页栏中的 <strong>保存 ICC 配置文件</strong> 按钮会下载结果。</p>
+<p>当编辑器文本与上次转换器输出不同时，会显示 <strong>未保存</strong> 指示，让您一眼看出编辑是否已应用。如果转换失败，IccLibXML 的解析错误会显示在编辑器上方，并注明出错的行 / 列。</p>
+<h3 id="3-6-json">3.6 JSON</h3>
+<p>与 XML 标签页思路相同，但使用由验证器封装层（<code>json-wrapper.cpp</code>）生成的配置文件 JSON 表示。编辑后点击 <strong>转换为 ICC</strong> 并保存。JSON 形式更紧凑，也更便于编写脚本处理；如果您用过 iccDEV 命令行工具，XML 形式会更熟悉。</p>
+<hr>
+<h2 id="4-combine-tab">4. 链接标签页</h2>
+
+<svg xmlns="http://www.w3.org/2000/svg" class="diag" viewBox="0 0 780 452"
+  style="width:100%;max-width:780px;display:block;margin:20px 0;border-radius:8px;overflow:visible;">
+
+<style>
+.diag {
+  --bg:#f0f2f5; --pnl:#fff; --pnl-bd:#ccd6e0; --hd:#e8edf2; --hd-bd:#c0ccd8;
+  --sec:#f5f6f8; --sec-bd:#dde4ec; --btn:#e8edf2; --btn-bd:#bbb;
+  --act:#4a90e2; --act2:#2a6ab5; --red:#e24a4a; --amber:#d49930; --green:#27ae60;
+  --tx:#333; --tx2:#555; --tx3:#888; --txW:#fff; --txA:#1a5a8a;
+  --ln:#dde4ec;
+}
+body.dark .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+}
+@media(prefers-color-scheme:dark){
+  body:not(.light) .diag {
+    --bg:#1a1c1f; --pnl:#22262e; --pnl-bd:#3a4048; --hd:#252930; --hd-bd:#3a4048;
+    --sec:#1e2128; --sec-bd:#333a44; --btn:#252930; --btn-bd:#444;
+    --act:#2a5a90; --act2:#1f4070; --red:#8a2a2a; --amber:#7a5418; --green:#1f6a3a;
+    --tx:#c8cdd4; --tx2:#9aa0a8; --tx3:#555e6a; --txW:#c8cdd4; --txA:#7ab8e8;
+    --ln:#2e3440;
+  }
+}
+.diag rect.bg    { fill:var(--bg); }
+.diag rect.pnl   { fill:var(--pnl);  stroke:var(--pnl-bd); stroke-width:1.5; }
+.diag rect.hd    { fill:var(--hd);   stroke:var(--hd-bd);  stroke-width:1; }
+.diag rect.sec   { fill:var(--sec);  stroke:var(--sec-bd); stroke-width:1; }
+.diag rect.btn   { fill:var(--btn);  stroke:var(--btn-bd); stroke-width:1; }
+.diag rect.act   { fill:var(--act);  stroke:var(--act2);   stroke-width:1; }
+.diag rect.red   { fill:var(--red);  stroke:#a03030;       stroke-width:1; }
+.diag rect.amber { fill:var(--amber);stroke:#a07418;       stroke-width:1; }
+.diag rect.green { fill:var(--green);stroke:#1f7a44;       stroke-width:1; }
+.diag rect.lnbd  { fill:none; stroke:var(--ln); stroke-width:1; }
+.diag line.div   { stroke:var(--ln); stroke-width:1; }
+.diag text       { font-family:Arial,sans-serif; font-size:11px; fill:var(--tx); }
+.diag text.tT    { font-size:13px; font-weight:bold; fill:var(--txA); }
+.diag text.tB    { font-weight:bold; }
+.diag text.t2    { fill:var(--tx2); }
+.diag text.t3    { fill:var(--tx3); font-size:10px; }
+.diag text.tW    { fill:var(--txW); }
+.diag text.tA    { fill:var(--txA); font-weight:bold; }
+.diag text.mono  { font-family:ui-monospace,Menlo,Consolas,monospace; }
+</style>
+<rect x="0" y="0" width="780" height="452" rx="0" class="bg"/><rect x="16" y="12" width="150" height="428" rx="8" class="pnl"/><rect x="16" y="12" width="150" height="26" rx="8" class="hd"/><text x="28" y="29" text-anchor="start" class="tB">配置文件</text><rect x="26" y="48" width="130" height="28" rx="5" class="sec"/><text x="36" y="66" text-anchor="start" class="t2 mono">sRGB.icc</text><rect x="26" y="82" width="130" height="28" rx="5" class="sec"/><text x="36" y="100" text-anchor="start" class="t2 mono">Coated.icc</text><text x="26" y="132" text-anchor="start" class="t3">拖入链条 →</text><rect x="186" y="12" width="578" height="428" rx="8" class="pnl"/><text x="202" y="32" text-anchor="start" class="tT">链接 — 链接流水线</text><text x="202" y="48" text-anchor="start" class="t3">串联配置文件，然后生成 DeviceLink 或转换图像 / 数据集。</text><line x1="202" y1="56" x2="748" y2="56" class="div"/><rect x="202" y="64" width="270" height="32" rx="6" class="sec"/><text x="214" y="84" text-anchor="start" class="t2">🖼  拖放图像（TIFF/PNG/JPEG）</text><rect x="482" y="64" width="266" height="32" rx="6" class="sec"/><text x="494" y="84" text-anchor="start" class="t2">🔢  拖放数据集（CGATS/CSV/CxF）</text><text x="202" y="116" text-anchor="start" class="t3">渲染意图（全部）</text><rect x="336" y="104" width="150" height="18" rx="4" class="btn"/><text x="342" y="116" text-anchor="start" class="t2">相对比色</text><rect x="202" y="130" width="546" height="38" rx="6" class="sec"/><text x="216" y="153" text-anchor="start" class="t3">⠿</text><rect x="230" y="141" width="16" height="16" rx="4" class="act"/><text x="238" y="153" text-anchor="middle" class="tW tB">1</text><text x="256" y="153" text-anchor="start" class="t2 mono">sRGB.icc</text><text x="614" y="153" text-anchor="start" class="t3">RGB → Lab</text><rect x="706" y="140" width="42" height="18" rx="4" class="btn"/><text x="727" y="153" text-anchor="middle" class="t2">Rel</text><line x1="238" y1="168" x2="238" y2="180" stroke="var(--ln)" stroke-width="2"/><rect x="451" y="170" width="48" height="14" rx="7" class="lnbd"/><text x="475" y="181" text-anchor="middle" class="t3">Lab</text><rect x="202" y="184" width="546" height="38" rx="6" class="sec"/><text x="216" y="207" text-anchor="start" class="t3">⠿</text><rect x="230" y="195" width="16" height="16" rx="4" class="act"/><text x="238" y="207" text-anchor="middle" class="tW tB">2</text><text x="256" y="207" text-anchor="start" class="t2 mono">Coated.icc</text><text x="614" y="207" text-anchor="start" class="t3">Lab → CMYK</text><rect x="706" y="194" width="42" height="18" rx="4" class="btn"/><text x="727" y="207" text-anchor="middle" class="t2">Perc</text><text x="202" y="244" text-anchor="start" class="t3">链条：</text><text x="244" y="244" text-anchor="start" class="tA">RGB → CMYK</text><rect x="202" y="256" width="124" height="24" rx="5" class="act"/><text x="264" y="272" text-anchor="middle" class="tW tB">生成 DeviceLink</text><rect x="334" y="256" width="124" height="24" rx="5" class="act"/><text x="396" y="272" text-anchor="middle" class="tW tB">转换图像</text><rect x="466" y="256" width="124" height="24" rx="5" class="act"/><text x="528" y="272" text-anchor="middle" class="tW tB">转换数据</text><rect x="202" y="296" width="546" height="96" rx="6" class="sec"/><text x="214" y="314" text-anchor="start" class="tB">图像输出选项</text><text x="214" y="330" text-anchor="start" class="t3">编码</text><rect x="214" y="336" width="96" height="16" rx="4" class="btn"/><text x="262" y="348" text-anchor="middle" class="t2">与源相同</text><text x="326" y="330" text-anchor="start" class="t3">压缩</text><rect x="326" y="336" width="96" height="16" rx="4" class="btn"/><text x="374" y="348" text-anchor="middle" class="t2">无</text><text x="438" y="330" text-anchor="start" class="t3">平面格式</text><rect x="438" y="336" width="96" height="16" rx="4" class="btn"/><text x="486" y="348" text-anchor="middle" class="t2">交错</text><text x="214" y="366" text-anchor="start" class="t3">CMM 插值</text><rect x="214" y="372" width="96" height="16" rx="4" class="btn"/><text x="262" y="384" text-anchor="middle" class="t2">四面体</text><text x="326" y="366" text-anchor="start" class="t3">嵌入 ICC</text><rect x="326" y="372" width="96" height="16" rx="4" class="btn"/><text x="374" y="384" text-anchor="middle" class="t2">☑ 是</text><line x1="727" y1="138" x2="644" y2="118" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>
+<text x="644" y="115" text-anchor="end" class="t3">各阶段意图</text><line x1="704" y1="276" x2="704" y2="298" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/><text x="748" y="272" text-anchor="end" class="t3">iccApplyProfiles 输出参数</text>
+</svg><p>profiletool 将每个已加载的配置文件保存在左侧的 <strong>配置文件池</strong> 中。顶部有五个标签页——<strong>配置文件</strong>（即上文所述的单配置文件查看器）、<strong>比较</strong>、<strong>链接</strong>、<strong>光谱</strong> 和 <strong>HDR</strong>。<strong>链接</strong> 标签页用于将配置文件串联起来并加以使用：构建 <strong>DeviceLink</strong>、通过链条 <strong>转换图像</strong> 或 <strong>转换色彩数据集</strong>。</p>
+<h3 id="4-1-building-a-chain">4.1 构建链条</h3>
+<p>将一个或多个配置文件从池中拖入“链接”卡片，即可按顺序将它们加入链条。链条是一个 <strong>纵向堆叠</strong>：源在顶部，目标在底部。每个配置文件贡献 <strong>一个转换</strong>，工具会显示进入和离开该转换的色彩空间（例如 <code>RGB → Lab</code>），并在各阶段之间的连线上标注 <strong>连接空间</strong>。引擎会实时验证整个链条，并报告端到端的流向（例如 <em>链条：RGB → CMYK</em>），或逐阶段说明在何处无法衔接。</p>
+<ul>
+<li><strong>重新排序</strong>：拖动阶段的抓手（<code>⠿</code>）或使用 ▲ / ▼ 按钮；点击 × 移除阶段。</li>
+<li><strong>翻转方向</strong> — 首个转换的 ⇅ 按钮会反转链条方向，并依次影响后续各阶段。</li>
+<li><strong>渲染意图</strong> — 可通过 <em>渲染意图（全部）</em> 为整个链条选择一种，也可用各阶段自己的列表框单独覆盖。将鼠标悬停在任一控件上可查看所选意图的说明。除四种基本意图外，含有所需表格的配置文件还提供 <em>no D2Bx/B2Dx</em> 和 <em>+ BPC</em>（黑场补偿）变体。</li>
+</ul>
+<div class="note">
+<strong>链中包含 HDR ColorSpace 配置文件。</strong> ICC.1 HDR ColorSpace 配置文件没有 TRC 标签——第 8.7 条没有为 ColorSpace 配置文件定义 TRC 标签——因此经过它的转换使用其 <code>AToB0Tag</code>。该表即第 8.7.1.5 条为不具备 HDR 处理能力的软件所要求的 HDR&#8594;SDR 渲染。当链条中包含 HDR ColorSpace 配置文件时，卡片会对此加以说明：您生成的 DeviceLink、图像或数据反映的是这一 SDR 回退，而不是配置文件的 HDR 行为。
+</div>
+<h3 id="4-2-make-devicelink">4.2 生成 DeviceLink</h3>
+<p>将整个链条烘焙为单个 <strong>DeviceLink</strong> 配置文件（iccDEV <code>iccApplyToLink</code> 的浏览器内移植）。为其命名并点击 <strong>生成 DeviceLink</strong>；结果会像其他配置文件一样进入池和“链接”累积区，可在配置文件标签页中检查，或在另一个链条中复用。</p>
+<h3 id="4-3-transform-image">4.3 转换图像</h3>
+<p>将一幅栅格图像（TIFF、PNG 或 JPEG）拖入图像槽，点击 <strong>转换图像</strong> 即可让它通过链条（<code>iccApplyProfiles</code> 的浏览器内移植）。图像会先经过仅读取标头的探测验证——其色彩空间必须与链条的输入匹配。结果会 <strong>下载</strong>；图像从不存入池中。</p>
+<p>加载有效图像后，会出现 <strong>图像输出选项</strong> 面板，其中的目标参数与 <code>iccApplyProfiles</code> 命令行工具一一对应：</p>
+<ul>
+<li><strong>编码</strong> — <em>与源相同</em>、8 位、16 位或 <strong>浮点（32 位）</strong>。</li>
+<li><strong>压缩</strong> — 无、<strong>LZW</strong> 或 <strong>ZIP</strong>（Deflate）。</li>
+<li><strong>平面格式</strong> — <strong>交错</strong>（chunky）或 <strong>分离</strong> 平面。</li>
+<li><strong>CMM 插值</strong> — <strong>四面体</strong> 或 <strong>线性</strong>。</li>
+<li><strong>嵌入 ICC</strong> — 在输出中标记链条的最后一个（输出空间）配置文件。</li>
+</ul>
+<p>默认设置下，RGB/灰度输出保存为 PNG；选择仅 TIFF 支持的选项（浮点、LZW/ZIP 或分离平面）会将容器切换为 TIFF。</p>
+<div class="note">
+<strong>嵌入的配置文件：</strong>如果拖入的图像带有自己嵌入的 ICC 配置文件，会出现横幅提示可将其 <strong>提取</strong>——一键即可将该配置文件加入池中，并放到链条开头（作为其源空间）。
+</div>
+<h3 id="4-4-transform-data">4.4 转换数据</h3>
+<p>将色彩数据集（CGATS/IT8、CSV、CxF 或 JSON）拖入数据槽，点击 <strong>转换数据</strong> 即可让每个色块通过链条（相当于 <code>iccApplyNamedCmm</code>）。工具会读取数据集中包含的数据种类（设备 / Lab / XYZ / 光谱），并提供链条输入所需的那一种；<strong>光谱</strong> 输入会用 iccDEV 的标准计算器换算为色度值，所用的 <strong>观察者</strong> 和 <strong>光源</strong> 由您选择。可以过滤重复的色块（取中位数或平均值）。结果会在表格中打开，您可以将其 <strong>保存</strong> 为 CSV。</p>
+<h3 id="4-5-observer-change">4.5 观察者变换</h3>
+<p>“链接”标签页包含 <strong>两张</strong> 生成器卡片。在“链接流水线”上方，<strong>观察者变换</strong> 卡片可由一个 V5 RGB 显示器配置文件加一个 V5 观察者（PCC）配置文件，构建 v4.3 矩阵 / TRC 显示器配置文件。将两者都拖到卡片上——它们会按配置文件类别自动分配到 <strong>V5 RGB 显示器</strong> 和 <strong>V5 观察者 (PCC)</strong> 槽中——然后点击 <strong>创建 V4 显示器配置文件</strong>，为其命名，再点击 <strong>创建</strong>。结果会加入池和此标签页。两者都不是的配置文件会被忽略并给出警告。</p>
+<h3 id="4-6-compare-and-spectral-tabs">4.6 比较与光谱标签页</h3>
+<p><strong>比较</strong> 标签页叠加显示池中两个或更多配置文件的色域边界——一个 3D 外壳加一个 2D 明度切片——以便看出它们的差异。当配置文件是 HDR ColorSpace 配置文件时，<strong>显示 SDR 回退</strong> 说明会解释：每个色域都是由 <code>AToB0Tag</code> 的 SDR 渲染构建的，而不是由配置文件的 HDR 范围构建，因为后者无法在有界的 PCS 中绘制。<strong>光谱</strong> 标签页将一组单通道光谱图像（按通道顺序拖入）组装成一个多通道 TIFF（<code>iccSpecSepToTiff</code>）。</p>
+<h3 id="4-7-hdr-tab">4.7 HDR tab</h3>
+<div class="note"><strong>This section is in English only.</strong> It describes HDR support, a beta feature that follows a draft ICC amendment and is still changing. It will be translated once the feature and its text are stable.</div>
+<p>Drop <strong>one</strong> image on the <strong>HDR</strong> tab, or click the drop area to choose one. A new image replaces the current one, and nothing is added to the Profiles pool. What happens depends on who can decode the image:</p>
+<table><thead>
+<tr><th>File</th><th>Shown by</th><th>SDR ↔ HDR control</th></tr></thead><tbody>
+<tr><td><strong>AVIF</strong>, <strong>JPEG</strong> (including gain-map JPEG), <strong>PNG</strong> (including cICP-tagged), <strong>HEIC</strong> and <strong>JPEG XL</strong> on Safari</td><td>the browser</td><td><strong>SDR</strong> / <strong>HDR</strong> buttons, plus a <strong>Dynamic range</strong> slider where the browser can blend the two (Chrome, Edge). Safari offers the two ends only.</td></tr>
+<tr><td><strong>OpenEXR</strong>, <strong>Radiance HDR</strong> (<code>.hdr</code>, RGBE)</td><td>profiletool</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
+<tr><td><strong>TIFF</strong></td><td>profiletool, once a profile is assigned (a TIFF's own embedded profile is assigned automatically); a TIFF with no profile shows a note</td><td>the same buttons and slider, plus <strong>Exposure</strong></td></tr>
+</tbody></table>
+<p>The panel lists what it knows: which output it is using, whether the display reports HDR, the image size, the <strong>brightest pixel</strong> as a multiple of SDR white (whenever profiletool renders the pixels), its chromaticities, any <strong>gain map</strong>, and any <strong>embedded ICC profile</strong>. <strong>Open in Profile tab</strong> loads that profile for inspection.</p>
+<p><strong>Radiance HDR.</strong> profiletool reads run-length-encoded and flat RGBE files in any orientation. A <code>PRIMARIES</code> header line sets the chromaticities; without one (or with Photoshop's all-zero line) Rec. 709 is assumed, as for OpenEXR. The stored values are shown as they are: an <code>EXPOSURE</code> line is not undone. XYZE files are refused, and so is any image over 40 megapixels. So is a file whose pixel data is too small for its size: at most 64 pixels per byte, four times what run-length encoding reaches on a flat scanline. Old-style repeat markers could otherwise describe a 40-megapixel image in about 75 KB.</p>
+<p>
+<strong>Outputs for OpenEXR and Radiance HDR.</strong> profiletool renders the pixels itself, through the first of these that works:
+ 
+1. <strong>HDR canvas (float16)</strong>: needs <code>chrome://flags/#enable-experimental-web-platform-features</code> (see <a href="#environment">Environment</a>).
+ 
+2. <strong>WebGPU (extended range)</strong>: needs no flag, but needs a working GPU adapter.
+ 
+3. <strong>SDR canvas (tone-mapped)</strong>: always available. It cannot show brighter-than-white, so the slider is hidden.
+</p>
+<p>On the slider, 0% is the SDR rendering and 100% is no limit. Values in between cap brightness smoothly at that many stops above SDR white (0 to 6 stops), shown beside the slider.</p>
+<p><strong>Matching the display.</strong> The panel tracks the monitor the window is on: drag it to another screen and the facts and notes update.</p>
+<ul>
+<li><strong>Display peak</strong> says how bright this display can go, as a multiple of SDR white. It comes from the headroom the browser reports; see <a href="#environment">Environment</a>, where <strong>Identify displays</strong> grants the permission (the button also appears here). An SDR display reads <em>1× — SDR display</em>. When the browser does not report a peak, the panel says so rather than guessing.</li>
+<li>When an OpenEXR or Radiance HDR image asks for more than the display shows, a note says so — for example <em>asks for 4.93×, this display shows up to 2.23×</em>. Values above the display's peak then <strong>clip</strong> to flat white, which is why the SDR and HDR ends can look alike even on an HDR monitor.</li>
+<li><strong>Fit to display</strong> sets the limit to the display's peak, so highlights roll off into it instead of clipping. On an SDR display that means the SDR rendering. On Windows the reported peak can lag behind brightness changes; the value is shown so you can judge.</li>
+<li>An <strong>SDR white patch</strong> — plain white — sits against the image's right edge, for comparison by eye. <strong>Drag</strong> it anywhere over the viewer (or focus it and use the arrow keys; Shift for bigger steps), and <strong>double-click</strong> it to put it back beside the image. The <strong>SDR white patch</strong> button above the image turns it on and off. Its position and on/off state are remembered. On an HDR display with real HDR output, highlights look brighter than the patch; at the SDR end the brightest pixels sit just below it, because the SDR rendering eases highlights in under white. If highlights never look brighter, the output is being clamped.</li>
+</ul>
+<p><strong>When Fit to display is available.</strong> The button is always shown. When it cannot work it is greyed out, with the reason beside it:</p>
+<table><thead>
+<tr><th>The panel shows…</th><th>Fit to display</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>Shown by: the browser</strong> (AVIF, JPEG, PNG, HEIC, JPEG XL)</td><td>not available</td><td>The browser renders the image, and CSS can only show it at the SDR end, the HDR end, or a blend of the two. It has no setting for "cap at this display's peak".</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, <strong>Output: SDR canvas</strong></td><td>not available</td><td>This output cannot show anything above SDR white, so there is nothing to fit. The Dynamic range slider is hidden too.</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, <strong>Display peak: not known</strong></td><td>not available</td><td>There is no peak to fit to. Click <strong>Identify displays</strong> in the <strong>Display peak</strong> row.</td></tr>
+<tr><td><strong>Shown by: profiletool</strong>, an HDR output and a known peak</td><td>available</td><td>Sets the limit to the display's peak.</td></tr>
+</tbody></table>
+<p>The <strong>Fit to display</strong> beside <strong>Target headroom</strong>, when a profile is assigned, needs only a known display peak.</p>
+<p><strong>Image details.</strong> Click <strong>Image details</strong> to fold away the facts from <strong>Embedded ICC profile</strong> down to <strong>HDR reference white</strong>, including <strong>Assign profile</strong>, and leave more room for the image. Click again to unfold. The choice is remembered.</p>
+<p><strong>Zoom, pan and resize.</strong> The image opens at actual size (100%), or shrunk to fit if it is larger than the view. Zooming is a display transform only: the pixel values sent to the display do not change.</p>
+<ul>
+<li><strong>+</strong> and <strong>−</strong> zoom, as does <strong>Ctrl</strong> (⌘ on a Mac) with the mouse wheel, toward the pointer. The percentage is the scale: 100% is one image pixel per CSS pixel. Above 200%, pixels show as sharp squares.</li>
+<li><strong>Fit image</strong> fills the view with the image; <strong>1:1</strong> returns to actual pixels. <strong>Double-click</strong> the image to go back to the opening view.</li>
+<li><strong>Drag</strong> the image to pan. With the view focused, the arrow keys pan, and <strong>+</strong>, <strong>−</strong>, <strong>0</strong> (opening view) and <strong>1</strong> (1:1) work too.</li>
+<li>Drag the <strong>corner grip</strong> at the bottom right to resize the view; double-click the grip for the default size. The size is remembered.</li>
+<li>The <strong>SDR white patch</strong> is not zoomed: it stays the same size wherever the image moves, and a docked patch follows the image's right edge.</li>
+</ul>
+<p><strong>Assigning an HDR profile.</strong> For TIFF, PNG, JPEG, OpenEXR and Radiance HDR, <strong>Assign profile</strong> chooses a profile to interpret the image's pixel values:</p>
+<ul>
+<li>the image's <strong>embedded profile</strong>;</li>
+<li>any <strong>HDR ColorSpace Profile in the pool</strong> (load one in the Profiles pane first);</li>
+<li><strong>None</strong>, to go back to what the file itself signals.</li>
+</ul>
+<p>A TIFF starts with its embedded profile selected, since without one its values mean nothing.</p>
+<p>With a profile assigned, profiletool decodes the image itself and runs it through IccProfLib's HDR colour-management path, as the ICC.1 HDR amendment (clause 8.7.1) describes. The profile's transfer function (PQ, HLG or Linear) converts the code values to light, its gain curve tone-maps them, and its <code>cicpTag</code> primaries set the colour. 1.0 lands on the profile's <strong>HDR reference white</strong>, which is shown at the display's SDR white.</p>
+<ul>
+<li><strong>Target headroom</strong> (0 to 6 stops) is the display the image is being prepared for. The profile's gain curve is evaluated there, the same curve <strong>Gain at a display headroom</strong> plots in the Tags tab. <strong>Fit to display</strong> sets it to this display's peak.</li>
+<li><strong>Tone mapping</strong> chooses the method: <strong>Auto</strong> (the clause 8.7.1.3 recommended ranking), <strong>Gain curve</strong> only, the profile's <strong>Baked SDR fallback</strong> (<code>AToB0Tag</code>), or <strong>Off</strong>, which behaves like a colour engine that predates the amendment. The baked fallback is only as good as the table the profile carries. A table baked from the gain curve (for example by iccDEV's <code>iccHdrFallback</code>) gives a proper SDR rendering. A placeholder table of identity curves passes the raw PQ or HLG signal values through, and the image looks flat and too bright.</li>
+<li>The panel reports what the colour engine actually did: which <strong>path</strong> (HDR with the gain curve applied, HDR without a curve, or the baked table), the <strong>transfer</strong>, and the <strong>HDR reference white</strong>. A profile without a gain curve still takes the HDR path, but tone-maps nothing, so the <strong>Dynamic range</strong> limit is what keeps its highlights within the display.</li>
+<li>Pooled HDR ColorSpace Profiles appear in two groups, <strong>Linear transfer</strong> and <strong>PQ / HLG transfer</strong>, matching the Profiles pane. OpenEXR and Radiance HDR store linear light, so for those images only the <strong>Linear transfer</strong> group is offered. A note under the list says so, and how many PQ/HLG profiles are hidden. Assigning needs a 3-channel RGB image.</li>
+<li>A profile whose <code>cicpTag</code> declares <strong>ColourPrimaries 2 (Unspecified)</strong> is listed with the note <em>Unspecified primaries: no HDR path in this build</em>. Clause 8.7.1.1 takes such a profile's primaries from a <code>cicpType</code> chromaticity extension (clause 10.3) whose format is not yet available to profiletool, so no policy can give it an HDR rendering. Every policy renders it through its <code>AToB0Tag</code> instead — <strong>Auto</strong> and <strong>Gain curve</strong> fall back to the same SDR rendering as <strong>Baked SDR fallback</strong> and <strong>Off</strong> — and <strong>Colour engine path</strong> says <em>Baked AToB0 — not the HDR path</em>. That fallback is a temporary measure in IccProfLib while the ICC settles how such a profile should be handled.</li>
+<li><strong>Linear values</strong> (OpenEXR, Radiance HDR and floating-point TIFF only) says what a file value of 1.0 means. The two conventions disagree. These files usually put SDR white at 1.0, but an ICC Linear transfer reads 1.0 as 1 cd/m² (ICC.1 clause 8.7.1.2 a) and then divides by the HDR reference white, so an unscaled image comes out a few hundred times too dark.</li>
+<p>
+  - <strong>File 1.0 = HDR reference white</strong> (the default) multiplies the pixels by the profile's HDR reference white first, so file 1.0 lands on it. The <strong>Input scale</strong> fact shows the factor, for example <em>×300</em>.
+ 
+  - <strong>File 1.0 = 1 cd/m²</strong> passes the values unscaled, as the clause reads them. Use it for files whose values really are in cd/m².
+</ul>
+</p>
+<p>  The choice is remembered.</p>
+<div class="note">
+<strong>Why some images look dim:</strong> browsers ignore HDR that is signalled <em>only</em> by an embedded ICC profile. A PNG or JPEG whose HDR lives in an ICC.1 clause 8.7.1 HDR ColorSpace Profile therefore looks flat here. The panel says so when that applies. Its profile is still fully inspectable.
+</div>
+<div class="note">
+<strong>Refusals name the reason.</strong> For example, HEIC display needs Safari: Chrome and Firefox decode HEIC on no platform. The image's profile can still be opened in the Profile tab.
+</div>
+<p><strong>Gain curves.</strong> An HDR ColorSpace Profile's adaptive gain curve is not shown here but in <strong>Profile → Tags</strong>. See <em>HDR gain curves (HAGC)</em> under <a href="#3-2-tags">Tags</a>.</p>
+<hr>
+<h2 id="5-round-trip-editing">5. 往返编辑</h2>
+<p>XML 和 JSON 标签页都能将配置文件写回 ICC 二进制格式。典型工作流程：</p>
+<p>
+1. <strong>加载</strong> 一个 ICC 配置文件。
+ 
+2. 打开 <strong>XML</strong> 或 <strong>JSON</strong> 标签页。点击 <strong>转换为 XML</strong> / <strong>转换为 JSON</strong> 填充编辑器。
+ 
+3. 在页面内的编辑器中 <strong>编辑</strong>。工具栏旁会出现未保存指示。
+ 
+4. 点击 <strong>转换为 ICC</strong>。封装层会构建新的配置文件，重新运行验证，并更新标头 / 标签 / 验证标签页。
+ 
+5. 配置文件标签页栏中的文件名旁会出现 <strong>● 已修改 — 尚未保存</strong> 标记。
+ 
+6. 点击 <strong>保存 ICC 配置文件</strong>。编辑后的字节会以 <code><original>-edited.icc</code> 的形式下载。
+</p>
+<p>两个编辑器相互独立——先编辑 XML 再编辑 JSON 不会混合两条路径。保存的是最近一次生成的 ICC 字节。</p>
+<div class="note">
+<strong>注意：</strong>转换的保真度取决于 IccLibXML / JSON 封装层对各标签类型的支持程度。如果某种标签类型无法表示，往返过程会丢失细节；转换回来后，请查看验证标签页，确认一切仍能正常解析。
+</div>
+<p>标签视图会高亮显示字节与原始加载时不同的标签，便于看出您的编辑改动了什么。</p>
+<hr>
+<h2 id="6-launching-from-chardata">6. 从 chardata 启动</h2>
+<p>在 <strong>chardata</strong> 中加载 ICC 配置文件后，点击 <strong>显示文件</strong> 打开页面内查看器，然后点击 <strong>打开编辑器</strong>。此时会打开一个新标签页，URL 中带有 <code>?source=chardata</code>。</p>
+<p>交接完全在浏览器内完成：</p>
+<p>
+1. profiletool 打开后检测到 <code>?source=chardata</code>，并通过 <code>postMessage</code> 向 <code>window.opener</code> 发送 <code>{type:'profiletool:ready'}</code>。
+ 
+2. chardata 回复 <code>{type:'profiletool:load', filename, bytes}</code>。
+ 
+3. profiletool 接收字节数据（先根据允许列表验证发送方来源，并检查大小不超过 256 MB 上限），运行验证，然后显示配置文件。
+</p>
+<p>无需上传，也没有服务器往返。数据流是单向的——在此所做的编辑需点击 <strong>保存 ICC 配置文件</strong> 保存，不会传回 chardata。</p>
+<hr>
+<h2 id="7-launching-with-a-url">7. 通过 URL 启动</h2>
+<p>您可以通过一个链接打开工具，在链接中指定要加载的配置文件以及要打开的标签页，方法是使用 <strong>URL 片段</strong>（<code>#</code> 之后的部分）：</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=&lt;profile-url&gt;&amp;tab=&lt;tab&gt;</code></pre>
+<p>两个参数都是可选的：</p>
+<ul>
+<li><strong><code>url=</code></strong> — 获取配置文件的网址。字节数据在您的浏览器中下载，然后经过与本地文件完全相同的处理路径：<code>acsp</code> 标头检查、完整的 <code>ValidateIccProfile</code>、256 MB 大小上限，以及针对无法解析的配置文件的尽力回退。不会上传任何内容——获取的字节只供验证器使用，从不重新发送。</li>
+<li><strong><code>tab=</code></strong> — 配置文件加载后要打开的视图。</li>
+</ul>
+<p>完整示例：</p>
+<pre><code>https://chardata.colourbill.com/profiletool#url=https://example.org/profiles/sRGB.icc&amp;tab=VAL</code></pre>
+<div class="note">
+<strong>为什么用片段而不用查询字符串？</strong> <code>#</code> 之后的部分从不会发送到 Web 服务器，因此您所检查的配置文件的地址只保留在您自己的计算机上。
+</div>
+<h3 id="tab-names">标签页名称</h3>
+<p><code>tab=</code> 接受两种可互换、不区分大小写的命名方案。推荐使用 <strong>短</strong> 代码：</p>
+<table><thead>
+<tr><th>视图</th><th>短代码</th><th>长名称</th></tr></thead><tbody>
+<tr><td>标头</td><td><code>HEADER</code></td><td><code>Header</code></td></tr>
+<tr><td>标签</td><td><code>TAGS</code></td><td><code>Tags</code></td></tr>
+<tr><td>验证</td><td><code>VAL</code></td><td><code>Validation</code></td></tr>
+<tr><td>分析</td><td><code>ANALYSIS</code></td><td><code>Analysis</code></td></tr>
+<tr><td>XML</td><td><code>XML</code></td><td><code>XML</code></td></tr>
+<tr><td>JSON</td><td><code>JSON</code></td><td><code>JSON</code></td></tr>
+</tbody></table>
+<p>长名称是英文界面中的标签页名称去掉空格后的形式。即使界面上的名称被重命名，两种方案都会保持稳定，因此现有链接仍可使用。验证标签页还接受旧代码 <code>PAWG</code>（它以前的名称是“Profile Assessment WG”）。无法识别的 <code>tab=</code> 值会被忽略，并打开标头视图。</p>
+<div class="note">
+<strong><code>url=</code> 的要求：</strong>配置文件必须通过 <strong>HTTPS</strong> 提供，且托管服务器必须允许跨源读取（宽松的 <code>Access-Control-Allow-Origin</code> / CORS 标头）。缺少任何一项，浏览器都会阻止下载，工具会显示获取错误。如果配置文件的 URL 本身包含 <code>&</code> 或 <code>#</code>（即它自己的查询字符串），请对整个 <code>url=</code> 值进行百分号编码，以免这些字符提前终止片段。
+</div>
+<hr>
+<h2 id="8-mobile">8. 移动设备</h2>
+<p>在宽度小于 700 px 的屏幕上：</p>
+<ul>
+<li>设置面板收起为从右侧滑入的抽屉。</li>
+<li>右上角的 <strong>⚙</strong> 浮动按钮用于打开 / 关闭设置。</li>
+<li>⚙ 下方的 <strong>?</strong> 按钮在滑入窗格中打开本指南。</li>
+<li><strong>✉</strong> 按钮在新的浏览器标签页中打开联系表单。</li>
+<li>点按变暗的背景可关闭已打开的抽屉。</li>
+<li>标签表格会从宽网格重排为堆叠的卡片，因此无需横向滚动即可读到每一列；标签仍可就地展开。</li>
+<li><strong>以触控代替拖放。</strong> iOS 不支持拖放，因此无法在其上将配置文件从池中拖到标签页上。请改为 <strong>点按配置文件将其选中，然后点按目标标签页</strong>——效果与拖放相同。使用触摸屏时，池中会显示这一提示。</li>
+<li><strong>在 iPhone 和 iPad 上，文件选择器会列出所有文件。</strong> iOS 会将文件类型筛选条件与其已知的类型进行匹配，而它不认识 <code>.icc</code>、<code>.icm</code>、<code>.cube</code> 或 <code>.exr</code>，因此一旦筛选，恰恰会把您要打开的文件变灰。请按名称选择配置文件；任何不是配置文件的文件在加载后仍会被拒绝并给出原因。</li>
+</ul>
+<p>所有功能均可使用；布局会适应较小的屏幕。</p>
+<hr>
+<h2 id="9-limits-and-security">9. 限制与安全</h2>
+<p>profiletool 在初始页面加载后不会发出任何网络请求。验证器、XML 转换器、JSON 转换器和图像编解码器都是由 C++ 源代码编译而成的 WebAssembly，完全在客户端运行。HDR 标签页通过本地对象 URL 显示拖入的图像，因此图像从不离开标签页。<strong>识别显示器</strong> 询问的是浏览器而不是服务器，以确定窗口位于哪台显示器上。</p>
+<table><thead>
+<tr><th>限制</th><th>位置</th><th>说明</th></tr></thead><tbody>
+<tr><td><strong>256 MB</strong></td><td>postMessage / 文件加载</td><td>拒绝加载更大的内容；防止恶意的打开方耗尽堆内存</td></tr>
+<tr><td><strong>32 MB</strong></td><td>XML 和 JSON 转换器</td><td>JS 端检查（<code>MAX_XML_BYTES</code> / <code>MAX_JSON_BYTES</code>）和 C++ 封装层（<code>kMaxXmlBytes</code> / <code>kMaxJsonBytes</code>）都执行此限制；C++ 端独立生效</td></tr>
+<tr><td><strong>XML 实体炸弹防护</strong></td><td>XML 转换器</td><td>任何包含 <code><!DOCTYPE</code> 或 <code><!ENTITY</code>、或包含 NUL 字节的 XML，都会在交给 libxml2 之前被拒绝。libxml2 自身的实体扩展限制也处于启用状态，因此这是防御 billion-laughs 输入的第二道防线</td></tr>
+<tr><td><strong>512 MB</strong></td><td>HDR 标签页文件</td><td>在读取文件任何内容之前先检查其大小；与图像编解码器自身的 512 MB 输入上限一致</td></tr>
+<tr><td><strong>4000 万像素</strong>、<strong>每字节 64 像素</strong></td><td>Radiance HDR 解码（HDR 标签页）</td><td>两者都在分配任何像素内存之前，根据标头和文件大小进行检查；后者用于拒绝重复标记式解压炸弹</td></tr>
+<tr><td><strong>EXR 解码预算</strong></td><td>OpenEXR 解码</td><td>宽 × 高 × 通道数 × 4 字节必须不超过 512 MB，在解码器分配任何内存之前根据标头检查</td></tr>
+<tr><td><strong>HEIC/AVIF box 遍历</strong></td><td>配置文件提取</td><td>检查 box 大小时不会溢出，嵌套深度上限为 8，配置文件上限为 64 MB（每个文件的总计），项目关联上限为 65 536</td></tr>
+<tr><td><strong>来源允许列表</strong></td><td>postMessage 启动</td><td>只有同源和 chardata 开发主机的来源才能发送 <code>profiletool:load</code> 字节数据</td></tr>
+<tr><td><strong>HTTPS + CORS</strong></td><td><code>#url=</code> 启动</td><td>通过 URL 启动的配置文件必须经 HTTPS、从允许跨源读取的主机提供；获取的字节只供验证器使用，从不重新发送</td></tr>
+</tbody></table>
+<p><code>#url=</code> 启动（1.1.5 版加入）是工具在页面加载后发出跨源请求的唯一情形：它将内容安全策略（Content-Security-Policy）的 <code>connect-src</code> 放宽到 <code>https:</code>，以便获取指定的配置文件。脚本加载 <strong>并未</strong> 放宽——只放宽了数据获取。</p>
+<p>如需检查超出这些限制的配置文件，请从源代码构建 iccDEV 并使用原生命令行工具——它们没有 JS 端的上限。</p>
+<h3 id="licence">许可证</h3>
+<p>profiletool 以 MIT 许可证发布。应用还包含按各自许可证授权的第三方组件：iccDEV 的 IccProfLib（International Color Consortium）、LibTIFF、libpng、zlib、libxml2、JSON for Modern C++、Emscripten 运行时，以及包括 React、Plotly 和 CodeMirror 在内的 JavaScript 软件包。本软件部分基于 Independent JPEG Group 的工作。完整声明见 <a href="THIRD-PARTY-NOTICES.txt">THIRD-PARTY-NOTICES.txt</a>。</p>
+<h3 id="icc-2-iccmax-coverage">ICC.2 (iccMAX) 覆盖范围</h3>
+<p><strong>ICC.1</strong> 和 <strong>ICC.2</strong> 配置文件均受支持，但 ICC.2 的覆盖 <strong>尚不完整</strong>。加载、标头和标签视图、验证、XML/JSON 往返以及转换引擎都能理解 ICC.2；已知的欠缺包括多部分 <strong>ICS</strong> 交换工作流、应用转换时选择 V5 <strong>子配置文件</strong>，以及部分 ICC.2 配置文件的反向搜索。使用了不受支持的 ICC.2 结构的配置文件会由验证标签页报告，而不会被悄悄误读。</p>
+
+</div>
+</body>
+</html>

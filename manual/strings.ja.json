@@ -1,0 +1,23 @@
+{
+  "page": {
+    "title": "ICC プロファイルツール — ヘルプ",
+    "subtitle": "ICC.1 および ICC.2 (iccMAX) プロファイルのためのブラウザベースの検査・検証・ラウンドトリップ編集ツール",
+    "stale": "<strong>このセクションは最近更新されました。</strong>翻訳が更新されるまで英語で表示されます。"
+  },
+  "diagram": {
+    "drag a row onto a tab →": "行をタブへドラッグ →",
+    "Based on iccDEV demo implementation": "iccDEV のデモ実装に基づく",
+    "Modified — unsaved": "変更あり — 未保存",
+    "Save profile": "プロファイルを保存",
+    "System default (English)": "システム既定 (日本語)",
+    "Drag into the chain →": "チェーンへドラッグ →",
+    "Combine — Link Pipeline": "リンク — リンクパイプライン",
+    "Chain profiles, then make a DeviceLink or transform an image / dataset.": "プロファイルをつなぎ、DeviceLink を作成するか画像 / データセットを変換します。",
+    "Drop an image (TIFF/PNG/JPEG)": "画像をドロップ（TIFF/PNG/JPEG）",
+    "Drop a dataset (CGATS/CSV/CxF)": "データセットをドロップ（CGATS/CSV/CxF）",
+    "Chain:": "チェーン：",
+    "CMM interp.": "CMM補間",
+    "Per-stage intent": "段ごとのインテント",
+    "iccApplyProfiles output knobs": "iccApplyProfiles の出力設定"
+  }
+}

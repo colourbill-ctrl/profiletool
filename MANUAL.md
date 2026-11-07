@@ -126,6 +126,7 @@ Overrides the interface language. **System default (…)** detects the browser l
 - Strings produced by IccProfLib — tag descriptions, validation messages, header field names — come from the C++ library in English.
 - The browser-flag name stays in English so it matches the browser's own flags page.
 - The Environment panel's **Display events** log stays in English, so it can be pasted into a bug report as-is.
+- This guide follows the same setting, except its HDR sections, which stay in English while HDR support is in beta and its text is still changing. A section revised in English since its translation was last updated also shows in English, with a note, until the translation catches up.
 
 Supported languages: English, Français, Deutsch, Italiano, Español, Português (PT), Português (BR), Svenska, 中文（简体）, 中文（繁體）, 日本語, 한국어. The chardata Settings panel offers the same set, so toggling Language in one app gives a consistent reading experience in the other.
 

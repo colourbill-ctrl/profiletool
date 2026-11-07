@@ -2,8 +2,19 @@
 'use strict';
 // scripts/generate-help.js
 // Run with: node scripts/generate-help.js
-// Regenerates frontend/public/help.html from MANUAL.md, including SVG layout
-// diagrams that get inlined under matching section anchors.
+//
+// Builds the user guide in every interface language:
+//   frontend/public/help.html          English, from MANUAL.md
+//   frontend/public/help.<lang>.html   one per locale, from manual/MANUAL.<lang>.md
+// The SVG layout diagrams are inlined under matching section anchors, with their
+// interface labels taken from the app's own I18N dictionary.
+//
+// The chunk model (anchors, src hashes, English fallback for stale or English-only
+// sections) lives in scripts/lib/manual-l10n.cjs; read its header first.
+//
+//   node scripts/generate-help.js                 build all twelve pages
+//   node scripts/generate-help.js --template fr   write a fresh manual/MANUAL.fr.md to translate
+//   node scripts/generate-help.js --hashes        print every translatable anchor + current hash
 //
 // Pattern mirrors chardata's scripts/generate-help.js — same SHARED_STYLE,
 // same markdown subset, same diagram-injection hook. Keep the two in sync
@@ -11,7 +22,9 @@
 
 const fs   = require('fs');
 const path = require('path');
-const OUT  = path.join(__dirname, '../frontend/public/help.html');
+const l10n = require('./lib/manual-l10n.cjs');
+// HELP_OUT_DIR lets scripts/check-manual-l10n.mjs build into a scratch directory.
+const OUT_DIR = process.env.HELP_OUT_DIR || path.join(__dirname, '../frontend/public');
 
 // ── SVG primitives ────────────────────────────────────────────────────────────
 
@@ -82,8 +95,71 @@ ${body}
 const R = (x,y,w,h,cls,rx=5) =>
   `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" class="${cls}"/>`;
 
-const T = (x,y,s,cls='',anchor='middle') =>
-  `<text x="${x}" y="${y}" text-anchor="${anchor}" class="${cls}">${s}</text>`;
+// Diagram text. `maxW` (px) is the room the label has — a tab, a button, a select.
+// Translations run longer than English (German by about 30%) and CJK glyphs are
+// about twice as wide as Latin ones, so a label estimated wider than its room is
+// squeezed to fit with textLength rather than spilling over its box.
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Real advance widths (Liberation Sans, metric-compatible with Arial — the font
+// the diagrams name) so an English label that fits is never squeezed. CJK and
+// other full-width glyphs count 1 em; anything else unknown counts 0.6 em.
+const WIDTHS = require('./lib/arial-widths.json');
+function textWidth(s, cls) {
+  const px = /\btT\b/.test(cls) ? 13 : /\bt3\b/.test(cls) ? 10 : 11;
+  const tbl = /\b(tB|tT|tA)\b/.test(cls) ? WIDTHS.bold : WIDTHS.regular;
+  let em = 0;
+  for (const ch of String(s)) {
+    const cp = ch.codePointAt(0);
+    em += tbl[ch] ?? (cp >= 0x2e80 ? 1 : 0.6);
+  }
+  return em * px;
+}
+const T = (x,y,s,cls='',anchor='middle',maxW=0) => {
+  const fit = maxW && textWidth(s, cls) > maxW
+    ? ` textLength="${maxW}" lengthAdjust="spacingAndGlyphs"` : '';
+  return `<text x="${x}" y="${y}" text-anchor="${anchor}" class="${cls}"${fit}>${esc(s)}</text>`;
+};
+
+// Translated diagram label. The diagrams draw the app's own interface, so a label
+// that IS an interface string takes that string's translation from i18n.jsx — the
+// manual can then never show a button the app calls something else. Other labels
+// (captions, callouts) come from manual/strings.<lang>.json. Data in the mock-ups
+// (file names, header values, signatures) is not passed through here: IccProfLib
+// shows those in English in every language.
+let LANG = 'en';
+const missingLabels = new Map();   // lang → Set of English labels with no translation
+function lbl(en) {
+  if (LANG === 'en') return en;
+  const I18N = l10n.loadI18N();
+  for (const k of l10n.uiKeysFor(en)) {
+    const v = I18N[LANG] && I18N[LANG][k];
+    if (v) return v;
+  }
+  const v = pageStrings(LANG).diagram[en];
+  if (v) return v;
+  if (!missingLabels.has(LANG)) missingLabels.set(LANG, new Set());
+  missingLabels.get(LANG).add(en);
+  return en;
+}
+
+// manual/strings.<lang>.json: { page: {title, subtitle, stale}, diagram: {English: translation} }
+const PAGE_EN = {
+  title: 'ICC Profile Tool — Help',
+  subtitle: 'Browser-based inspector, validator and round-trip editor for ICC.1 and ICC.2 (iccMAX) profiles',
+  stale: '<strong>This section was updated recently.</strong> It is shown in English until its translation is updated.',
+};
+const stringsCache = new Map();
+function pageStrings(lang) {
+  if (lang === 'en') return { page: PAGE_EN, diagram: {} };
+  if (!stringsCache.has(lang)) {
+    const f = path.join(l10n.MANUAL_DIR, `strings.${lang}.json`);
+    const j = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {};
+    // Empty entries are untranslated: drop them so English shows and the check flags them.
+    const filled = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => typeof v === 'string' && v.trim()));
+    stringsCache.set(lang, { page: { ...PAGE_EN, ...filled(j.page) }, diagram: filled(j.diagram) });
+  }
+  return stringsCache.get(lang);
+}
 
 const L = (x1,y1,x2,y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="div"/>`;
 
@@ -107,13 +183,13 @@ function diag_layout() {
   // ── Profiles pane ──
   b += R(PX,10,PW,H-20,'pnl',8);
   b += R(PX,10,PW,28,'hd',8);
-  b += T(PX+12,29,'Profiles','tB','start');
+  b += T(PX+12,29,lbl('Profiles'),'tB','start',48);
   b += R(PX+64,17,18,14,'act',7);  b += T(PX+73,28,'3','tW');
   b += T(PX+PW-44,29,'A–Z ↕','t3','start');
   b += T(PX+PW-10,29,'‹','t3','end');
-  b += R(PX+12,46,110,20,'act',5); b += T(PX+67,60,'Load Profiles','tW tB');
-  b += T(PX+12,84,'＋ New from .cube','tA','start');
-  b += T(PX+12,106,'▾ Output','t3 tB','start');
+  b += R(PX+12,46,110,20,'act',5); b += T(PX+67,60,lbl('Load Profiles'),'tW tB','middle',102);
+  b += T(PX+12,84,'＋ '+lbl('New from .cube'),'tA','start',PW-24);
+  b += T(PX+12,106,'▾ '+lbl('Output'),'t3 tB','start',PW-40);
   b += T(PX+PW-14,106,'2','t3','end');
   const prow = (y,name,badges) =>
     R(PX+10,y,PW-20,32,'sec',5)
@@ -122,13 +198,13 @@ function diag_layout() {
     + T(PX+PW-18,y+16,'×','t3','end');
   b += prow(114,'Coated.icc','prtr · CMYK · v4.3');
   b += prow(152,'sRGB.icc','mntr · RGB · v4.2');
-  b += T(PX+12,206,'▸ Display','t3 tB','start');
+  b += T(PX+12,206,'▸ '+lbl('Display'),'t3 tB','start',PW-40);
   b += T(PX+PW-14,206,'1','t3','end');
-  b += T(PX+12,232,'drag a row onto a tab →','t3','start');
+  b += T(PX+12,232,lbl('drag a row onto a tab →'),'t3','start',PW-24);
 
   // ── canvas: title + tagline ──
-  b += T(CX,30,'ICC Profile Tool','tT','start');
-  b += T(CX,46,'Based on iccDEV demo implementation','t3','start');
+  b += T(CX,30,lbl('ICC Profile Tool'),'tT','start',CW);
+  b += T(CX,46,lbl('Based on iccDEV demo implementation'),'t3','start',CW);
   b += L(CX,54,CX+CW,54);
 
   // top-level tabs
@@ -138,8 +214,8 @@ function diag_layout() {
     const tw = 74;
     if (active) {
       b += `<line x1="${tx}" y1="78" x2="${tx+tw}" y2="78" stroke="var(--act)" stroke-width="3"/>`;
-      b += T(tx+tw/2,72,label,'tA');
-    } else b += T(tx+tw/2,72,label,'t2');
+      b += T(tx+tw/2,72,lbl(label),'tA','middle',n ? tw-24 : tw-6);   // leave room for the count badge
+    } else b += T(tx+tw/2,72,lbl(label),'t2','middle',n ? tw-24 : tw-6);
     if (n) { b += R(tx+tw-14,62,16,12,'act',6); b += T(tx+tw-6,72,String(n),'tW'); }
     tx += tw + 8;
   }
@@ -152,9 +228,9 @@ function diag_layout() {
   // Profile-tab bar: filename · modified pill · Save profile
   b += T(CX,133,'Coated.icc','tB','start');
   b += R(CX+76,121,122,16,'amber',8);
-  b += T(CX+137,133,'● Modified — unsaved','tW');
+  b += T(CX+137,133,'● '+lbl('Modified — unsaved'),'tW','middle',114);
   b += R(CX+CW-90,119,90,22,'act',5);
-  b += T(CX+CW-45,134,'Save profile','tW tB');
+  b += T(CX+CW-45,134,lbl('Save profile'),'tW tB','middle',84);
 
   // ── per-profile viewer ──
   const VY = 150;
@@ -163,7 +239,7 @@ function diag_layout() {
   b += T(CX+10,VY+17,'Coated.icc','tB mono','start');
   b += T(CX+86,VY+17,'· 1,838,244 bytes · IccProfLib 2.3.1','t3','start');
   b += R(CX+CW-52,VY+6,44,14,'green',3);
-  b += T(CX+CW-30,VY+17,'Pass','tW tB');
+  b += T(CX+CW-30,VY+17,lbl('Pass'),'tW tB','middle',40);
 
   const TY = VY+26;
   const itabs = [['Header',58,true,0],['Tags',50,false,14],['Validation',72,false,0],
@@ -172,8 +248,8 @@ function diag_layout() {
   for (const [label,tw,active,badge] of itabs) {
     if (active) {
       b += `<line x1="${ix}" y1="${TY+26}" x2="${ix+tw}" y2="${TY+26}" stroke="var(--act)" stroke-width="3"/>`;
-      b += T(ix+tw/2,TY+18,label,'tA');
-    } else b += T(ix+tw/2,TY+18,label,'t2');
+      b += T(ix+tw/2,TY+18,lbl(label),'tA','middle',badge ? tw-20 : tw-4);
+    } else b += T(ix+tw/2,TY+18,lbl(label),'t2','middle',badge ? tw-20 : tw-4);
     if (badge) { b += R(ix+tw-12,TY+8,18,12,'act',6); b += T(ix+tw-3,TY+18,String(badge),'tW'); }
     ix += tw + 4;
   }
@@ -201,9 +277,9 @@ function diag_layout() {
   b += R(BTX,68,38,32,'btn',5);  b += T(BTX+19,89,'?','t2 tB');
   b += R(BTX,106,38,32,'btn',5); b += T(BTX+19,127,'✉','t2');
   // Labels point LEFT into the gutter between the canvas card and the blade.
-  b += callout(BTX+19,46,BTX-16,42,'⚙ Settings','t3');
-  b += callout(BTX+19,84,BTX-16,80,'? Help','t3');
-  b += callout(BTX+19,122,BTX-16,118,'✉ Contact','t3');
+  b += callout(BTX+19,46,BTX-16,42,'⚙ '+lbl('Settings'),'t3');
+  b += callout(BTX+19,84,BTX-16,80,'? '+lbl('Help'),'t3');
+  b += callout(BTX+19,122,BTX-16,118,'✉ '+lbl('Contact'),'t3');
 
   return svg(W, H, b);
 }
@@ -219,14 +295,14 @@ function diag_settings() {
   let gy = 56;
 
   const row = (label, value) => {
-    content += T(PX + 4, gy + 13, label, 't3 tB', 'start');
+    content += T(PX + 4, gy + 13, lbl(label), 't3 tB', 'start', VALX - PX - 10);
     content += R(VALX, gy, VALW, 22, 'btn', 4);
-    content += T(VALX + 10, gy + 15, value, 't2', 'start');
+    content += T(VALX + 10, gy + 15, lbl(value), 't2', 'start', VALW - 26);
     content += T(VALX + VALW - 10, gy + 15, '▾', 't3', 'end');
     gy += 30;
   };
   const section = (label) => {
-    content += T(PX + 4, gy + 13, label, 'tA tB', 'start');
+    content += T(PX + 4, gy + 13, lbl(label), 'tA tB', 'start', PW - 8);
     gy += 22;
   };
 
@@ -248,7 +324,7 @@ function diag_settings() {
   chrome += L(46, 8, 46, H - 8);
 
   // Heading
-  chrome += T(PX + 4, 32, 'Settings', 'tT', 'start');
+  chrome += T(PX + 4, 32, lbl('Settings'), 'tT', 'start', PW - 8);
   chrome += L(PX, 44, PX + PW, 44);
 
   return svg(W, H, chrome + content);
@@ -263,32 +339,32 @@ function diag_combine() {
   const PX = 16, PW = 150;
   b += R(PX,12,PW,H-24,'pnl',8);
   b += R(PX,12,PW,26,'hd',8);
-  b += T(PX+12,29,'Profiles','tB','start');
+  b += T(PX+12,29,lbl('Profiles'),'tB','start',PW-24);
   const chips = ['sRGB.icc','Coated.icc'];
   for (let i=0;i<chips.length;i++){
     const cy = 48 + i*34;
     b += R(PX+10, cy, PW-20, 28, 'sec', 5);
     b += T(PX+20, cy+18, chips[i], 't2 mono', 'start');
   }
-  b += T(PX+10, 132, 'Drag into the chain →', 't3', 'start');
+  b += T(PX+10, 132, lbl('Drag into the chain →'), 't3', 'start', PW-20);
 
   // Combine card (centre/right)
   const CX = 186, CW = W-CX-16;
   b += R(CX,12,CW,H-24,'pnl',8);
-  b += T(CX+16,32,'Combine — Link Pipeline','tT','start');
-  b += T(CX+16,48,'Chain profiles, then make a DeviceLink or transform an image / dataset.','t3','start');
+  b += T(CX+16,32,lbl('Combine — Link Pipeline'),'tT','start',CW-32);
+  b += T(CX+16,48,lbl('Chain profiles, then make a DeviceLink or transform an image / dataset.'),'t3','start',CW-32);
   b += L(CX+16,56,CX+CW-16,56);
 
   // Drop slots
   b += R(CX+16,64,270,32,'sec',6);
-  b += T(CX+28,84,'🖼  Drop an image (TIFF/PNG/JPEG)','t2','start');
+  b += T(CX+28,84,'🖼  '+lbl('Drop an image (TIFF/PNG/JPEG)'),'t2','start',248);
   b += R(CX+296,64,CW-312,32,'sec',6);
-  b += T(CX+308,84,'🔢  Drop a dataset (CGATS/CSV/CxF)','t2','start');
+  b += T(CX+308,84,'🔢  '+lbl('Drop a dataset (CGATS/CSV/CxF)'),'t2','start',CW-336);
 
   // Global rendering intent
-  b += T(CX+16,116,'Rendering intent (all)','t3','start');
+  b += T(CX+16,116,lbl('Rendering intent (all)'),'t3','start',130);
   b += R(CX+150,104,150,18,'btn',4);
-  b += T(CX+156,116,'Relative Colorimetric','t2','start');
+  b += T(CX+156,116,lbl('Relative Colorimetric'),'t2','start',140);
 
   // Vertical chain — two stages with a connecting space between
   const stage = (y, num, name, from, to, ri) => {
@@ -310,11 +386,11 @@ function diag_combine() {
   b += stage(184,'2','Coated.icc','Lab','CMYK','Perc');
 
   // Chain summary
-  b += T(CX+16,244,'Chain:','t3','start');
+  b += T(CX+16,244,lbl('Chain:'),'t3','start',40);
   b += T(CX+58,244,'RGB → CMYK','tA','start');
 
   // Action buttons
-  const btn = (x,label) => R(x,256,124,24,'act',5) + T(x+62,272,label,'tW tB');
+  const btn = (x,label) => R(x,256,124,24,'act',5) + T(x+62,272,lbl(label),'tW tB','middle',116);
   b += btn(CX+16,'Make DeviceLink');
   b += btn(CX+148,'Transform Image');
   b += btn(CX+280,'Transform Data');
@@ -322,28 +398,36 @@ function diag_combine() {
   // Image output-options panel
   const OY = 296;
   b += R(CX+16, OY, CW-32, 96, 'sec', 6);
-  b += T(CX+28, OY+18, 'Image output options', 'tB', 'start');
-  const opt = (x,y,lab,val) => T(x,y,lab,'t3','start') + R(x, y+6, 96, 16, 'btn', 4) + T(x+48, y+18, val, 't2');
-  b += opt(CX+28,  OY+34, 'Encoding',        'Same as source');
-  b += opt(CX+140, OY+34, 'Compression',     'None');
-  b += opt(CX+252, OY+34, 'Planar',          'Composite');
-  b += opt(CX+28,  OY+70, 'CMM interp.',     'Tetrahedral');
-  b += opt(CX+140, OY+70, 'Embed ICC',       '☑ yes');
+  b += T(CX+28, OY+18, lbl('Image output options'), 'tB', 'start', CW-56);
+  const opt = (x,y,lab,val) => T(x,y,lbl(lab),'t3','start',104) + R(x, y+6, 96, 16, 'btn', 4) + T(x+48, y+18, val, 't2', 'middle', 90);
+  b += opt(CX+28,  OY+34, 'Encoding',        lbl('Same as source'));
+  b += opt(CX+140, OY+34, 'Compression',     lbl('None'));
+  b += opt(CX+252, OY+34, 'Planar',          lbl('Composite'));
+  b += opt(CX+28,  OY+70, 'CMM interp.',     lbl('Tetrahedral'));
+  b += opt(CX+140, OY+70, 'Embed ICC',       '☑ '+lbl('yes'));
 
   // Callouts point LEFT (tx < lx) so callout()'s 'end' anchoring keeps the label inside
   // the canvas — a right-pointing label here would run past the 780px viewBox.
-  b += callout(CX+CW-37, 138, CX+CW-120, 118, 'Per-stage intent', 't3');
-  b += callout(CX+CW-140, OY+4, CX+CW-170, OY-10, 'iccApplyProfiles output knobs', 't3');
+  b += callout(CX+CW-37, 138, CX+CW-120, 118, lbl('Per-stage intent'), 't3');
+  // The output-options caption sits to the right of the three buttons, with its
+  // leader dropping into the options panel. (It used to sit under the buttons and
+  // overlap the third one, in English too.)
+  b += `<line x1="${CX+CW-60}" y1="${276}" x2="${CX+CW-60}" y2="${OY+2}" stroke="var(--tx3)" stroke-width="1" stroke-dasharray="3,2"/>`;
+  b += T(CX+CW-16, 272, lbl('iccApplyProfiles output knobs'), 't3', 'end', CW-436);
 
   return svg(W, H, b);
 }
 
 // ── Markdown → HTML (subset) ─────────────────────────────────────────────────
 // Lifted from chardata/scripts/generate-help.js so output formatting matches.
+// Headings carry explicit anchors (`## Title {#id}`) — see manual-l10n.cjs — so
+// every locale's page has the English anchors; a heading without one falls back
+// to the slug. ``` fences render as <pre><code> (they used to fall through as
+// paragraphs).
 function mdToHtml(md) {
   const lines = md.split('\n');
   const out = [];
-  let inTable = false, inList = false, inPara = false;
+  let inTable = false, inList = false, inPara = false, inFence = false;
 
   const flush = () => {
     if (inTable) { out.push('</tbody></table>'); inTable = false; }
@@ -352,19 +436,30 @@ function mdToHtml(md) {
   };
 
   const inline = s => s
-    .replace(/\\\*/g, '').replace(/\\_/g, '')
+    .replace(/\\\*/g, '\u0001').replace(/\\_/g, '\u0002')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    .replace(//g, '*').replace(//g, '_');
+    .replace(/\u0001/g, '*').replace(/\u0002/g, '_');
+
+  const heading = (l) => {
+    const h = l10n.splitHeading(l);
+    const id = h.id || l10n.slug(h.text);
+    return h.level === 1 ? `<h1>${inline(h.text)}</h1>`
+      : `<h${h.level} id="${id}">${inline(h.text)}</h${h.level}>`;
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    if (/^#{4}\s/.test(l))      { flush(); out.push(`<h4>${inline(l.replace(/^#{4}\s/,''))}</h4>`); }
-    else if (/^#{3}\s/.test(l)) { flush(); out.push(`<h3 id="${slug(l)}">${inline(l.replace(/^#{3}\s/,''))}</h3>`); }
-    else if (/^#{2}\s/.test(l)) { flush(); out.push(`<h2 id="${slug(l)}">${inline(l.replace(/^#{2}\s/,''))}</h2>`); }
-    else if (/^#{1}\s/.test(l)) { flush(); out.push(`<h1>${inline(l.replace(/^#{1}\s/,''))}</h1>`); }
+    if (/^```/.test(l)) {
+      flush();
+      if (!inFence) { out.push('<pre><code>'); inFence = true; }
+      else { out.push('</code></pre>'); inFence = false; }
+      continue;
+    }
+    if (inFence) { out.push(esc(l)); continue; }
+    if (/^#{1,4}\s/.test(l))     { flush(); out.push(heading(l)); }
     else if (/^---$/.test(l))   { flush(); out.push('<hr>'); }
     else if (/^\|/.test(l)) {
       if (!inTable) {
@@ -387,6 +482,9 @@ function mdToHtml(md) {
       flush();
       out.push(l);
     }
+    else if (/^\s*<!--.*-->\s*$/.test(l)) {
+      flush();                                  // source comments never reach the page
+    }
     else if (l.trim() === '') {
       flush();
     }
@@ -397,30 +495,26 @@ function mdToHtml(md) {
     }
   }
   flush();
-  return out.join('\n').replace(/<p>\n([^\n]*)\n<\/p>/g, '<p>$1</p>');
+  return out.join('\n').replace(/<p>\n([^\n]*)\n<\/p>/g, '<p>$1</p>')
+    .replace(/<pre><code>\n/g, '<pre><code>').replace(/\n<\/code><\/pre>/g, '</code></pre>');
 }
 
-function slug(h) {
-  return h.replace(/^#+\s*/,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+// The table of contents, built from the manual's own Contents list (the region
+// between the first two `---` lines) rather than hard-coded English. Top-level
+// `N. [Title](#id)` items, nested `   - [Title](#id)` items.
+function navHtml(contentsMd) {
+  const head = contentsMd.split('\n').find((l) => /^##\s/.test(l));
+  const label = head ? l10n.splitHeading(head).text : 'Contents';
+  const items = [];
+  for (const l of contentsMd.split('\n')) {
+    let m;
+    if ((m = /^\d+\.\s+\[([^\]]+)\]\((#[^)]+)\)/.exec(l))) items.push({ t: m[1], h: m[2], sub: [] });
+    else if ((m = /^\s+-\s+\[([^\]]+)\]\((#[^)]+)\)/.exec(l)) && items.length) items[items.length - 1].sub.push({ t: m[1], h: m[2] });
+  }
+  const li = (it) => `<li><a href="${it.h}">${esc(it.t)}</a>` +
+    (it.sub.length ? `\n        <ol>\n${it.sub.map((s) => `          <li><a href="${s.h}">${esc(s.t)}</a></li>`).join('\n')}\n        </ol>\n      ` : '') + '</li>';
+  return `  <nav>\n    <strong>${esc(label)}</strong>\n    <ol>\n${items.map((it) => '      ' + li(it)).join('\n')}\n    </ol>\n  </nav>`;
 }
-
-// ── Assemble help.html ────────────────────────────────────────────────────────
-const manual = fs.readFileSync(path.join(__dirname, '../MANUAL.md'), 'utf8');
-
-// Strip the H1 title (replaced by hardcoded HTML below) plus the optional
-// single-line "ICC Profile Tool is a …" subtitle that may follow.
-const stripped = manual
-  .replace(/^#[^#].*\n+/, '');
-
-// Split into intro (before the first `---`) and body (after it). The same
-// pattern as chardata's generator keeps the markdown source readable as a
-// standalone document while letting the generator drop a separate <nav>
-// table-of-contents above the body.
-const firstDash = stripped.indexOf('\n---\n');
-const introMd = firstDash === -1 ? '' : stripped.slice(0, firstDash).trim();
-const bodyMd  = firstDash === -1
-  ? stripped
-  : stripped.slice(firstDash).replace(/^\n---\n[\s\S]*?\n---\n+/, '');
 
 function insertAfter(html, marker, injection) {
   const idx = html.indexOf(marker);
@@ -429,18 +523,35 @@ function insertAfter(html, marker, injection) {
   return html.slice(0, end) + injection + html.slice(end);
 }
 
-const intro = mdToHtml(introMd);
-let body = mdToHtml(bodyMd);
-body = insertAfter(body, 'id="1-the-workspace"',     '\n' + diag_layout());
-body = insertAfter(body, 'id="2-settings-panel"',    '\n' + diag_settings());
-body = insertAfter(body, 'id="4-combine-tab"',       '\n' + diag_combine());
+// ── Assemble one page ─────────────────────────────────────────────────────────
+function build(lang) {
+  LANG = lang;
+  const strings = pageStrings(lang).page;
+  const { md, report } = l10n.assemble(lang, strings.stale);
 
-const html = `<!DOCTYPE html>
-<html lang="en">
+  // Strip the H1 title (replaced by hardcoded HTML below).
+  const stripped = md.replace(/^[\s\S]*?^#\s[^\n]*\n+/m, (m) => m.replace(/^#\s[^\n]*\n+/m, ''));
+
+  // Intro (before the first `---`), the Contents list (between the first two),
+  // and the body (after the second). Same split as chardata's generator.
+  const d1 = stripped.indexOf('\n---\n');
+  const d2 = d1 === -1 ? -1 : stripped.indexOf('\n---\n', d1 + 5);
+  const introMd    = d1 === -1 ? '' : stripped.slice(0, d1).trim();
+  const contentsMd = d2 === -1 ? '' : stripped.slice(d1 + 5, d2);
+  const bodyMd     = d2 === -1 ? stripped : stripped.slice(d2 + 5);
+
+  const intro = mdToHtml(introMd);
+  let body = mdToHtml(bodyMd);
+  body = insertAfter(body, 'id="1-the-workspace"',     '\n' + diag_layout());
+  body = insertAfter(body, 'id="2-settings-panel"',    '\n' + diag_settings());
+  body = insertAfter(body, 'id="4-combine-tab"',       '\n' + diag_combine());
+
+  const html = `<!DOCTYPE html>
+<html lang="${lang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ICC Profile Tool — Help</title>
+  <title>${esc(strings.title)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, 'Noto Sans SC', 'Hiragino Sans', 'Microsoft YaHei', 'Apple SD Gothic Neo', sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
@@ -461,6 +572,8 @@ const html = `<!DOCTYPE html>
     .note { background: #fff8e6; border-left: 3px solid #f0b429; padding: 8px 12px; font-size: 13px; margin: 10px 0; border-radius: 0 4px 4px 0; }
     nav { background: #fff; border: 1px solid #dde; border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; font-size: 13px; }
     nav ol { margin-left: 18px; }
+    pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: #e8edf2; padding: 8px 12px; border-radius: 4px; margin: 8px 0 12px; overflow-x: auto; }
+    pre code { background: none; padding: 0; }
     nav li { margin-bottom: 3px; }
     nav a { color: #1a5a8a; text-decoration: none; }
     nav a:hover { text-decoration: underline; }
@@ -474,6 +587,7 @@ const html = `<!DOCTYPE html>
       h3 { color: #c8cdd4; }
       h4 { color: #9aa0a8; }
       code { background: #2a2e35; color: #a8d4f0; }
+      pre { background: #2a2e35; }
       table { color: #c8cdd4; }
       th { background: #252930; border-color: #3a4048; color: #9aa0a8; }
       td { border-color: #2e3440; }
@@ -490,49 +604,50 @@ const html = `<!DOCTYPE html>
 <body>
 <div class="page">
 
-  <h1>ICC Profile Tool — Help</h1>
-  <p class="subtitle">Browser-based inspector, validator and round-trip editor for ICC.1 and ICC.2 (iccMAX) profiles</p>
+  <h1>${esc(strings.title)}</h1>
+  <p class="subtitle">${esc(strings.subtitle)}</p>
 
 ${intro}
 
-  <nav>
-    <strong>Contents</strong>
-    <ol>
-      <li><a href="#1-the-workspace">The workspace</a></li>
-      <li><a href="#2-settings-panel">Settings panel</a></li>
-      <li><a href="#3-profile-views">Profile views</a>
-        <ol>
-          <li><a href="#3-1-header">Header</a></li>
-          <li><a href="#3-2-tags">Tags</a></li>
-          <li><a href="#3-3-validation">Validation</a></li>
-          <li><a href="#3-4-analysis">Analysis</a></li>
-          <li><a href="#3-5-xml">XML</a></li>
-          <li><a href="#3-6-json">JSON</a></li>
-        </ol>
-      </li>
-      <li><a href="#4-combine-tab">Combine tab</a>
-        <ol>
-          <li><a href="#4-1-building-a-chain">Building a chain</a></li>
-          <li><a href="#4-2-make-devicelink">Make DeviceLink</a></li>
-          <li><a href="#4-3-transform-image">Transform Image</a></li>
-          <li><a href="#4-4-transform-data">Transform Data</a></li>
-          <li><a href="#4-5-observer-change">Observer Change</a></li>
-          <li><a href="#4-6-compare-and-spectral-tabs">Compare and Spectral tabs</a></li>
-        </ol>
-      </li>
-      <li><a href="#5-round-trip-editing">Round-trip editing</a></li>
-      <li><a href="#6-launching-from-chardata">Launching from chardata</a></li>
-      <li><a href="#7-launching-with-a-url">Launching with a URL</a></li>
-      <li><a href="#8-mobile">Mobile</a></li>
-      <li><a href="#9-limits-and-security">Limits and security</a></li>
-    </ol>
-  </nav>
+${navHtml(contentsMd)}
 
 ${body}
 
 </div>
 </body>
 </html>`;
+  const out = path.join(OUT_DIR, l10n.pageFile(lang));
+  fs.writeFileSync(out, html, 'utf8');
+  return { out, report };
+}
 
-fs.writeFileSync(OUT, html, 'utf8');
-console.log('Written: ' + OUT);
+// ── CLI ───────────────────────────────────────────────────────────────────────
+const argv = process.argv.slice(2);
+if (argv[0] === '--template') {
+  const lang = argv[1];
+  if (!l10n.LOCALES.includes(lang)) { console.error(`--template: unknown locale "${lang}" (${l10n.LOCALES.join(', ')})`); process.exit(2); }
+  const f = l10n.manualFile(lang);
+  if (fs.existsSync(f) && !argv.includes('--force')) { console.error(`${f} exists; pass --force to overwrite it`); process.exit(2); }
+  fs.mkdirSync(l10n.MANUAL_DIR, { recursive: true });
+  fs.writeFileSync(f, l10n.template(lang), 'utf8');
+  console.log('Written template: ' + f);
+  process.exit(0);
+}
+if (argv[0] === '--hashes') {
+  for (const c of l10n.readEnglish().slice(1)) {
+    console.log(`${c.hash}  ${l10n.EN_ONLY.has(c.id) ? '(English only) ' : ''}#${c.id}`);
+  }
+  process.exit(0);
+}
+
+for (const lang of ['en', ...l10n.LOCALES]) {
+  const { out, report } = build(lang);
+  const r = report;
+  const note = lang === 'en' ? '' :
+    `  translated ${r.translated}, stale ${r.stale.length}, missing ${r.missing.length}, English-only ${r.enOnly.length}` +
+    (r.orphan.length ? `, ORPHAN ${r.orphan.join(' ')}` : '');
+  console.log(`Written: ${path.relative(path.join(__dirname, '..'), out)}${note}`);
+}
+for (const [lang, set] of missingLabels) {
+  console.log(`  diagram labels with no ${lang} translation (shown in English): ${[...set].join(' | ')}`);
+}

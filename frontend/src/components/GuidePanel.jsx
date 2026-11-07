@@ -1,6 +1,6 @@
 // (c) 2026 William Li
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useT } from '../i18n.jsx'
+import { useLang, useT } from '../i18n.jsx'
 import styles from './GuidePanel.module.css'
 
 // The user guide is generated from MANUAL.md into a standalone help.html by
@@ -8,7 +8,13 @@ import styles from './GuidePanel.module.css'
 // that content, this panel fetches the generated page once and renders its body
 // inside a tiffview-style slide-in pane with an in-page search. MANUAL.md stays
 // the single source of truth. BASE_URL is '/' in dev, '/profiletool/' in prod.
-const HELP_URL = `${import.meta.env.BASE_URL}help.html`
+//
+// The guide follows the interface Language setting: the generator writes one page
+// per locale (help.<lang>.html, English as help.html; see scripts/lib/manual-l10n.cjs)
+// with identical anchors, so search and in-page links behave the same in every
+// language. A locale whose page is missing falls back to the English one.
+const helpUrl = (lang) =>
+  `${import.meta.env.BASE_URL}${lang && lang !== 'en' ? `help.${lang}.html` : 'help.html'}`
 
 // ── trusted-HTML → React (no HTML-injection sink; see hooks/pre-commit F4) ────
 // The guide is our own committed build artifact, never profile-derived, but the
@@ -108,10 +114,12 @@ function domToReact(node, key) {
 
 export default function GuidePanel({ open, onClose }) {
   const t = useT()
+  const { resolved: lang } = useLang()
   const bodyRef = useRef(null)
   const searchRef = useRef(null)
   const closeRef = useRef(null)
-  const [docText, setDocText] = useState(null)          // raw help.html once fetched
+  const [doc, setDoc] = useState(null)                  // { lang, text } of the page on show
+  const docText = doc?.text ?? null
   const [status, setStatus] = useState('idle')          // idle | loading | ready | error
   const [count, setCount] = useState('')                // "n/m" | "none" | ''
   const [hasNav, setHasNav] = useState(false)
@@ -122,21 +130,30 @@ export default function GuidePanel({ open, onClose }) {
   const hitsRef = useRef([])
   const curRef = useRef(-1)
 
-  // Fetch the guide the first time the panel opens; cache it thereafter. Guarded
-  // by a ref rather than a cleanup flag: setStatus('loading') below re-renders and
-  // (if status were a dep) would re-run this effect, whose cleanup would flip a
-  // `cancelled` flag and silently drop the in-flight fetch's result — leaving the
-  // pane stuck on "Loading". The ref makes the fetch fire exactly once per open.
-  const fetchStartedRef = useRef(false)
+  // Fetch the guide for the current language the first time the panel opens in
+  // it, and cache each language's page. A language change while the pane is open
+  // fetches (or reuses) that language's page. Guarded by refs rather than a
+  // cleanup flag: setStatus('loading') re-renders, and a cleanup that cancelled
+  // the in-flight fetch would leave the pane stuck on "Loading".
+  const cacheRef = useRef(new Map())                    // lang → page text
+  const inflightRef = useRef(null)                      // lang being fetched
   useEffect(() => {
-    if (!open || fetchStartedRef.current) return
-    fetchStartedRef.current = true
+    if (!open || doc?.lang === lang) return
+    const cached = cacheRef.current.get(lang)
+    if (cached) { setDoc({ lang, text: cached }); setStatus('ready'); return }
+    if (inflightRef.current === lang) return
+    inflightRef.current = lang
     setStatus('loading')
-    fetch(HELP_URL)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text() })
-      .then((text) => { setDocText(text); setStatus('ready') })
-      .catch(() => { fetchStartedRef.current = false; setStatus('error') })   // allow retry on reopen
-  }, [open])
+    const get = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text() })
+    get(helpUrl(lang))
+      .catch((e) => (lang === 'en' ? Promise.reject(e) : get(helpUrl('en'))))   // no page for this locale → English
+      .then((text) => {
+        cacheRef.current.set(lang, text)
+        if (inflightRef.current === lang) { setDoc({ lang, text }); setStatus('ready') }
+      })
+      .catch(() => { if (inflightRef.current === lang) setStatus('error') })   // retried on reopen
+      .finally(() => { if (inflightRef.current === lang) inflightRef.current = null })
+  }, [open, lang, doc])
 
   // Parse + convert once per fetched document. Stable reference across the
   // panel's re-renders (search state) so React never re-reconciles the body and
@@ -260,6 +277,17 @@ export default function GuidePanel({ open, onClose }) {
     if (searchRef.current) searchRef.current.value = ''
     clearMarks(); refreshCount()
   }, [open, onClose, clearMarks, refreshCount])
+
+  // A language switch swaps the whole guide tree: the old <mark> hits went with it,
+  // so drop their refs, clear the box and start the new page at the top.
+  const shownLang = doc?.lang
+  useEffect(() => {
+    hitsRef.current = []
+    curRef.current = -1
+    if (searchRef.current) searchRef.current.value = ''
+    if (bodyRef.current) bodyRef.current.scrollTop = 0
+    refreshCount()
+  }, [shownLang, refreshCount])
 
   // In-page anchors scroll within the pane rather than rewriting location.hash
   // (which carries the app's #url=/#tab= launch fragment). The heading ids start
